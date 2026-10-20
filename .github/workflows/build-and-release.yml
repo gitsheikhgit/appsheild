@@ -1,0 +1,39 @@
+name: Build and Package AppShield
+
+on:
+  push:
+    branches: [ "main" ]
+    tags: [ "v*" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build-windows-client:
+    name: Cross-Compile Windows Client (win-x64)
+    runs-on: macos-latest
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: Setup .NET 8 SDK
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+
+    - name: Setup Python 3.11
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Make Scripts Executable
+      run: chmod +x build-on-mac.sh run-admin-mac.command
+
+    - name: Run Master Cross-Compilation Script
+      run: ./build-on-mac.sh
+
+    - name: Upload Windows Deployment Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: Windows-Client-Deploy-win-x64
+        path: dist/Windows-Client-Deploy/

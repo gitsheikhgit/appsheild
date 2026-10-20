@@ -1,0 +1,34 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AppShield.Shared", "AppShield.Shared\AppShield.Shared.csproj", "{81DCE4EC-6B85-41EF-8DB3-FFF1D07FE2DC}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AppShield.Service", "AppShield.Service\AppShield.Service.csproj", "{E88A3B01-852D-4124-8AAE-F94F5EC90F71}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AppShield.Prompt", "AppShield.Prompt\AppShield.Prompt.csproj", "{EF17C08F-5634-49F8-BEB1-ADD3A01575B2}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{81DCE4EC-6B85-41EF-8DB3-FFF1D07FE2DC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{81DCE4EC-6B85-41EF-8DB3-FFF1D07FE2DC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{81DCE4EC-6B85-41EF-8DB3-FFF1D07FE2DC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{81DCE4EC-6B85-41EF-8DB3-FFF1D07FE2DC}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E88A3B01-852D-4124-8AAE-F94F5EC90F71}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E88A3B01-852D-4124-8AAE-F94F5EC90F71}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E88A3B01-852D-4124-8AAE-F94F5EC90F71}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E88A3B01-852D-4124-8AAE-F94F5EC90F71}.Release|Any CPU.Build.0 = Release|Any CPU
+		{EF17C08F-5634-49F8-BEB1-ADD3A01575B2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{EF17C08F-5634-49F8-BEB1-ADD3A01575B2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{EF17C08F-5634-49F8-BEB1-ADD3A01575B2}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{EF17C08F-5634-49F8-BEB1-ADD3A01575B2}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal

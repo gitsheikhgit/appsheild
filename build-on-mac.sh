@@ -1,0 +1,151 @@
+#!/usr/bin/env bash
+set -e
+
+# ==============================================================================
+# AppShield: Master Cross-Compilation & Packaging Script for macOS
+# Builds Windows 10/11 (win-x64) binaries & prepares the Admin Control Dashboard
+# ==============================================================================
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
+
+echo "===================================================================="
+echo "    AppShield: macOS-to-Windows Cross-Compilation & Packaging       "
+echo "===================================================================="
+echo ""
+
+# Ensure .NET 8 is in PATH (check ~/.dotnet first, then system path)
+if [ -d "$HOME/.dotnet" ]; then
+    export PATH="$HOME/.dotnet:$PATH"
+    export DOTNET_ROOT="$HOME/.dotnet"
+fi
+
+if ! command -v dotnet >/dev/null 2>&1; then
+    echo "[-] Error: .NET SDK not found. Please install .NET 8 SDK or run dotnet-install.sh"
+    exit 1
+fi
+
+DOTNET_VER=$(dotnet --version)
+echo "[+] Detected .NET SDK version: $DOTNET_VER"
+
+# Step 1: Clean and Prepare Distribution Directory
+DIST_DIR="$SCRIPT_DIR/dist/Windows-Client-Deploy"
+echo "[+] Preparing distribution directory: $DIST_DIR"
+rm -rf "$SCRIPT_DIR/dist"
+mkdir -p "$DIST_DIR"
+
+# Step 2: Cross-Compile AppShield.Service for win-x64
+echo "[+] Cross-compiling AppShield.Service (Session 0 Headless Worker & Kestrel API)..."
+dotnet publish "$SCRIPT_DIR/AppShield.Client/AppShield.Service/AppShield.Service.csproj" \
+    -c Release \
+    -r win-x64 \
+    --self-contained true \
+    -p:PublishSingleFile=true \
+    -p:IncludeNativeLibrariesForSelfExtract=true \
+    -p:EnableWindowsTargeting=true \
+    -o "$SCRIPT_DIR/AppShield.Client/AppShield.Service/bin/publish-win64"
+
+# Step 3: Cross-Compile AppShield.Prompt for win-x64
+echo "[+] Cross-compiling AppShield.Prompt (Interactive Desktop WinForms Password Prompt)..."
+dotnet publish "$SCRIPT_DIR/AppShield.Client/AppShield.Prompt/AppShield.Prompt.csproj" \
+    -c Release \
+    -r win-x64 \
+    --self-contained true \
+    -p:PublishSingleFile=true \
+    -p:IncludeNativeLibrariesForSelfExtract=true \
+    -p:EnableWindowsTargeting=true \
+    -o "$SCRIPT_DIR/AppShield.Client/AppShield.Prompt/bin/publish-win64"
+
+# Step 4: Package Windows Client Deployment Folder
+echo "[+] Packaging standalone executables into dist/Windows-Client-Deploy/..."
+cp "$SCRIPT_DIR/AppShield.Client/AppShield.Service/bin/publish-win64/AppShield.Service.exe" "$DIST_DIR/"
+cp "$SCRIPT_DIR/AppShield.Client/AppShield.Prompt/bin/publish-win64/AppShield.Prompt.exe" "$DIST_DIR/"
+cp "$SCRIPT_DIR/Install-AppShield.ps1" "$DIST_DIR/"
+
+cat << 'EOF' > "$DIST_DIR/README-DEPLOY.txt"
+=============================================================================
+                    AppShield Windows Client Deployment
+=============================================================================
+
+How to Install on Target Windows 10/11 (x64) PC:
+
+1. Copy this entire "Windows-Client-Deploy" folder to the target Windows PC
+   (e.g., via USB flash drive or local network share).
+2. Right-click "Install-AppShield.ps1" and select "Run with PowerShell as Administrator".
+3. When prompted, type a Master Password for emergency offline unlocks.
+4. The installer will:
+   - Generate a 32-character Pre-Shared Key (PSK)
+   - Copy binaries to C:\Program Files\AppShield\
+   - Create C:\ProgramData\AppShield\ and lock down NTFS ACLs exclusively to SYSTEM & Admins
+   - Register and start AppShieldService under NT AUTHORITY\SYSTEM
+   - Configure automatic service crash recovery
+   - Open Windows Defender Firewall port 54120
+5. Note the computer name, IP, and PSK shown at the end of the script,
+   and enter them into your macOS Admin Control Dashboard.
+=============================================================================
+EOF
+
+echo "[+] Successfully packaged Windows client binaries:"
+ls -lh "$DIST_DIR"
+
+# Step 5: Configure Admin Control Dashboard Python Virtual Environment
+echo ""
+echo "[+] Setting up Admin Control Dashboard Python virtual environment..."
+ADMIN_DIR="$SCRIPT_DIR/AppShield.Admin"
+VENV_DIR="$ADMIN_DIR/.venv"
+
+if ! command -v python3 >/dev/null 2>&1; then
+    echo "[-] Warning: python3 not found. Skipping venv setup."
+else
+    if [ ! -d "$VENV_DIR" ]; then
+        echo "    Creating virtual environment at $VENV_DIR..."
+        python3 -m venv "$VENV_DIR"
+    fi
+
+    echo "    Installing/verifying Python dependencies..."
+    "$VENV_DIR/bin/pip" install --upgrade pip --quiet
+    "$VENV_DIR/bin/pip" install -r "$ADMIN_DIR/requirements.txt" --quiet
+    echo "    Python virtual environment is ready."
+fi
+
+# Step 6: Create/Update Double-Clickable macOS Launcher
+echo "[+] Creating double-clickable macOS Admin launcher: run-admin-mac.command..."
+cat << 'EOF' > "$SCRIPT_DIR/run-admin-mac.command"
+#!/usr/bin/env bash
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR/AppShield.Admin"
+
+echo "===================================================================="
+echo "          Starting AppShield Admin Control Dashboard...             "
+echo "===================================================================="
+
+# Activate virtual environment if present
+if [ -f ".venv/bin/activate" ]; then
+    source ".venv/bin/activate"
+fi
+
+# Detect available port (defaults to 8080, falls back to 8085 if occupied)
+ADMIN_PORT=8080
+if lsof -i :8080 >/dev/null 2>&1; then
+    ADMIN_PORT=8085
+fi
+
+echo "[+] Starting Admin Dashboard on http://127.0.0.1:$ADMIN_PORT..."
+
+# Open browser after a brief delay in the background
+(sleep 1.5 && open "http://127.0.0.1:$ADMIN_PORT") &
+
+# Start Uvicorn Server
+python3 -m uvicorn main:app --host 127.0.0.1 --port $ADMIN_PORT
+EOF
+
+chmod +x "$SCRIPT_DIR/run-admin-mac.command"
+chmod +x "$SCRIPT_DIR/build-on-mac.sh"
+
+echo ""
+echo "===================================================================="
+echo "                    BUILD & PACKAGING COMPLETE!                     "
+echo "===================================================================="
+echo " 1. Windows deployment bundle: dist/Windows-Client-Deploy/"
+echo " 2. macOS Admin launcher:      ./run-admin-mac.command"
+echo "===================================================================="
