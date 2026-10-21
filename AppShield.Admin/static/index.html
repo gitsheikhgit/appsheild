@@ -724,6 +724,17 @@
             </div>
             <code class="block text-purple-300 bg-zinc-950 p-2 rounded text-[11px] font-mono select-all">tailscale ip -4</code>
           </div>
+
+          <!-- Safe Local Uninstaller -->
+          <div class="bg-zinc-900/90 border border-zinc-800 rounded-lg p-3 space-y-1.5">
+            <div class="flex items-center justify-between text-xs">
+              <span class="font-semibold text-zinc-300">6. Safe Local Uninstaller on Windows (Run as Admin):</span>
+              <button @click="copyCommand('powershell -ExecutionPolicy Bypass -File .\\Uninstall-AppShield.ps1')" class="text-indigo-400 hover:text-indigo-300 text-[11px] font-semibold flex items-center space-x-1">
+                <span>📋 Copy</span>
+              </button>
+            </div>
+            <code class="block text-rose-300 bg-zinc-950 p-2 rounded text-[11px] font-mono select-all">powershell -ExecutionPolicy Bypass -File .\Uninstall-AppShield.ps1</code>
+          </div>
         </div>
       </div>
 

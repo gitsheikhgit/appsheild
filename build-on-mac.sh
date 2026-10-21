@@ -64,6 +64,7 @@ echo "[+] Packaging standalone executables into dist/Windows-Client-Deploy/..."
 cp "$SCRIPT_DIR/AppShield.Client/AppShield.Service/bin/publish-win64/AppShield.Service.exe" "$DIST_DIR/"
 cp "$SCRIPT_DIR/AppShield.Client/AppShield.Prompt/bin/publish-win64/AppShield.Prompt.exe" "$DIST_DIR/"
 cp "$SCRIPT_DIR/Install-AppShield.ps1" "$DIST_DIR/"
+cp "$SCRIPT_DIR/Uninstall-AppShield.ps1" "$DIST_DIR/"
 
 cat << 'EOF' > "$DIST_DIR/README-DEPLOY.txt"
 =============================================================================
