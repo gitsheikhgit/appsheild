@@ -41,6 +41,13 @@ elif [ -f "$SCRIPT_DIR/server.py" ]; then
     cp -r "$SCRIPT_DIR/static/"* "$INSTALL_DIR/static/"
 fi
 
+if [ ! -f "$INSTALL_DIR/server.py" ]; then
+    echo "[+] Fetching server code from GitHub..."
+    curl -sSL "https://raw.githubusercontent.com/gitsheikhgit/appsheild/main/AppShield.CentralServer/server.py" -o "$INSTALL_DIR/server.py"
+    curl -sSL "https://raw.githubusercontent.com/gitsheikhgit/appsheild/main/AppShield.CentralServer/static/index.html" -o "$INSTALL_DIR/static/index.html"
+    curl -sSL "https://raw.githubusercontent.com/gitsheikhgit/appsheild/main/AppShield.CentralServer/static/manifest.json" -o "$INSTALL_DIR/static/manifest.json"
+fi
+
 # 4. Create systemd service
 echo "[+] Configuring systemd background service (appshield-server)..."
 cat << 'EOF' > /etc/systemd/system/appshield-server.service
