@@ -36,3 +36,5 @@ appshield.db-shm
 AppShield.Client/AppShield.Installer/payload.zip
 Windows-Client-Deploy/
 AppShield Admin 2.app/
+AppShield.app/
+*.dmg
