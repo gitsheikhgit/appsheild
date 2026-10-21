@@ -24,7 +24,7 @@
 - (instancetype)init {
     self = [super init];
     if (self) {
-        _targetPort = 8080;
+        _targetPort = 8085;
         _retryCount = 0;
     }
     return self;
@@ -32,7 +32,7 @@
 
 - (void)applicationDidFinishLaunching:(NSNotification *)aNotification {
     [self setupMenuBar];
-    [self startBackendServerIfNeeded];
+    [self startOrConnectBackend];
     [self createNativeWindow];
     [self loadDashboardWithRetry];
 }
@@ -119,40 +119,61 @@
     self.webView = [[WKWebView alloc] initWithFrame:[[self.window contentView] bounds] configuration:config];
     [self.webView setAutoresizingMask:(NSViewWidthSizable | NSViewHeightSizable)];
     [self.webView setNavigationDelegate:self];
-    [self.webView setValue:@NO forKey:@"drawsBackground"]; // Prevents white flash before CSS loads
+    [self.webView setValue:@NO forKey:@"drawsBackground"];
 
     [[self.window contentView] addSubview:self.webView];
     [self.window makeKeyAndOrderFront:nil];
     [NSApp activateIgnoringOtherApps:YES];
 }
 
-- (BOOL)isPortListening:(NSInteger)port {
-    int sock = socket(AF_INET, SOCK_STREAM, 0);
-    if (sock < 0) return NO;
+- (BOOL)isAppShieldListeningOnPort:(NSInteger)port {
+    NSString *urlString = [NSString stringWithFormat:@"http://127.0.0.1:%ld/api/fleet", (long)port];
+    NSURL *url = [NSURL URLWithString:urlString];
+    NSMutableURLRequest *req = [NSMutableURLRequest requestWithURL:url];
+    [req setTimeoutInterval:0.8];
 
-    struct sockaddr_in serv_addr;
-    memset(&serv_addr, 0, sizeof(serv_addr));
-    serv_addr.sin_family = AF_INET;
-    serv_addr.sin_port = htons((uint16_t)port);
-    serv_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
+    dispatch_semaphore_t sema = dispatch_semaphore_create(0);
+    __block BOOL isAppShield = NO;
 
-    int res = connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr));
-    close(sock);
-    return (res == 0);
+    [[[NSURLSession sharedSession] dataTaskWithRequest:req completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
+        if (data && !error) {
+            NSString *str = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
+            if ([str containsString:@"success"] || [str containsString:@"data"]) {
+                isAppShield = YES;
+            }
+        }
+        dispatch_semaphore_signal(sema);
+    }] resume];
+
+    dispatch_semaphore_wait(sema, dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.0 * NSEC_PER_SEC)));
+    return isAppShield;
 }
 
-- (void)startBackendServerIfNeeded {
-    if ([self isPortListening:self.targetPort]) {
-        NSLog(@"[AppShield Native] Backend already active on port %ld", (long)self.targetPort);
+- (void)startOrConnectBackend {
+    // 1. Check if AppShield is already active on 8085 or 54125
+    if ([self isAppShieldListeningOnPort:8085]) {
+        self.targetPort = 8085;
+        NSLog(@"[AppShield Native] Connected to existing AppShield backend on port 8085");
+        return;
+    }
+    if ([self isAppShieldListeningOnPort:54125]) {
+        self.targetPort = 54125;
+        NSLog(@"[AppShield Native] Connected to existing AppShield backend on port 54125");
         return;
     }
 
+    self.targetPort = 8085;
+
+    // 2. Locate AppShield.Admin directory
+    NSString *resourcePath = [[NSBundle mainBundle] resourcePath];
+    NSString *bundleAdmin = [resourcePath stringByAppendingPathComponent:@"AppShield.Admin"];
     NSString *bundlePath = [[NSBundle mainBundle] bundlePath];
+
     NSArray<NSString *> *searchDirs = @[
+        @"/Users/rashidsheikh/Desktop/Parental_Sheild/AppShield.Admin",
         [[bundlePath stringByDeletingLastPathComponent] stringByAppendingPathComponent:@"AppShield.Admin"],
-        [bundlePath stringByDeletingLastPathComponent],
-        [[[NSFileManager defaultManager] currentDirectoryPath] stringByAppendingPathComponent:@"AppShield.Admin"],
-        [[NSFileManager defaultManager] currentDirectoryPath]
+        bundleAdmin,
+        [[[NSFileManager defaultManager] currentDirectoryPath] stringByAppendingPathComponent:@"AppShield.Admin"]
     ];
 
     NSString *adminDir = nil;
@@ -165,21 +186,43 @@
     }
 
     if (!adminDir) {
-        NSLog(@"[AppShield Native] Warning: Could not locate AppShield.Admin directory");
+        NSLog(@"[AppShield Native] Error: Could not locate AppShield.Admin directory");
         return;
     }
 
-    NSString *venvPython = [adminDir stringByAppendingPathComponent:@".venv/bin/python3"];
-    NSString *pythonExec = [[NSFileManager defaultManager] fileExistsAtPath:venvPython] ? venvPython : @"/usr/bin/python3";
+    // 3. Locate Python virtual environment with uvicorn installed
+    NSArray<NSString *> *pythonCandidates = @[
+        [adminDir stringByAppendingPathComponent:@".venv/bin/python3"],
+        @"/Users/rashidsheikh/Desktop/Parental_Sheild/AppShield.Admin/.venv/bin/python3",
+        @"/opt/homebrew/bin/python3",
+        @"/usr/local/bin/python3"
+    ];
+
+    NSString *pythonExec = nil;
+    for (NSString *py in pythonCandidates) {
+        if ([[NSFileManager defaultManager] isExecutableFileAtPath:py]) {
+            pythonExec = py;
+            break;
+        }
+    }
+
+    if (!pythonExec) {
+        NSLog(@"[AppShield Native] Error: Could not find Python virtual environment at %@", adminDir);
+        return;
+    }
 
     self.backendTask = [[NSTask alloc] init];
     [self.backendTask setExecutableURL:[NSURL fileURLWithPath:pythonExec]];
     [self.backendTask setCurrentDirectoryURL:[NSURL fileURLWithPath:adminDir]];
-    [self.backendTask setArguments:@[@"-m", @"uvicorn", @"main:app", @"--host", @"127.0.0.1", @"--port", [NSString stringWithFormat:@"%ld", (long)self.targetPort]]];
+    [self.backendTask setArguments:@[
+        @"-m", @"uvicorn", @"main:app",
+        @"--host", @"127.0.0.1",
+        @"--port", [NSString stringWithFormat:@"%ld", (long)self.targetPort]
+    ]];
 
     NSError *err = nil;
     if ([self.backendTask launchAndReturnError:&err]) {
-        NSLog(@"[AppShield Native] Launched backend server (PID: %d)", [self.backendTask processIdentifier]);
+        NSLog(@"[AppShield Native] Launched AppShield backend on port %ld (PID: %d)", (long)self.targetPort, [self.backendTask processIdentifier]);
     } else {
         NSLog(@"[AppShield Native] Failed to launch backend: %@", err);
     }
@@ -192,9 +235,9 @@
 }
 
 - (void)webView:(WKWebView *)webView didFailProvisionalNavigation:(WKNavigation *)navigation withError:(NSError *)error {
-    if (self.retryCount < 15) {
+    if (self.retryCount < 25) {
         self.retryCount++;
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.4 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
             [self loadDashboardWithRetry];
         });
     }

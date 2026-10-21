@@ -130,9 +130,12 @@ chmod +x "$SCRIPT_DIR/AppShield Admin.app/Contents/MacOS/AppShield Admin"
 
 # Install native app to Desktop and /Applications if permitted
 if [ -d "$HOME/Desktop" ]; then
+    rm -rf "$HOME/Desktop/AppShield Admin.app"
     cp -R "$SCRIPT_DIR/AppShield Admin.app" "$HOME/Desktop/AppShield Admin.app" || true
+    (cd "$SCRIPT_DIR" && zip -r "$HOME/Desktop/AppShield-Admin-macOS.zip" "AppShield Admin.app" >/dev/null 2>&1 || true)
 fi
 if [ -d "/Applications" ]; then
+    rm -rf "/Applications/AppShield Admin.app" 2>/dev/null || true
     cp -R "$SCRIPT_DIR/AppShield Admin.app" "/Applications/AppShield Admin.app" 2>/dev/null || true
 fi
 
