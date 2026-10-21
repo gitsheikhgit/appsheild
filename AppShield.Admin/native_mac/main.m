@@ -170,10 +170,10 @@
     NSString *bundlePath = [[NSBundle mainBundle] bundlePath];
 
     NSArray<NSString *> *searchDirs = @[
-        @"/Users/rashidsheikh/Desktop/Parental_Sheild/AppShield.Admin",
-        [[bundlePath stringByDeletingLastPathComponent] stringByAppendingPathComponent:@"AppShield.Admin"],
         bundleAdmin,
-        [[[NSFileManager defaultManager] currentDirectoryPath] stringByAppendingPathComponent:@"AppShield.Admin"]
+        [[bundlePath stringByDeletingLastPathComponent] stringByAppendingPathComponent:@"AppShield.Admin"],
+        [[[NSFileManager defaultManager] currentDirectoryPath] stringByAppendingPathComponent:@"AppShield.Admin"],
+        @"/Users/rashidsheikh/Desktop/Parental_Sheild/AppShield.Admin"
     ];
 
     NSString *adminDir = nil;
@@ -190,12 +190,40 @@
         return;
     }
 
-    // 3. Locate Python virtual environment with uvicorn installed
+    // 3. Locate or Auto-Bootstrap Python virtual environment on a new Mac
+    NSString *venvPython = [adminDir stringByAppendingPathComponent:@".venv/bin/python3"];
+    NSString *venvUvicorn = [adminDir stringByAppendingPathComponent:@".venv/bin/uvicorn"];
+
+    if (![[NSFileManager defaultManager] fileExistsAtPath:venvUvicorn]) {
+        NSLog(@"[AppShield Native] First-run on new Mac: Bootstrapping Python virtual environment in background...");
+        @try {
+            NSTask *venvTask = [[NSTask alloc] init];
+            [venvTask setExecutableURL:[NSURL fileURLWithPath:@"/usr/bin/python3"]];
+            [venvTask setCurrentDirectoryURL:[NSURL fileURLWithPath:adminDir]];
+            [venvTask setArguments:@[@"-m", @"venv", @".venv"]];
+            [venvTask launch];
+            [venvTask waitUntilExit];
+
+            NSString *pipPath = [adminDir stringByAppendingPathComponent:@".venv/bin/pip"];
+            if ([[NSFileManager defaultManager] fileExistsAtPath:pipPath]) {
+                NSTask *pipTask = [[NSTask alloc] init];
+                [pipTask setExecutableURL:[NSURL fileURLWithPath:pipPath]];
+                [pipTask setCurrentDirectoryURL:[NSURL fileURLWithPath:adminDir]];
+                [pipTask setArguments:@[@"install", @"-r", @"requirements.txt", @"--quiet"]];
+                [pipTask launch];
+                [pipTask waitUntilExit];
+            }
+        } @catch (NSException *e) {
+            NSLog(@"[AppShield Native] Bootstrap note: %@", e);
+        }
+    }
+
     NSArray<NSString *> *pythonCandidates = @[
-        [adminDir stringByAppendingPathComponent:@".venv/bin/python3"],
+        venvPython,
         @"/Users/rashidsheikh/Desktop/Parental_Sheild/AppShield.Admin/.venv/bin/python3",
         @"/opt/homebrew/bin/python3",
-        @"/usr/local/bin/python3"
+        @"/usr/local/bin/python3",
+        @"/usr/bin/python3"
     ];
 
     NSString *pythonExec = nil;
@@ -206,10 +234,7 @@
         }
     }
 
-    if (!pythonExec) {
-        NSLog(@"[AppShield Native] Error: Could not find Python virtual environment at %@", adminDir);
-        return;
-    }
+    if (!pythonExec) pythonExec = @"/usr/bin/python3";
 
     self.backendTask = [[NSTask alloc] init];
     [self.backendTask setExecutableURL:[NSURL fileURLWithPath:pythonExec]];
