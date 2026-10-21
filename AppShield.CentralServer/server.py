@@ -225,6 +225,7 @@ async def get_node_users(device_id: str):
     return {"success": True, "data": dev_data.get("users", [])}
 
 @app.get("/api/nodes/{device_id}/installed_apps")
+@app.get("/api/nodes/{device_id}/installed-apps")
 async def get_node_installed_apps(device_id: str):
     dev_data = live_telemetry.get(device_id, {})
     return {"success": True, "data": dev_data.get("installed_apps", [])}
@@ -234,10 +235,32 @@ async def send_node_command(device_id: str, cmd: CommandDto):
     sent = await manager.send_command(device_id, {"action": cmd.action, "payload": cmd.payload})
     return {"success": sent, "message": "Command dispatched to endpoint" if sent else "Device offline or disconnected"}
 
+@app.delete("/api/nodes/{device_id}/processes/{pid:int}")
 @app.post("/api/nodes/{device_id}/kill_process")
-async def kill_node_process(device_id: str, payload: Dict[str, Any]):
-    sent = await manager.send_command(device_id, {"action": "kill_process", "payload": payload})
-    return {"success": True, "message": "Kill order sent"}
+async def kill_node_process(device_id: str, pid: Optional[int] = None, payload: Optional[Dict[str, Any]] = None):
+    target_pid = pid if pid is not None else (payload.get("pid") if payload else None)
+    sent = await manager.send_command(device_id, {"action": "kill_process", "payload": {"pid": target_pid}})
+    return {"success": True, "message": f"Kill order sent for PID {target_pid}"}
+
+@app.post("/api/nodes/{device_id}/override")
+async def override_node(device_id: str, req: Dict[str, Any]):
+    proc = req.get("processName") or req.get("process_name") or "Application"
+    minutes = req.get("minutes", 60)
+    sent = await manager.send_command(device_id, {
+        "action": "grant_override",
+        "payload": {"process_name": proc, "minutes": minutes}
+    })
+    return {"success": True, "message": f"Override granted for {proc} ({minutes}m)"}
+
+@app.post("/api/nodes/{device_id}/lock")
+async def lock_node_screen(device_id: str):
+    sent = await manager.send_command(device_id, {"action": "lock_device", "payload": {}})
+    return {"success": sent, "message": "Screen lock dispatched"}
+
+@app.post("/api/nodes/{device_id}/users/manage")
+async def manage_node_user(device_id: str, payload: Dict[str, Any]):
+    sent = await manager.send_command(device_id, {"action": "manage_user", "payload": payload})
+    return {"success": True, "message": "User settings dispatched to agent"}
 
 # -------------------------------------------------------------------
 # Rules & Schedules (12pm-8pm)
