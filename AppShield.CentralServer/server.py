@@ -135,12 +135,12 @@ class TelemetryReportDto(BaseModel):
     installed_apps: List[Dict[str, Any]] = []
 
 class CommandDto(BaseModel):
-    action: str // "kill_process", "block_app", "set_schedule", "create_user"
+    action: str  # "kill_process", "block_app", "set_schedule", "create_user"
     payload: Dict[str, Any]
 
 class RuleCreateDto(BaseModel):
     device_id: str
-    rule_type: str // "AllowedWindow", "BlockPath"
+    rule_type: str  # "AllowedWindow", "BlockPath"
     target_process: Optional[str] = ""
     target_path: Optional[str] = ""
     schedule_start: Optional[str] = "12:00"
