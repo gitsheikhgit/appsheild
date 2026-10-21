@@ -2,6 +2,7 @@
 ### Tamper-Resistant Windows Application Control & Remote Multi-User Endpoint Fleet Management
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Version](https://img.shields.io/badge/Version-1.2.0-blueviolet)](https://github.com/gitsheikhgit/appsheild/releases)
 [![Platform](https://img.shields.io/badge/Platform-Windows%2010%20%2F%2011%20(x64)%20%7C%20macOS-informational)](#system-requirements)
 [![Framework](https://img.shields.io/badge/.NET-8.0%20LTS-purple)](https://dotnet.microsoft.com/)
 [![Tailscale Ready](https://img.shields.io/badge/Tailscale-Remote%20Access%20Ready-green)](https://tailscale.com/)
@@ -9,7 +10,7 @@
 
 **AppShield** is an enterprise-grade endpoint application control and parental management platform designed for shared Windows 10/11 computers. It solves the fundamental bypass mechanisms common to standard parental control tools (process renaming, downloading portable executables into user folders, session evasion, task manager termination) using native Win32 kernel APIs, Session 0 isolation breakout, 3-layer anti-rename process identification, daily runtime quotas, and directory path jails.
 
-Administrators can manage the endpoint locally via the **AppShield Windows Control Center** or remotely from anywhere in the world using the **macOS Admin Dashboard** over a secure **Tailscale** private mesh network.
+Administrators can manage the endpoint locally via the **AppShield Windows Control Center** or remotely from anywhere in the world using the **Native macOS Cocoa Admin Application** over a secure **Tailscale** private mesh network.
 
 ---
 
@@ -17,9 +18,9 @@ Administrators can manage the endpoint locally via the **AppShield Windows Contr
 
 | Artifact | Description | Direct Download |
 | :--- | :--- | :--- |
-| **AppShield-Setup.exe** | **Single Standalone Windows Installer & Control Center GUI**. All-in-one executable: installs the service, creates databases, configures firewall rules, and acts as the desktop management interface for Administrators. | [🚀 Download Latest AppShield-Setup.exe](https://github.com/gitsheikhgit/appsheild/releases/latest/download/AppShield-Setup.exe) |
-| **AppShield-Windows-Install.zip** | **Full Deployment Bundle**. Contains standalone executables, PowerShell deployment scripts, icon assets, and offline documentation. | [📦 Download AppShield-Windows-Install.zip](https://github.com/gitsheikhgit/appsheild/releases/latest/download/AppShield-Windows-Install.zip) |
-| **macOS Admin App** | Source and double-clickable app launcher for macOS (`AppShield Admin.app`). | Clone this repository |
+| **AppShield-Setup.exe** | **Single Standalone Windows Installer & Control Center GUI (v1.2.0)**. All-in-one executable: installs the service, creates databases, configures firewall rules, and acts as the modern 7-tab desktop management interface for Administrators. | [🚀 Download Latest AppShield-Setup.exe](https://github.com/gitsheikhgit/appsheild/releases/latest/download/AppShield-Setup.exe) |
+| **AppShield-Windows-Install.zip** | **Full Deployment Bundle (v1.2.0)**. Contains standalone executables, PowerShell deployment scripts, icon assets, and offline documentation. | [📦 Download AppShield-Windows-Install.zip](https://github.com/gitsheikhgit/appsheild/releases/latest/download/AppShield-Windows-Install.zip) |
+| **AppShield Admin.app** | **100% Native macOS Desktop Application (Universal arm64/x86_64)**. Standalone Cocoa + WebKit app with native menus, dark theme, traffic lights, and automatic background service management. | [Included in repo / Build on Mac](./build-on-mac.sh) |
 | **All Releases & Tags** | Full version history, changelogs, and release assets. | [🔖 View GitHub Releases](https://github.com/gitsheikhgit/appsheild/releases) |
 
 ---
@@ -68,11 +69,21 @@ Standard parental control tools and Windows Family Safety are frequently rendere
   - Built-in Privacy Disclosure Agreement & custom installation path selector.
   - Generates SQLite database, configures Windows Service, and opens local firewall port 54120.
   - Automatically creates Desktop & Start Menu shortcuts scoped exclusively to the Administrator profile.
-- **🖥️ Full Native Administrator Control Center (Windows & macOS)**:
-  - Both Windows and macOS offer the **exact same rich, dark-mode management interface** with full feature parity.
-  - On Windows: Double-clicking the `AppShield` desktop or Start Menu icon launches a dedicated, frameless standalone window powered by the local background service on port 54121.
-  - Protected with Windows UAC administrator elevation and Master Password authentication. Standard (kid) accounts cannot access it.
-  - Control live processes, user accounts, path jails, blocked apps, bedtime/allowed schedules, registry-scanned installed apps, and uninstallation from **both Windows and Mac**.
+- **🍎 100% Native macOS Desktop App (`AppShield Admin.app`)**:
+  - Standalone macOS Cocoa application built with Apple's native WebKit framework (Universal arm64/x86_64).
+  - No Chrome/Edge browser dependency, no browser tabs, no browser menu items.
+  - Features native macOS traffic light window controls, dark mode titlebar, native keyboard shortcuts (Cmd+C, Cmd+V, Cmd+A, Cmd+Z), Dock icon, and automatic background server management.
+- **👶 Child Account Safety Detection & 1-Click Creator**:
+  - Automatically detects whether child or standard user accounts exist on the Windows host.
+  - Displays a prominent warning if all accounts are Administrators (which renders parental protection ineffective).
+  - Offers **➕ Create Standard Child Account** to provision a standard user account locked down and enrolled into Path Jail with a single click.
+  - Direct shortcut to launch Windows Settings (`ms-settings:otherusers`) to manage family accounts.
+- **⚡ Offline Connection Recovery Modal**:
+  - Replaces vague error toasts with an intuitive recovery modal when a target PC is offline or unreachable.
+  - One-click actions to **Add a Computer / Client**, **Scan Local Subnet (mDNS)**, or **Retry Connection**.
+- **🎛️ Modern Multi-Tab Windows Control Center (7 Tabs)**:
+  - Completely redesigned dark-themed GUI (`#11111b`, `#181825`) with a sleek left sidebar navigation.
+  - 7 specialized tabs: **Overview & Fleet**, **Users & Child Jail**, **Rules & Allowed Schedules**, **Installed Software (Registry Scanner)**, **Live Running Processes**, **Audit Logs**, and **Settings & Uninstaller**.
 - **🛡️ 3-Layer Anti-Rename Process Detection**:
   - Matches process name (e.g., `discord.exe`).
   - Matches binary metadata PE header `OriginalFilename` (e.g., `Discord.exe` via `FileVersionInfo`).
@@ -238,44 +249,34 @@ ping 100.x.y.z
 
 ---
 
-## Windows Control Center Guide
+## Windows Control Center Guide (v1.2.0)
 
-When `AppShield-Setup.exe` is launched on an already-installed Windows machine by an Administrator, it opens the **AppShield Control Center**:
+When `AppShield-Setup.exe` is launched on an already-installed Windows machine by an Administrator, it opens the **AppShield Control Center** featuring a dark-themed (`#11111b`) 7-tab sidebar navigation:
 
 ```
-+----------------------------------------------------------------------------------+
-| AppShield Endpoint Control Center                                       [-][x]   |
-+----------------------------------------------------------------------------------+
-| Status: SERVICE RUNNING (SYSTEM) | Version: 1.0.0 | UAC: Elevated Administrator   |
-+----------------------------------------------------------------------------------+
-| [Overview]  [Users & Path Jail]  [Blocked Apps]  [Live Logs]  [Safe Uninstaller] |
-+----------------------------------------------------------------------------------+
-|                                                                                  |
-|  Blocked Applications:                                                           |
-|  +--------------------+----------------+--------------------+---------+          |
-|  | Process Name       | Rule Type      | Target User        | Status  |          |
-|  +--------------------+----------------+--------------------+---------+          |
-|  | discord.exe        | AlwaysBlock    | Protected Users    | Active  |          |
-|  | robloxplayer.exe   | ScheduleBlock  | Protected Users    | Active  |          |
-|  | steam.exe          | DailyQuota     | Protected Users    | Active  |          |
-|  +--------------------+----------------+--------------------+---------+          |
-|                                                                                  |
-|  Add New Rule:                                                                   |
-|  Process Name: [ steam.exe         ] [Browse .exe...]                           |
-|  Target User:  [ All Protected Users (Managed)   v ]                             |
-|  Rule Action:  [ Always Block                    v ]                             |
-|                                                     [ + Add Blocking Rule ]      |
-+----------------------------------------------------------------------------------+
++-------------------------------------------------------------------------------------------------+
+| AppShield Endpoint Control Center — v1.2.0                                             [-][x]   |
++-------------------------------------------------------------------------------------------------+
+| [🛡️ Overview]   |  Endpoint Protection: ACTIVE (SYSTEM Session 0)                                |
+| [👥 Users]      |  Local IP: 192.168.1.150  |  Tailscale IP: 100.85.120.44  |  Port: 54120       |
+| [⛔ Rules]      |  PSK: a8f93bc01e4d567890abcdef12345678                                        |
+| [📦 Software]   |-------------------------------------------------------------------------------|
+| [⚡ Processes]  |  ⚠️ SAFETY WARNING: No standard child account found!                          |
+| [📋 Logs]       |     [➕ Create Child Account]  [⚙️ Windows Account Settings]                  |
+| [⚙️ Settings]   |-------------------------------------------------------------------------------|
+|                 |  Allowed Schedule Presets (e.g. 12:00 PM - 8:00 PM):                          |
+|                 |  [12pm-8pm Afternoon/Evening]  [3pm-8pm After School]  [9am-5pm School Hours] |
++-------------------------------------------------------------------------------------------------+
 ```
 
-### Control Center Capabilities:
-1. **Overview & Connectivity**: Displays local IP, Tailscale IP, service status, and current Pre-Shared Key (PSK) for pairing with the macOS Dashboard.
-2. **Users & Path Jail**: Lists all local Windows user accounts. Allows the Administrator to toggle:
-   - **Managed Status**: Designates whether the user account is subject to AppShield rules.
-   - **Path Jail (`BlockUserWritableDirectories`)**: Instantly locks down execution from `%USERPROFILE%\Downloads`, `%USERPROFILE%\Desktop`, `%APPDATA%`, and USB flash drives.
-3. **Blocked Applications**: View, add, or remove blocked executables. Includes a **Browse .exe...** file picker to automatically extract the process name and original metadata from any installed program.
-4. **Live Block Logs**: Real-time audit log showing timestamp, username, executable name, and blocking rationale.
-5. **Safe Uninstaller**: Built-in uninstallation routine requiring Master Password verification to perform a complete, residue-free system cleanup.
+### 7 Specialized Management Tabs:
+1. **🛡️ Overview & Fleet**: Displays service status (Session 0 SYSTEM), local IP, Tailscale IP, and pairing credentials (PSK).
+2. **👥 Users & Child Jail**: Lists all Windows user accounts. If no standard child account exists, displays the safety warning banner with 1-click account creation and Windows Account Settings button. Toggles Managed Protection and Path Jail.
+3. **⛔ Rules & Allowed Schedules**: Configure **Always Block**, **Allowed Hours (e.g. 12:00 PM to 8:00 PM)**, **Bedtime Blocks**, and **Daily Quotas**. Includes 1-click schedule preset buttons.
+4. **📦 Installed Software**: Scans Windows Registry (HKLM 64-bit & 32-bit) for all installed games and software. One-click **[Block App]** button.
+5. **⚡ Live Processes**: Real-time snapshot of running processes with PID, working memory set, and **[Kill & Block Process]** action.
+6. **📋 Audit Logs**: Chronological log of intercepted application launches with timestamps, user SIDs, and rationale.
+7. **⚙️ Settings & Uninstaller**: Change master password, copy pairing key, or perform a complete, clean uninstallation.
 
 ---
 

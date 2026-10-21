@@ -75,9 +75,12 @@
         </svg>
       </div>
       <div>
-        <h1 class="text-xl font-display font-bold bg-gradient-to-r from-white via-indigo-100 to-purple-200 bg-clip-text text-transparent">
-          AppShield Fleet
-        </h1>
+        <div class="flex items-center space-x-2">
+          <h1 class="text-xl font-display font-bold bg-gradient-to-r from-white via-indigo-100 to-purple-200 bg-clip-text text-transparent">
+            AppShield Fleet
+          </h1>
+          <span class="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">v1.2.0</span>
+        </div>
         <p class="text-xs text-zinc-400">Endpoint Control & Tamper-Resistant Windows Security</p>
       </div>
     </div>
@@ -102,7 +105,7 @@
         @click="showAddModal = true" 
         class="flex items-center space-x-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold px-3 py-2 rounded-lg transition shadow-md shadow-indigo-600/20">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-        <span>Add PC</span>
+        <span>+ Add PC</span>
       </button>
 
       <!-- Active Connection Status Pill -->
@@ -137,6 +140,41 @@
       </div>
     </div>
   </header>
+
+  <!-- Offline Target Notification Banner -->
+  <div x-show="currentNode && currentNode.status === 'offline'" class="bg-rose-950/40 border-b border-rose-500/30 px-6 py-2.5 flex flex-wrap items-center justify-between text-xs gap-2">
+    <div class="flex items-center space-x-2 text-rose-300">
+      <span class="text-sm">🔴</span>
+      <span><strong>Target Computer Offline:</strong> Cannot communicate with <span class="font-bold text-white" x-text="currentNode.name"></span> (<span class="font-mono text-zinc-300" x-text="currentNode.active_ip || currentNode.lan_ip || '127.0.0.1'"></span>). Real-time monitoring and enforcement require an active connection.</span>
+    </div>
+    <div class="flex items-center space-x-2">
+      <button @click="triggerOfflinePopUp('Manage PC', 'Target computer is offline.')" class="bg-rose-600/30 hover:bg-rose-600 text-rose-200 border border-rose-500/40 px-2.5 py-1 rounded text-[11px] font-semibold transition">
+        Resolve Connection
+      </button>
+      <button @click="showAddModal = true" class="bg-indigo-600 hover:bg-indigo-500 text-white px-2.5 py-1 rounded text-[11px] font-semibold transition">
+        + Add / Switch Client
+      </button>
+    </div>
+  </div>
+
+  <!-- Empty Fleet Prompt -->
+  <div x-show="fleet.length === 0" class="m-6 p-8 glass-card border border-indigo-500/30 rounded-2xl text-center space-y-4 max-w-xl mx-auto shadow-2xl">
+    <div class="w-16 h-16 mx-auto rounded-2xl bg-indigo-600/20 border border-indigo-500/40 flex items-center justify-center text-3xl">
+      🖥️
+    </div>
+    <h2 class="text-lg font-bold text-white">No Windows Computers in Fleet</h2>
+    <p class="text-xs text-zinc-400 leading-relaxed">
+      Welcome to AppShield v1.2.0. Add your child's Windows computer or scan your local network to start managing applications, schedules, and process security.
+    </p>
+    <div class="flex items-center justify-center space-x-3 pt-2">
+      <button @click="showAddModal = true" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl transition shadow-lg shadow-indigo-600/20">
+        ➕ Add Computer / Client
+      </button>
+      <button @click="showAddModal = true; runMdnsScan()" class="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 text-xs font-semibold rounded-xl transition">
+        🔍 Scan Local Subnet (mDNS)
+      </button>
+    </div>
+  </div>
 
   <!-- Navigation Tabs -->
   <div class="bg-zinc-950/60 border-b border-zinc-800/80 px-6 py-2 flex items-center justify-between">
@@ -300,16 +338,62 @@
 
     <!-- TAB 2: USER ACCOUNTS & PATH JAIL -->
     <div x-show="activeTab === 'users'" class="space-y-4">
-      <div class="flex justify-between items-center glass-card p-4 rounded-xl">
+      <div class="flex flex-wrap justify-between items-center glass-card p-4 rounded-xl gap-3">
         <div>
           <h2 class="text-sm font-bold text-white">Target Machine Windows Accounts</h2>
           <p class="text-xs text-zinc-400">Toggle "Managed" to enforce blocklists, quotas, and path jails on specific children or standard accounts.</p>
         </div>
-        <button 
-          @click="loadUsers()" 
-          class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs px-3 py-1.5 rounded-lg transition">
-          Refresh Accounts
-        </button>
+        <div class="flex flex-wrap items-center gap-2">
+          <button 
+            @click="showCreateUserModal = true" 
+            class="bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold px-3 py-1.5 rounded-lg transition flex items-center space-x-1.5 shadow-sm">
+            <span>➕ Create Standard Child Account</span>
+          </button>
+          <button 
+            @click="openWindowsAccountSettings()" 
+            class="bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 text-xs px-3 py-1.5 rounded-lg transition flex items-center space-x-1.5">
+            <span>⚙️ Open Account Settings</span>
+          </button>
+          <button 
+            @click="loadUsers()" 
+            class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs px-3 py-1.5 rounded-lg transition">
+            Refresh Accounts
+          </button>
+        </div>
+      </div>
+
+      <!-- Warning Banner: No Child or Standard Account Detected -->
+      <div x-show="users.length > 0 && !hasStandardAccount" class="p-5 bg-amber-950/40 border border-amber-500/50 rounded-2xl space-y-3 shadow-xl">
+        <div class="flex items-start space-x-3.5">
+          <div class="text-3xl select-none">⚠️</div>
+          <div class="flex-1">
+            <div class="flex items-center space-x-2">
+              <h3 class="text-sm font-bold text-amber-300">No Child or Standard User Account Found</h3>
+              <span class="bg-amber-500/20 text-amber-300 text-[10px] font-bold px-2 py-0.5 rounded border border-amber-500/40 uppercase">Action Needed</span>
+            </div>
+            <p class="text-xs text-amber-100/90 mt-1 leading-relaxed">
+              All accounts detected on this Windows PC currently have <strong>full Administrator privileges</strong>.
+              Parental controls (application blocking, path jails, and allowed schedules) require a <strong>Standard (non-admin) Windows account</strong> so your child cannot bypass or modify security services. To protect your child, they must use a Standard account.
+            </p>
+          </div>
+        </div>
+        <div class="flex flex-wrap items-center gap-2.5 pt-2 border-t border-amber-500/20">
+          <button 
+            @click="showCreateUserModal = true" 
+            class="px-3.5 py-1.5 text-xs font-bold bg-amber-500 hover:bg-amber-400 text-black rounded-lg transition flex items-center space-x-1.5 shadow-md shadow-amber-500/20">
+            <span>➕ Create Standard Child Account</span>
+          </button>
+          <button 
+            @click="openWindowsAccountSettings()" 
+            class="px-3.5 py-1.5 text-xs font-semibold bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 rounded-lg transition flex items-center space-x-1.5">
+            <span>⚙️ Open Windows Account Settings</span>
+          </button>
+          <button 
+            @click="showAddModal = true" 
+            class="px-3.5 py-1.5 text-xs font-semibold bg-indigo-600/30 hover:bg-indigo-600 text-indigo-200 border border-indigo-500/30 rounded-lg transition flex items-center space-x-1.5">
+            <span>🌐 Add Remote PC to Manage</span>
+          </button>
+        </div>
       </div>
 
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -1025,6 +1109,120 @@
     </div>
   </div>
 
+  <!-- MODAL: TARGET COMPUTER OFFLINE / ADD CLIENT TO CONTINUE -->
+  <div x-show="showOfflineModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
+    <div class="glass-card max-w-lg w-full p-6 rounded-2xl border border-rose-500/40 space-y-4 shadow-2xl">
+      <div class="flex justify-between items-start">
+        <div class="flex items-center space-x-3">
+          <div class="w-10 h-10 rounded-xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-xl">
+            ⚠️
+          </div>
+          <div>
+            <h3 class="text-base font-bold text-white">Target Computer Offline / Unreachable</h3>
+            <p class="text-xs text-rose-300 font-mono mt-0.5" x-text="currentNode ? (currentNode.name + ' (' + (currentNode.active_ip || currentNode.lan_ip || 'No IP') + ')') : 'No computer selected'"></p>
+          </div>
+        </div>
+        <button @click="showOfflineModal = false" class="text-zinc-400 hover:text-white text-xl leading-none">&times;</button>
+      </div>
+
+      <div class="p-4 bg-zinc-900/90 rounded-xl border border-zinc-800 space-y-2 text-xs text-zinc-300">
+        <p>
+          AppShield was unable to complete <strong class="text-white" x-text="offlineActionTitle || 'this request'"></strong> because the target Windows computer is not responding on port 54120.
+        </p>
+        <p class="text-[11px] text-zinc-400 leading-relaxed">
+          • Ensure the Windows computer is turned on and connected to your LAN or Tailscale network.<br>
+          • Verify that the <strong>AppShield Security Service</strong> is running on the computer.<br>
+          • To connect a remote computer or add your child's laptop, use the options below:
+        </p>
+      </div>
+
+      <div class="space-y-2 pt-1">
+        <button 
+          @click="showOfflineModal = false; showAddModal = true" 
+          class="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl transition flex items-center justify-center space-x-2 shadow-lg shadow-indigo-600/30">
+          <span>➕ Add Computer / Client to Continue</span>
+        </button>
+
+        <div class="grid grid-cols-2 gap-2">
+          <button 
+            @click="showOfflineModal = false; showAddModal = true; runMdnsScan()" 
+            class="py-2 px-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 text-xs rounded-lg transition flex items-center justify-center space-x-1.5">
+            <span>🔍 Scan Local Subnet (mDNS)</span>
+          </button>
+          <button 
+            @click="showOfflineModal = false; refreshAllNodeData()" 
+            class="py-2 px-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 text-xs rounded-lg transition flex items-center justify-center space-x-1.5">
+            <span>🔄 Retry Connection</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: CREATE STANDARD CHILD ACCOUNT -->
+  <div x-show="showCreateUserModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
+    <div class="glass-card max-w-md w-full p-6 rounded-2xl border border-amber-500/40 space-y-4 shadow-2xl">
+      <div class="flex justify-between items-center">
+        <div class="flex items-center space-x-2">
+          <span class="text-xl">👤</span>
+          <h3 class="text-base font-bold text-white">Create Standard Child Account</h3>
+        </div>
+        <button @click="showCreateUserModal = false" class="text-zinc-400 hover:text-white text-xl leading-none">&times;</button>
+      </div>
+
+      <p class="text-xs text-zinc-300 leading-relaxed">
+        Creates a new Standard (non-admin) Windows user account on <strong class="text-white" x-text="currentNode ? currentNode.name : 'Target PC'"></strong>. Standard users cannot tamper with security, bypass time schedules, or alter system settings.
+      </p>
+
+      <div class="space-y-3 text-xs">
+        <div>
+          <label class="block text-zinc-400 mb-1">Child Username (e.g. Alex, Kid, Child)</label>
+          <input 
+            type="text" 
+            x-model="newChildUser.username" 
+            placeholder="Child" 
+            class="w-full bg-zinc-900 border border-zinc-700 rounded px-3 py-2 text-white font-medium focus:border-amber-400 outline-none">
+        </div>
+        <div>
+          <label class="block text-zinc-400 mb-1">Account Password</label>
+          <input 
+            type="password" 
+            x-model="newChildUser.password" 
+            placeholder="Create password for child" 
+            class="w-full bg-zinc-900 border border-zinc-700 rounded px-3 py-2 text-white font-medium focus:border-amber-400 outline-none">
+        </div>
+        <div>
+          <label class="block text-zinc-400 mb-1">Confirm Password</label>
+          <input 
+            type="password" 
+            x-model="newChildUser.confirmPassword" 
+            placeholder="Re-enter password" 
+            class="w-full bg-zinc-900 border border-zinc-700 rounded px-3 py-2 text-white font-medium focus:border-amber-400 outline-none">
+        </div>
+      </div>
+
+      <div class="p-3 bg-zinc-900/90 rounded-xl border border-zinc-800 text-[11px] text-zinc-400 space-y-1">
+        <div>🛡️ Assigned to standard <code>Users</code> group (Non-Admin).</div>
+        <div>🔒 Automatically enrolled in <strong>Managed Protection</strong> and <strong>Path Jail</strong>.</div>
+        <div>🚫 Excluded from <code>Administrators</code> to prevent bypass.</div>
+      </div>
+
+      <div class="pt-2 flex justify-end space-x-2">
+        <button 
+          @click="showCreateUserModal = false" 
+          class="px-4 py-2 text-xs text-zinc-400 hover:text-white">
+          Cancel
+        </button>
+        <button 
+          @click="createStandardUser()" 
+          :disabled="isCreatingChildUser || !newChildUser.username || !newChildUser.password" 
+          class="px-4 py-2 text-xs font-bold bg-amber-500 hover:bg-amber-400 text-black rounded-lg transition disabled:opacity-50 shadow-md shadow-amber-500/20">
+          <span x-text="isCreatingChildUser ? 'Creating Account...' : 'Create & Protect Account'"></span>
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- Notification Toast -->
   <div 
     x-show="toast.visible" 
@@ -1068,6 +1266,10 @@
           );
         },
 
+        get hasStandardAccount() {
+          return this.users.length > 0 && this.users.some(u => !u.isAdmin);
+        },
+
         // Filters
         processSearch: '',
         selectedUserFilter: 'ALL',
@@ -1077,6 +1279,91 @@
         showRuleModal: false,
         showOverrideModal: false,
         showUninstallModal: false,
+        showOfflineModal: false,
+        offlineActionTitle: '',
+        offlineActionDescription: '',
+        showCreateUserModal: false,
+        isCreatingChildUser: false,
+        newChildUser: { username: '', password: '', confirmPassword: '' },
+
+        triggerOfflinePopUp(actionTitle = 'Connection', actionDesc = '') {
+          this.offlineActionTitle = actionTitle;
+          this.offlineActionDescription = actionDesc || 'The target computer is unreachable or offline.';
+          this.showOfflineModal = true;
+          this.showToast(`Target Offline: ${actionTitle} failed`, 'error');
+        },
+
+        async createStandardUser() {
+          if (!this.currentNode) {
+            this.triggerOfflinePopUp('Create Standard Account', 'No active computer selected.');
+            return;
+          }
+          if (!this.newChildUser.username.trim()) {
+            alert('Please enter a username for the child account.');
+            return;
+          }
+          if (!this.newChildUser.password) {
+            alert('Please enter a password for the account.');
+            return;
+          }
+          if (this.newChildUser.password !== this.newChildUser.confirmPassword) {
+            alert('Passwords do not match. Please re-enter.');
+            return;
+          }
+
+          this.isCreatingChildUser = true;
+          try {
+            const res = await fetch(`/api/nodes/${this.currentNode.id}/users/create-standard`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                username: this.newChildUser.username.trim(),
+                password: this.newChildUser.password
+              })
+            });
+            const data = await res.json();
+            if (data.success) {
+              this.showToast(`Created Standard Account '${this.newChildUser.username}' with Shield enabled!`, 'success');
+              this.showCreateUserModal = false;
+              this.newChildUser = { username: '', password: '', confirmPassword: '' };
+              await this.loadUsers();
+            } else {
+              if (res.status === 502) {
+                this.triggerOfflinePopUp('Create Standard Account', data.error?.message || data.error);
+              } else {
+                this.showToast(data.error?.message || data.error || 'Failed to create account', 'error');
+              }
+            }
+          } catch (e) {
+            this.triggerOfflinePopUp('Create Standard Account', 'Network connection failed.');
+          } finally {
+            this.isCreatingChildUser = false;
+          }
+        },
+
+        async openWindowsAccountSettings() {
+          if (!this.currentNode) {
+            this.triggerOfflinePopUp('Open Account Settings', 'No active computer selected.');
+            return;
+          }
+          try {
+            const res = await fetch(`/api/nodes/${this.currentNode.id}/system/open-account-settings`, {
+              method: 'POST'
+            });
+            const data = await res.json();
+            if (data.success) {
+              this.showToast('Opened Windows Account Settings on target PC.', 'success');
+            } else {
+              if (res.status === 502) {
+                this.triggerOfflinePopUp('Open Account Settings', data.error?.message || data.error);
+              } else {
+                this.showToast('Unable to open Settings on host.', 'error');
+              }
+            }
+          } catch (e) {
+            this.triggerOfflinePopUp('Open Account Settings', 'Network connection failed.');
+          }
+        },
 
         // Forms
         newNode: { name: '', lan_ip: '', tailscale_ip: '', port: 54120, psk: '' },
@@ -1382,7 +1669,14 @@
         },
 
         async loadInstalledApps() {
-          if (!this.currentNode) return;
+          if (!this.currentNode) {
+            this.triggerOfflinePopUp('Scan Installed Applications', 'No computer is currently selected in your fleet.');
+            return;
+          }
+          if (this.currentNode.status === 'offline') {
+            this.triggerOfflinePopUp('Scan Installed Applications', `Computer '${this.currentNode.name}' is offline.`);
+            return;
+          }
           this.isLoadingApps = true;
           try {
             const res = await fetch(`/api/nodes/${this.currentNode.id}/installed-apps`);
@@ -1391,10 +1685,10 @@
               this.installedApps = json.data;
               this.showToast(`Found ${this.installedApps.length} installed apps on ${this.currentNode.name}`, 'success');
             } else {
-              this.showToast('Failed to scan installed apps', 'error');
+              this.triggerOfflinePopUp('Scan Installed Applications', json.error?.message || json.error || 'Computer not reachable');
             }
           } catch (e) {
-            this.showToast('Network error loading installed apps', 'error');
+            this.triggerOfflinePopUp('Scan Installed Applications', 'Network connection error or target computer unreachable.');
           } finally {
             this.isLoadingApps = false;
           }

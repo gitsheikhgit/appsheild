@@ -92,6 +92,22 @@ async def proxy_manage_user(node_id: str, payload: Dict[str, Any]):
         return JSONResponse(status_code=502, content={"success": False, "error": data})
     return data
 
+@app.post("/api/nodes/{node_id}/users/create-standard")
+async def proxy_create_standard_user(node_id: str, payload: Dict[str, Any]):
+    node = _get_target_node(node_id)
+    success, data, mode = await proxy.request(node, "POST", "/api/v1/users/create-standard", json_data=payload)
+    if not success:
+        return JSONResponse(status_code=502, content={"success": False, "error": data})
+    return data
+
+@app.post("/api/nodes/{node_id}/system/open-account-settings")
+async def proxy_open_account_settings(node_id: str):
+    node = _get_target_node(node_id)
+    success, data, mode = await proxy.request(node, "POST", "/api/v1/system/open-account-settings")
+    if not success:
+        return JSONResponse(status_code=502, content={"success": False, "error": data})
+    return data
+
 @app.get("/api/nodes/{node_id}/processes")
 async def proxy_get_processes(node_id: str):
     node = _get_target_node(node_id)

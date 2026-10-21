@@ -684,6 +684,190 @@ public static class InstallEngine
         catch { }
     }
 
+    public static void AddAdvancedRuleToDb(string dataDir, string processName, RuleType ruleType, string? start, string? end, int quotaMinutes, string description)
+    {
+        string dbPath = Path.Combine(dataDir, "appshield.db");
+        if (!File.Exists(dbPath)) return;
+
+        try
+        {
+            using var conn = new SqliteConnection($"Data Source={dbPath}");
+            conn.Open();
+            using var cmd = new SqliteCommand(@"
+                INSERT INTO Rules (Id, TargetUserSid, RuleType, ProcessName, ScheduleStart, ScheduleEnd, QuotaMinutes, IsEnabled, CreatedAtUtc, Description)
+                VALUES (@id, '*', @rt, @proc, @start, @end, @quota, 1, @now, @desc)", conn);
+            cmd.Parameters.AddWithValue("@id", Guid.NewGuid().ToString("N"));
+            cmd.Parameters.AddWithValue("@rt", ruleType.ToString());
+            cmd.Parameters.AddWithValue("@proc", processName.Trim());
+            cmd.Parameters.AddWithValue("@start", (object?)start ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@end", (object?)end ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@quota", quotaMinutes > 0 ? quotaMinutes : DBNull.Value);
+            cmd.Parameters.AddWithValue("@now", DateTime.UtcNow.ToString("o"));
+            cmd.Parameters.AddWithValue("@desc", string.IsNullOrEmpty(description) ? $"{ruleType}: {processName}" : description);
+            cmd.ExecuteNonQuery();
+        }
+        catch { }
+    }
+
+    public static bool CreateStandardChildAccount(string dataDir, string username, string password, out string error)
+    {
+        error = string.Empty;
+        string cleanUser = System.Text.RegularExpressions.Regex.Replace(username.Trim(), @"[^a-zA-Z0-9_\-\.]", "");
+        if (string.IsNullOrWhiteSpace(cleanUser) || string.IsNullOrWhiteSpace(password))
+        {
+            error = "Invalid username or password.";
+            return false;
+        }
+
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            var res = RunCommand("net.exe", $"user \"{cleanUser}\" \"{password}\" /add /comment:\"AppShield Managed Child Account\" /passwordchg:no");
+            if (res.ExitCode != 0 && !res.Output.Contains("already exists", StringComparison.OrdinalIgnoreCase))
+            {
+                error = res.Output.Trim();
+                return false;
+            }
+
+            RunCommand("net.exe", $"localgroup Users \"{cleanUser}\" /add");
+            RunCommand("net.exe", $"localgroup Administrators \"{cleanUser}\" /delete");
+        }
+
+        // Add to database as protected managed standard account
+        try
+        {
+            string dbPath = Path.Combine(dataDir, "appshield.db");
+            if (File.Exists(dbPath))
+            {
+                using var conn = new SqliteConnection($"Data Source={dbPath}");
+                conn.Open();
+                using var cmd = new SqliteCommand(@"
+                    INSERT INTO Users (Sid, Username, Domain, IsAdmin, IsManaged, BlockUserWritableDirectories, LastSeenUtc)
+                    VALUES (@sid, @user, @dom, 0, 1, 1, @now)
+                    ON CONFLICT(Sid) DO UPDATE SET IsManaged = 1, BlockUserWritableDirectories = 1, IsAdmin = 0", conn);
+                cmd.Parameters.AddWithValue("@sid", "S-1-5-21-" + Guid.NewGuid().ToString("N")[..10]);
+                cmd.Parameters.AddWithValue("@user", cleanUser);
+                cmd.Parameters.AddWithValue("@dom", Environment.MachineName);
+                cmd.Parameters.AddWithValue("@now", DateTime.UtcNow.ToString("o"));
+                cmd.ExecuteNonQuery();
+            }
+        }
+        catch { }
+
+        return true;
+    }
+
+    public static void OpenWindowsAccountSettings()
+    {
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            try
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = "cmd.exe",
+                    Arguments = "/c start ms-settings:otherusers",
+                    CreateNoWindow = true,
+                    UseShellExecute = false
+                });
+            }
+            catch { }
+        }
+    }
+
+    public static List<(int Pid, string Name, string MemoryMb, string ExePath)> GetRunningProcessesInfo()
+    {
+        var list = new List<(int, string, string, string)>();
+        try
+        {
+            var procs = Process.GetProcesses();
+            foreach (var p in procs)
+            {
+                try
+                {
+                    string name = p.ProcessName + ".exe";
+                    long memMb = p.WorkingSet64 / (1024 * 1024);
+                    string path = "";
+                    try { path = p.MainModule?.FileName ?? ""; } catch { }
+                    list.Add((p.Id, name, $"{memMb} MB", path));
+                }
+                catch { }
+            }
+        }
+        catch { }
+        return list;
+    }
+
+    public static List<(string Name, string Version, string ExeName, string Publisher)> GetInstalledSoftwareList()
+    {
+        var list = new List<(string Name, string Version, string ExeName, string Publisher)>();
+        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            list.Add(("Roblox Player", "v2.6", "RobloxPlayerBeta.exe", "Roblox Corporation"));
+            list.Add(("Discord", "v1.0.9", "Discord.exe", "Discord Inc."));
+            list.Add(("Google Chrome", "v120.0", "chrome.exe", "Google LLC"));
+            list.Add(("Steam", "v3.0", "steam.exe", "Valve Corporation"));
+            list.Add(("Spotify", "v1.2", "Spotify.exe", "Spotify AB"));
+            return list;
+        }
+
+        try
+        {
+            string[] registryPaths =
+            {
+                @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall",
+                @"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall"
+            };
+
+            foreach (var regPath in registryPaths)
+            {
+                using var hklmKey = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry64).OpenSubKey(regPath);
+                if (hklmKey != null)
+                {
+                    foreach (var subKeyName in hklmKey.GetSubKeyNames())
+                    {
+                        using var appKey = hklmKey.OpenSubKey(subKeyName);
+                        if (appKey == null) continue;
+                        string? name = appKey.GetValue("DisplayName")?.ToString();
+                        if (string.IsNullOrWhiteSpace(name)) continue;
+
+                        string version = appKey.GetValue("DisplayVersion")?.ToString() ?? "";
+                        string publisher = appKey.GetValue("Publisher")?.ToString() ?? "";
+                        string installLoc = appKey.GetValue("InstallLocation")?.ToString() ?? "";
+                        string displayIcon = appKey.GetValue("DisplayIcon")?.ToString() ?? "";
+
+                        string exeName = "";
+                        if (!string.IsNullOrEmpty(displayIcon) && displayIcon.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+                        {
+                            exeName = Path.GetFileName(displayIcon.Split(',')[0].Trim('"'));
+                        }
+                        else if (!string.IsNullOrEmpty(installLoc) && Directory.Exists(installLoc))
+                        {
+                            try
+                            {
+                                var firstExe = Directory.GetFiles(installLoc, "*.exe").FirstOrDefault();
+                                if (firstExe != null) exeName = Path.GetFileName(firstExe);
+                            }
+                            catch { }
+                        }
+
+                        if (string.IsNullOrEmpty(exeName))
+                        {
+                            exeName = System.Text.RegularExpressions.Regex.Replace(name, @"[^a-zA-Z0-9]", "") + ".exe";
+                        }
+
+                        if (!list.Any(x => x.Name.Equals(name, StringComparison.OrdinalIgnoreCase)))
+                        {
+                            list.Add((name, version, exeName, publisher));
+                        }
+                    }
+                }
+            }
+        }
+        catch { }
+
+        return list;
+    }
+
     public static void DeleteRuleFromDb(string dataDir, string ruleId)
     {
         string dbPath = Path.Combine(dataDir, "appshield.db");
@@ -749,7 +933,7 @@ public static class InstallEngine
                 string setupPath = Path.Combine(installDir, "AppShield-Setup.exe");
 
                 key.SetValue("DisplayName", "AppShield Security Client");
-                key.SetValue("DisplayVersion", "1.0.0");
+                key.SetValue("DisplayVersion", "1.2.0");
                 key.SetValue("Publisher", "AppShield Security Systems");
                 key.SetValue("DisplayIcon", $"{iconPath},0");
                 key.SetValue("InstallLocation", installDir);

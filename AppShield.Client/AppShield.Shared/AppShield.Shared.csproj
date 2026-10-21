@@ -4,6 +4,8 @@
     <TargetFramework>net8.0</TargetFramework>
     <RootNamespace>AppShield.Shared</RootNamespace>
     <AssemblyName>AppShield.Shared</AssemblyName>
+    <Version>1.2.0</Version>
+    <AssemblyVersion>1.2.0.0</AssemblyVersion>
   </PropertyGroup>
 
   <ItemGroup>

@@ -120,45 +120,28 @@ else
     echo "    Python virtual environment is ready."
 fi
 
-# Step 6: Create/Update Double-Clickable macOS Launcher
+# Step 6: Compile Native macOS Cocoa Desktop Application
+echo "[+] Compiling Native macOS Cocoa App (Universal arm64/x86_64)..."
+mkdir -p "$SCRIPT_DIR/AppShield Admin.app/Contents/MacOS"
+clang -O2 -arch arm64 -arch x86_64 -framework Cocoa -framework WebKit \
+    "$SCRIPT_DIR/AppShield.Admin/native_mac/main.m" \
+    -o "$SCRIPT_DIR/AppShield Admin.app/Contents/MacOS/AppShield Admin"
+chmod +x "$SCRIPT_DIR/AppShield Admin.app/Contents/MacOS/AppShield Admin"
+
+# Install native app to Desktop and /Applications if permitted
+if [ -d "$HOME/Desktop" ]; then
+    cp -R "$SCRIPT_DIR/AppShield Admin.app" "$HOME/Desktop/AppShield Admin.app" || true
+fi
+if [ -d "/Applications" ]; then
+    cp -R "$SCRIPT_DIR/AppShield Admin.app" "/Applications/AppShield Admin.app" 2>/dev/null || true
+fi
+
+# Step 7: Create/Update Double-Clickable macOS Launcher
 echo "[+] Creating double-clickable macOS Admin launcher: run-admin-mac.command..."
 cat << 'EOF' > "$SCRIPT_DIR/run-admin-mac.command"
 #!/usr/bin/env bash
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$SCRIPT_DIR/AppShield.Admin"
-
-echo "===================================================================="
-echo "          Starting AppShield Admin Control Dashboard...             "
-echo "===================================================================="
-
-# Activate virtual environment if present
-if [ -f ".venv/bin/activate" ]; then
-    source ".venv/bin/activate"
-fi
-
-# Detect available port (defaults to 8080, falls back to 8085 if occupied)
-ADMIN_PORT=8080
-if lsof -i :8080 >/dev/null 2>&1; then
-    ADMIN_PORT=8085
-fi
-
-echo "[+] Starting Admin Dashboard on http://127.0.0.1:$ADMIN_PORT..."
-
-# Open standalone desktop app window (Chrome/Edge App Mode) or fallback to default browser
-(sleep 1.5 && {
-    if [ -d "/Applications/Google Chrome.app" ]; then
-        open -na "Google Chrome" --args "--app=http://127.0.0.1:$ADMIN_PORT" "--window-size=1380,880"
-    elif [ -d "/Applications/Microsoft Edge.app" ]; then
-        open -na "Microsoft Edge" --args "--app=http://127.0.0.1:$ADMIN_PORT" "--window-size=1380,880"
-    elif [ -d "/Applications/Brave Browser.app" ]; then
-        open -na "Brave Browser" --args "--app=http://127.0.0.1:$ADMIN_PORT" "--window-size=1380,880"
-    else
-        open "http://127.0.0.1:$ADMIN_PORT"
-    fi
-}) &
-
-# Start Uvicorn Server
-python3 -m uvicorn main:app --host 127.0.0.1 --port $ADMIN_PORT
+open "$SCRIPT_DIR/AppShield Admin.app"
 EOF
 
 chmod +x "$SCRIPT_DIR/run-admin-mac.command"
@@ -168,6 +151,8 @@ echo ""
 echo "===================================================================="
 echo "                    BUILD & PACKAGING COMPLETE!                     "
 echo "===================================================================="
-echo " 1. Windows deployment bundle: dist/Windows-Client-Deploy/"
-echo " 2. macOS Admin launcher:      ./run-admin-mac.command"
+echo " 1. Native macOS App:          AppShield Admin.app (Desktop & Applications)"
+echo " 2. Windows deployment bundle: dist/Windows-Client-Deploy/"
+echo " 3. macOS Admin launcher:      ./run-admin-mac.command"
 echo "===================================================================="
+

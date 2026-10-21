@@ -94,6 +94,108 @@ app.MapPost("/api/v1/users/manage", (ManageUserRequestDto req, StorageManager st
     return Results.Ok(ApiResponse<string>.Ok("User management settings updated successfully."));
 });
 
+// 3b. POST /api/v1/users/create-standard (Creates Standard Child User and automatically protects it)
+app.MapPost("/api/v1/users/create-standard", (CreateStandardUserRequestDto req, StorageManager storage) =>
+{
+    if (string.IsNullOrWhiteSpace(req.Username) || string.IsNullOrWhiteSpace(req.Password))
+    {
+        return Results.BadRequest(ApiResponse<string>.Fail("Username and password are required."));
+    }
+
+    string cleanUser = System.Text.RegularExpressions.Regex.Replace(req.Username.Trim(), @"[^a-zA-Z0-9_\-\.]", "");
+    if (string.IsNullOrWhiteSpace(cleanUser))
+    {
+        return Results.BadRequest(ApiResponse<string>.Fail("Invalid username. Alphanumeric characters only."));
+    }
+
+    if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+    {
+        try
+        {
+            // 1. Create Windows User
+            var psiAdd = new ProcessStartInfo
+            {
+                FileName = "net.exe",
+                Arguments = $"user \"{cleanUser}\" \"{req.Password}\" /add /comment:\"AppShield Managed Child Account\" /passwordchg:no",
+                CreateNoWindow = true,
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true
+            };
+            using var pAdd = Process.Start(psiAdd);
+            pAdd?.WaitForExit();
+            string err = pAdd?.StandardError.ReadToEnd() ?? "";
+            if (pAdd != null && pAdd.ExitCode != 0 && !err.Contains("already exists", StringComparison.OrdinalIgnoreCase))
+            {
+                return Results.BadRequest(ApiResponse<string>.Fail($"Failed to create Windows account: {err.Trim()}"));
+            }
+
+            // 2. Ensure added to standard Users group
+            var psiGrp = new ProcessStartInfo
+            {
+                FileName = "net.exe",
+                Arguments = $"localgroup Users \"{cleanUser}\" /add",
+                CreateNoWindow = true,
+                UseShellExecute = false
+            };
+            using var pGrp = Process.Start(psiGrp);
+            pGrp?.WaitForExit();
+
+            // 3. Ensure removed from Administrators group (Standard account only)
+            var psiDelAdmin = new ProcessStartInfo
+            {
+                FileName = "net.exe",
+                Arguments = $"localgroup Administrators \"{cleanUser}\" /delete",
+                CreateNoWindow = true,
+                UseShellExecute = false
+            };
+            using var pDel = Process.Start(psiDelAdmin);
+            pDel?.WaitForExit();
+        }
+        catch (Exception ex)
+        {
+            return Results.StatusCode(500);
+        }
+    }
+
+    // Refresh users and apply protection
+    var localUsers = Win32ProcessHelper.EnumerateLocalUsers();
+    storage.UpsertUsers(localUsers);
+
+    var created = localUsers.FirstOrDefault(u => u.Username.Equals(cleanUser, StringComparison.OrdinalIgnoreCase));
+    if (created != null)
+    {
+        storage.UpdateUserManagement(created.Sid, isManaged: true, blockUserWritableDirs: true);
+    }
+
+    return Results.Ok(ApiResponse<string>.Ok($"Standard child account '{cleanUser}' created and protected successfully."));
+});
+
+// 3c. POST /api/v1/system/open-account-settings (Launches Windows Settings to manage Family & other users)
+app.MapPost("/api/v1/system/open-account-settings", () =>
+{
+    if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = "cmd.exe",
+                Arguments = "/c start ms-settings:otherusers",
+                CreateNoWindow = true,
+                UseShellExecute = false
+            });
+            return Results.Ok(ApiResponse<string>.Ok("Windows Account Settings opened on host."));
+        }
+        catch (Exception ex)
+        {
+            return Results.BadRequest(ApiResponse<string>.Fail($"Unable to open Windows Settings: {ex.Message}"));
+        }
+    }
+
+    return Results.Ok(ApiResponse<string>.Ok("Simulation: Opened Account Settings."));
+});
+
 // 4. GET /api/v1/processes
 // 4. GET /api/v1/processes
 app.MapGet("/api/v1/processes", (StorageManager storage) =>
@@ -368,6 +470,93 @@ app.MapPost("/api/nodes/{nodeId}/users/manage", (string nodeId, ManageUserReques
     return Results.Ok(new { success = true, message = "User settings updated" });
 });
 
+app.MapPost("/api/nodes/{nodeId}/users/create-standard", (string nodeId, CreateStandardUserRequestDto req, StorageManager storage) =>
+{
+    if (string.IsNullOrWhiteSpace(req.Username) || string.IsNullOrWhiteSpace(req.Password))
+    {
+        return Results.BadRequest(new { success = false, error = "Username and password are required." });
+    }
+
+    string cleanUser = System.Text.RegularExpressions.Regex.Replace(req.Username.Trim(), @"[^a-zA-Z0-9_\-\.]", "");
+    if (string.IsNullOrWhiteSpace(cleanUser))
+    {
+        return Results.BadRequest(new { success = false, error = "Invalid username." });
+    }
+
+    if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+    {
+        try
+        {
+            var psiAdd = new ProcessStartInfo
+            {
+                FileName = "net.exe",
+                Arguments = $"user \"{cleanUser}\" \"{req.Password}\" /add /comment:\"AppShield Managed Child Account\" /passwordchg:no",
+                CreateNoWindow = true,
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true
+            };
+            using var pAdd = Process.Start(psiAdd);
+            pAdd?.WaitForExit();
+
+            var psiGrp = new ProcessStartInfo
+            {
+                FileName = "net.exe",
+                Arguments = $"localgroup Users \"{cleanUser}\" /add",
+                CreateNoWindow = true,
+                UseShellExecute = false
+            };
+            using var pGrp = Process.Start(psiGrp);
+            pGrp?.WaitForExit();
+
+            var psiDelAdmin = new ProcessStartInfo
+            {
+                FileName = "net.exe",
+                Arguments = $"localgroup Administrators \"{cleanUser}\" /delete",
+                CreateNoWindow = true,
+                UseShellExecute = false
+            };
+            using var pDel = Process.Start(psiDelAdmin);
+            pDel?.WaitForExit();
+        }
+        catch { }
+    }
+
+    var localUsers = Win32ProcessHelper.EnumerateLocalUsers();
+    storage.UpsertUsers(localUsers);
+
+    var created = localUsers.FirstOrDefault(u => u.Username.Equals(cleanUser, StringComparison.OrdinalIgnoreCase));
+    if (created != null)
+    {
+        storage.UpdateUserManagement(created.Sid, isManaged: true, blockUserWritableDirs: true);
+    }
+
+    return Results.Ok(new { success = true, message = $"Standard child account '{cleanUser}' created and protected." });
+});
+
+app.MapPost("/api/nodes/{nodeId}/system/open-account-settings", () =>
+{
+    if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = "cmd.exe",
+                Arguments = "/c start ms-settings:otherusers",
+                CreateNoWindow = true,
+                UseShellExecute = false
+            });
+            return Results.Ok(new { success = true, message = "Opened Windows Account Settings" });
+        }
+        catch (Exception ex)
+        {
+            return Results.BadRequest(new { success = false, error = ex.Message });
+        }
+    }
+    return Results.Ok(new { success = true, message = "Simulation: Opened Account Settings" });
+});
+
 app.MapGet("/api/nodes/{nodeId}/rules", (string nodeId, StorageManager storage) =>
 {
     return Results.Ok(new { 
@@ -583,6 +772,12 @@ static List<ProcessInfoDto> GetRunningProcesses(StorageManager storage)
 
 public class VerifyPasswordDto
 {
+    public string? Password { get; set; }
+}
+
+public class CreateStandardUserRequestDto
+{
+    public string? Username { get; set; }
     public string? Password { get; set; }
 }
 

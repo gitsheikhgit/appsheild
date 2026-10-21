@@ -29,20 +29,22 @@ class FleetStore:
 
     def _ensure_file(self):
         if not os.path.exists(self.file_path):
-            # Seed default demo node if empty
-            initial_data = [
-                {
-                    "id": "node-default",
-                    "name": "Local-Test-PC",
-                    "lan_ip": "127.0.0.1",
-                    "tailscale_ip": "",
-                    "port": 54120,
-                    "psk": "AppShield-Default-PSK-Key-2026-Secure",
-                    "status": "unknown",
-                    "active_ip": "127.0.0.1",
-                    "last_seen": None
-                }
-            ]
+            # Seed default demo node only on Windows; on macOS/Linux start empty so user connects real PC
+            initial_data = []
+            if os.name == "nt":
+                initial_data = [
+                    {
+                        "id": "node-default",
+                        "name": "Local-Test-PC",
+                        "lan_ip": "127.0.0.1",
+                        "tailscale_ip": "",
+                        "port": 54120,
+                        "psk": "AppShield-Default-PSK-Key-2026-Secure",
+                        "status": "unknown",
+                        "active_ip": "127.0.0.1",
+                        "last_seen": None
+                    }
+                ]
             with open(self.file_path, "w", encoding="utf-8") as f:
                 json.dump(initial_data, f, indent=2)
 
