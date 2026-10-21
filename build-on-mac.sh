@@ -59,38 +59,46 @@ dotnet publish "$SCRIPT_DIR/AppShield.Client/AppShield.Prompt/AppShield.Prompt.c
     -p:EnableWindowsTargeting=true \
     -o "$SCRIPT_DIR/AppShield.Client/AppShield.Prompt/bin/publish-win64"
 
-# Step 4: Package Windows Client Deployment Folder
-echo "[+] Packaging standalone executables into dist/Windows-Client-Deploy/..."
+# Step 4: Cross-Compile AppShield.Installer (Single Standalone Executable AppShield-Setup.exe)
+echo "[+] Creating payload archive for single-file installer..."
+cp "$SCRIPT_DIR/AppShield.Client/AppShield.Installer/appshield.ico" "$DIST_DIR/"
+zip -j "$SCRIPT_DIR/AppShield.Client/AppShield.Installer/payload.zip" \
+    "$SCRIPT_DIR/AppShield.Client/AppShield.Service/bin/publish-win64/AppShield.Service.exe" \
+    "$SCRIPT_DIR/AppShield.Client/AppShield.Prompt/bin/publish-win64/AppShield.Prompt.exe" \
+    "$SCRIPT_DIR/AppShield.Client/AppShield.Installer/appshield.ico"
+
+echo "[+] Cross-compiling AppShield.Installer (AppShield-Setup.exe)..."
+dotnet publish "$SCRIPT_DIR/AppShield.Client/AppShield.Installer/AppShield.Installer.csproj" \
+    -c Release \
+    -r win-x64 \
+    --self-contained true \
+    -p:PublishSingleFile=true \
+    -p:IncludeNativeLibrariesForSelfExtract=true \
+    -p:EnableWindowsTargeting=true \
+    -o "$SCRIPT_DIR/AppShield.Client/AppShield.Installer/bin/publish-win64"
+
+# Step 5: Package Windows Client Deployment Folder
+echo "[+] Packaging standalone executables and launchers into dist/Windows-Client-Deploy/..."
 cp "$SCRIPT_DIR/AppShield.Client/AppShield.Service/bin/publish-win64/AppShield.Service.exe" "$DIST_DIR/"
 cp "$SCRIPT_DIR/AppShield.Client/AppShield.Prompt/bin/publish-win64/AppShield.Prompt.exe" "$DIST_DIR/"
+cp "$SCRIPT_DIR/AppShield.Client/AppShield.Installer/bin/publish-win64/AppShield-Setup.exe" "$DIST_DIR/"
+if [ -d "$HOME/Desktop" ]; then
+    cp "$SCRIPT_DIR/AppShield.Client/AppShield.Installer/bin/publish-win64/AppShield-Setup.exe" "$HOME/Desktop/AppShield-Setup.exe" || true
+fi
 cp "$SCRIPT_DIR/Install-AppShield.ps1" "$DIST_DIR/"
 cp "$SCRIPT_DIR/Uninstall-AppShield.ps1" "$DIST_DIR/"
 
-cat << 'EOF' > "$DIST_DIR/README-DEPLOY.txt"
-=============================================================================
-                    AppShield Windows Client Deployment
-=============================================================================
+# Package into ZIP archive for USB transfer
+echo "[+] Creating AppShield-Windows-Install.zip..."
+(cd "$SCRIPT_DIR/dist" && zip -r "$DIST_DIR/AppShield-Windows-Install.zip" Windows-Client-Deploy)
+if [ -d "$HOME/Desktop" ]; then
+    cp "$DIST_DIR/AppShield-Windows-Install.zip" "$HOME/Desktop/AppShield-Windows-Install.zip" || true
+fi
+cp "$DIST_DIR/AppShield-Windows-Install.zip" "$SCRIPT_DIR/AppShield-Windows-Install.zip" || true
 
-How to Install on Target Windows 10/11 (x64) PC:
-
-1. Copy this entire "Windows-Client-Deploy" folder to the target Windows PC
-   (e.g., via USB flash drive or local network share).
-2. Right-click "Install-AppShield.ps1" and select "Run with PowerShell as Administrator".
-3. When prompted, type a Master Password for emergency offline unlocks.
-4. The installer will:
-   - Generate a 32-character Pre-Shared Key (PSK)
-   - Copy binaries to C:\Program Files\AppShield\
-   - Create C:\ProgramData\AppShield\ and lock down NTFS ACLs exclusively to SYSTEM & Admins
-   - Register and start AppShieldService under NT AUTHORITY\SYSTEM
-   - Configure automatic service crash recovery
-   - Open Windows Defender Firewall port 54120
-5. Note the computer name, IP, and PSK shown at the end of the script,
-   and enter them into your macOS Admin Control Dashboard.
-=============================================================================
-EOF
-
-echo "[+] Successfully packaged Windows client binaries:"
+echo "[+] Successfully packaged Windows client binaries and AppShield-Setup.exe:"
 ls -lh "$DIST_DIR"
+
 
 # Step 5: Configure Admin Control Dashboard Python Virtual Environment
 echo ""

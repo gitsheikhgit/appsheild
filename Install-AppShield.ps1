@@ -182,3 +182,9 @@ Write-Host "  PSK:               " -NoNewline; Write-Host $GeneratedPsk -Foregro
 Write-Host ""
 Write-Host "Note: Keep your Master Password safe for emergency overrides." -ForegroundColor Yellow
 Write-Host ""
+Write-Host "Press any key to close this installer window..." -ForegroundColor Gray
+try {
+    $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+} catch {
+    pause
+}

@@ -30,3 +30,7 @@ appshield.db-journal
 appshield.db-wal
 appshield.db-shm
 *.log
+*.zip
+*.exe
+.server.pid
+AppShield.Client/AppShield.Installer/payload.zip

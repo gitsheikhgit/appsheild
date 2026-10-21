@@ -37,3 +37,14 @@ jobs:
       with:
         name: Windows-Client-Deploy-win-x64
         path: dist/Windows-Client-Deploy/
+
+    - name: Create GitHub Release
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: softprops/action-gh-release@v2
+      with:
+        files: |
+          dist/Windows-Client-Deploy/AppShield-Setup.exe
+          dist/Windows-Client-Deploy/AppShield-Windows-Install.zip
+        generate_release_notes: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
