@@ -128,11 +128,18 @@ clang -O2 -arch arm64 -arch x86_64 -framework Cocoa -framework WebKit \
     -o "$SCRIPT_DIR/AppShield Admin.app/Contents/MacOS/AppShield Admin"
 chmod +x "$SCRIPT_DIR/AppShield Admin.app/Contents/MacOS/AppShield Admin"
 
-# Install native app to Desktop and /Applications if permitted
+# Package native macOS app in project folder and dist/Mac-Admin-Deploy/
+echo "[+] Packaging macOS deployment bundle..."
+mkdir -p "$SCRIPT_DIR/dist/Mac-Admin-Deploy"
+(cd "$SCRIPT_DIR" && rm -f "AppShield-Admin-macOS.zip" && zip -r "AppShield-Admin-macOS.zip" "AppShield Admin.app" >/dev/null 2>&1 || true)
+cp -R "$SCRIPT_DIR/AppShield Admin.app" "$SCRIPT_DIR/dist/Mac-Admin-Deploy/" || true
+cp "$SCRIPT_DIR/AppShield-Admin-macOS.zip" "$SCRIPT_DIR/dist/Mac-Admin-Deploy/" || true
+
+# Also sync to Desktop and /Applications if permitted
 if [ -d "$HOME/Desktop" ]; then
     rm -rf "$HOME/Desktop/AppShield Admin.app"
     cp -R "$SCRIPT_DIR/AppShield Admin.app" "$HOME/Desktop/AppShield Admin.app" || true
-    (cd "$SCRIPT_DIR" && zip -r "$HOME/Desktop/AppShield-Admin-macOS.zip" "AppShield Admin.app" >/dev/null 2>&1 || true)
+    cp "$SCRIPT_DIR/AppShield-Admin-macOS.zip" "$HOME/Desktop/AppShield-Admin-macOS.zip" || true
 fi
 if [ -d "/Applications" ]; then
     rm -rf "/Applications/AppShield Admin.app" 2>/dev/null || true
