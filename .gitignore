@@ -34,3 +34,5 @@ appshield.db-shm
 *.exe
 .server.pid
 AppShield.Client/AppShield.Installer/payload.zip
+Windows-Client-Deploy/
+AppShield Admin 2.app/

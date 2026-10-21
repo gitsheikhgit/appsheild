@@ -180,7 +180,11 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 async def serve_index():
     index_file = os.path.join(STATIC_DIR, "index.html")
     if os.path.exists(index_file):
-        return FileResponse(index_file)
+        return FileResponse(index_file, headers={
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Pragma": "no-cache",
+            "Expires": "0"
+        })
     return {"message": "AppShield Admin API Running. Static Web UI not yet generated."}
 
 if __name__ == "__main__":

@@ -63,183 +63,357 @@
     }
   </style>
 </head>
-<body class="font-sans antialiased min-h-screen flex flex-col" x-data="appShieldApp()" x-init="init()">
+<body class="font-sans antialiased h-screen overflow-hidden flex bg-[#0c0e14] text-gray-100" x-data="appShieldApp()" x-init="init()">
 
-  <!-- Top Glass Navigation Bar -->
-  <header class="sticky top-0 z-40 glass-card border-b border-zinc-800/80 px-6 py-3.5 flex items-center justify-between">
-    <!-- Brand Title & Tagline -->
-    <div class="flex items-center space-x-3">
-      <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-purple-500 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+  <!-- LEFT SIDEBAR NAVIGATION -->
+  <aside class="w-64 flex-shrink-0 bg-[#11131c] border-r border-zinc-800/80 flex flex-col h-screen select-none z-30">
+    <!-- Brand Header -->
+    <div class="p-4 border-b border-zinc-800/80 flex items-center space-x-3 bg-zinc-950/40">
+      <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/20 flex-shrink-0">
         <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
         </svg>
       </div>
-      <div>
-        <div class="flex items-center space-x-2">
-          <h1 class="text-xl font-display font-bold bg-gradient-to-r from-white via-indigo-100 to-purple-200 bg-clip-text text-transparent">
-            AppShield Fleet
-          </h1>
-          <span class="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">v1.2.0</span>
+      <div class="overflow-hidden">
+        <div class="flex items-center space-x-1.5">
+          <h1 class="text-base font-display font-bold text-white tracking-wide truncate">AppShield</h1>
+          <span class="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">v1.2.0</span>
         </div>
-        <p class="text-xs text-zinc-400">Endpoint Control & Tamper-Resistant Windows Security</p>
+        <p class="text-[11px] text-zinc-400 truncate">Fleet Control Center</p>
       </div>
     </div>
 
-    <!-- Multi-PC Fleet Selector & Status -->
-    <div class="flex items-center space-x-4">
-      <!-- Node Selector Dropdown -->
-      <div class="flex items-center space-x-2 bg-zinc-900/90 border border-zinc-700/60 rounded-lg px-3 py-1.5">
-        <span class="text-xs text-zinc-400">Target PC:</span>
+    <!-- Target PC / Node Selector -->
+    <div class="p-3 border-b border-zinc-800/80 bg-zinc-950/20">
+      <div class="text-[10px] font-semibold uppercase tracking-wider text-zinc-400 mb-1.5 flex items-center justify-between">
+        <span>Target Computer</span>
+        <button @click="showAddModal = true" class="text-indigo-400 hover:text-indigo-300 font-bold text-xs" title="Add Computer">+ Add</button>
+      </div>
+      <div class="relative">
         <select 
           x-model="selectedNodeId" 
           @change="onNodeChange()"
-          class="bg-transparent text-sm font-semibold text-white focus:outline-none cursor-pointer">
+          class="w-full bg-zinc-900 border border-zinc-700/60 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-white focus:outline-none focus:border-indigo-500 cursor-pointer">
           <template x-for="node in fleet" :key="node.id">
-            <option :value="node.id" class="bg-zinc-800 text-white" x-text="node.name"></option>
+            <option :value="node.id" class="bg-zinc-800 text-white" x-text="node.name + (node.status?.startsWith('online') ? ' (🟢)' : ' (🔴)')"></option>
           </template>
         </select>
       </div>
+    </div>
 
-      <!-- Add PC Button -->
+    <!-- Navigation Tabs (Vertical Sidebar) -->
+    <nav class="flex-1 px-2.5 py-3 space-y-1 overflow-y-auto custom-scroll">
+      <!-- Overview & Fleet -->
       <button 
-        @click="showAddModal = true" 
-        class="flex items-center space-x-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold px-3 py-2 rounded-lg transition shadow-md shadow-indigo-600/20">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-        <span>+ Add PC</span>
-      </button>
-
-      <!-- Active Connection Status Pill -->
-      <div class="flex items-center space-x-2 glass-card px-3 py-1.5 rounded-lg border border-zinc-800">
-        <span class="relative flex h-2.5 w-2.5">
-          <span 
-            :class="{
-              'animate-ping bg-emerald-400': currentNode?.status?.startsWith('online'),
-              'bg-rose-500': currentNode?.status === 'offline',
-              'bg-amber-400': currentNode?.status === 'unknown'
-            }"
-            class="absolute inline-flex h-full w-full rounded-full opacity-75"></span>
-          <span 
-            :class="{
-              'bg-emerald-500': currentNode?.status?.startsWith('online'),
-              'bg-rose-500': currentNode?.status === 'offline',
-              'bg-amber-400': currentNode?.status === 'unknown'
-            }"
-            class="relative inline-flex rounded-full h-2.5 w-2.5"></span>
-        </span>
-        <div class="text-xs">
-          <span class="font-medium" x-text="formatStatus(currentNode?.status)"></span>
-          <span class="text-zinc-500 font-mono text-[11px]" x-show="currentNode?.active_ip" x-text="'(' + currentNode?.active_ip + ')'"></span>
+        @click="activeTab = 'overview'" 
+        :class="activeTab === 'overview' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30 font-bold' : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60 font-medium'"
+        class="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-xs transition group">
+        <div class="flex items-center space-x-2.5">
+          <span class="text-base">🛡️</span>
+          <span>Overview & Fleet</span>
         </div>
-        <button 
-          @click="pingCurrentNode()" 
-          title="Refresh Heartbeat" 
-          class="text-zinc-400 hover:text-white p-1 transition ml-1"
-          :class="{'animate-spin text-indigo-400': isRefreshing}">
-          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-        </button>
-      </div>
-    </div>
-  </header>
+      </button>
 
-  <!-- Offline Target Notification Banner -->
-  <div x-show="currentNode && currentNode.status === 'offline'" class="bg-rose-950/40 border-b border-rose-500/30 px-6 py-2.5 flex flex-wrap items-center justify-between text-xs gap-2">
-    <div class="flex items-center space-x-2 text-rose-300">
-      <span class="text-sm">🔴</span>
-      <span><strong>Target Computer Offline:</strong> Cannot communicate with <span class="font-bold text-white" x-text="currentNode.name"></span> (<span class="font-mono text-zinc-300" x-text="currentNode.active_ip || currentNode.lan_ip || '127.0.0.1'"></span>). Real-time monitoring and enforcement require an active connection.</span>
-    </div>
-    <div class="flex items-center space-x-2">
-      <button @click="triggerOfflinePopUp('Manage PC', 'Target computer is offline.')" class="bg-rose-600/30 hover:bg-rose-600 text-rose-200 border border-rose-500/40 px-2.5 py-1 rounded text-[11px] font-semibold transition">
-        Resolve Connection
-      </button>
-      <button @click="showAddModal = true" class="bg-indigo-600 hover:bg-indigo-500 text-white px-2.5 py-1 rounded text-[11px] font-semibold transition">
-        + Add / Switch Client
-      </button>
-    </div>
-  </div>
-
-  <!-- Empty Fleet Prompt -->
-  <div x-show="fleet.length === 0" class="m-6 p-8 glass-card border border-indigo-500/30 rounded-2xl text-center space-y-4 max-w-xl mx-auto shadow-2xl">
-    <div class="w-16 h-16 mx-auto rounded-2xl bg-indigo-600/20 border border-indigo-500/40 flex items-center justify-center text-3xl">
-      🖥️
-    </div>
-    <h2 class="text-lg font-bold text-white">No Windows Computers in Fleet</h2>
-    <p class="text-xs text-zinc-400 leading-relaxed">
-      Welcome to AppShield v1.2.0. Add your child's Windows computer or scan your local network to start managing applications, schedules, and process security.
-    </p>
-    <div class="flex items-center justify-center space-x-3 pt-2">
-      <button @click="showAddModal = true" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl transition shadow-lg shadow-indigo-600/20">
-        ➕ Add Computer / Client
-      </button>
-      <button @click="showAddModal = true; runMdnsScan()" class="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 text-xs font-semibold rounded-xl transition">
-        🔍 Scan Local Subnet (mDNS)
-      </button>
-    </div>
-  </div>
-
-  <!-- Navigation Tabs -->
-  <div class="bg-zinc-950/60 border-b border-zinc-800/80 px-6 py-2 flex items-center justify-between">
-    <nav class="flex space-x-2">
+      <!-- Live Processes -->
       <button 
         @click="activeTab = 'processes'" 
-        :class="activeTab === 'processes' ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-500/40' : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/60'"
-        class="px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-2 transition">
-        <span>🚀 Live Process Monitor</span>
-        <span class="bg-zinc-800 px-1.5 py-0.5 rounded text-[10px]" x-text="processes.length"></span>
+        :class="activeTab === 'processes' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30 font-bold' : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60 font-medium'"
+        class="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-xs transition group">
+        <div class="flex items-center space-x-2.5">
+          <span class="text-base">🚀</span>
+          <span>Live Processes</span>
+        </div>
+        <span class="text-[10px] px-1.5 py-0.5 rounded-full" 
+              :class="activeTab === 'processes' ? 'bg-white/20 text-white' : 'bg-zinc-800 text-zinc-400'"
+              x-text="processes.length"></span>
       </button>
 
+      <!-- Users & Child Jail -->
       <button 
         @click="activeTab = 'users'" 
-        :class="activeTab === 'users' ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-500/40' : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/60'"
-        class="px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-2 transition">
-        <span>👥 User Accounts & Path Jail</span>
-        <span class="bg-zinc-800 px-1.5 py-0.5 rounded text-[10px]" x-text="users.length"></span>
+        :class="activeTab === 'users' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30 font-bold' : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60 font-medium'"
+        class="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-xs transition group">
+        <div class="flex items-center space-x-2.5">
+          <span class="text-base">👥</span>
+          <span>Users & Child Jail</span>
+        </div>
+        <span class="text-[10px] px-1.5 py-0.5 rounded-full" 
+              :class="activeTab === 'users' ? 'bg-white/20 text-white' : 'bg-zinc-800 text-zinc-400'"
+              x-text="users.length"></span>
       </button>
 
+      <!-- Rules & Schedules -->
       <button 
         @click="activeTab = 'rules'" 
-        :class="activeTab === 'rules' ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-500/40' : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/60'"
-        class="px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-2 transition">
-        <span>📜 Rules, Schedules & Quotas</span>
-        <span class="bg-zinc-800 px-1.5 py-0.5 rounded text-[10px]" x-text="rules.length"></span>
+        :class="activeTab === 'rules' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30 font-bold' : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60 font-medium'"
+        class="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-xs transition group">
+        <div class="flex items-center space-x-2.5">
+          <span class="text-base">📜</span>
+          <span>Rules & Schedules</span>
+        </div>
+        <span class="text-[10px] px-1.5 py-0.5 rounded-full" 
+              :class="activeTab === 'rules' ? 'bg-white/20 text-white' : 'bg-zinc-800 text-zinc-400'"
+              x-text="rules.length"></span>
       </button>
 
-      <button 
-        @click="activeTab = 'logs'" 
-        :class="activeTab === 'logs' ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-500/40' : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/60'"
-        class="px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-2 transition">
-        <span>📋 Audit & Block Logs</span>
-        <span class="bg-zinc-800 px-1.5 py-0.5 rounded text-[10px]" x-text="logs.length"></span>
-      </button>
-
+      <!-- Installed Applications -->
       <button 
         @click="activeTab = 'installed'; loadInstalledApps()" 
-        :class="activeTab === 'installed' ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-500/40' : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/60'"
-        class="px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-2 transition">
-        <span>📦 Installed Applications</span>
-        <span class="bg-zinc-800 px-1.5 py-0.5 rounded text-[10px]" x-text="installedApps.length"></span>
+        :class="activeTab === 'installed' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30 font-bold' : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60 font-medium'"
+        class="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-xs transition group">
+        <div class="flex items-center space-x-2.5">
+          <span class="text-base">📦</span>
+          <span>Installed Software</span>
+        </div>
+        <span class="text-[10px] px-1.5 py-0.5 rounded-full" 
+              :class="activeTab === 'installed' ? 'bg-white/20 text-white' : 'bg-zinc-800 text-zinc-400'"
+              x-text="installedApps.length"></span>
       </button>
 
+      <!-- Audit & Block Logs -->
+      <button 
+        @click="activeTab = 'logs'" 
+        :class="activeTab === 'logs' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30 font-bold' : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60 font-medium'"
+        class="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-xs transition group">
+        <div class="flex items-center space-x-2.5">
+          <span class="text-base">📋</span>
+          <span>Audit & Block Logs</span>
+        </div>
+        <span class="text-[10px] px-1.5 py-0.5 rounded-full" 
+              :class="activeTab === 'logs' ? 'bg-white/20 text-white' : 'bg-zinc-800 text-zinc-400'"
+              x-text="logs.length"></span>
+      </button>
+
+      <!-- Settings & Uninstaller -->
       <button 
         @click="activeTab = 'settings'" 
-        :class="activeTab === 'settings' ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-500/40' : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/60'"
-        class="px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-2 transition">
-        <span>⚙️ Node Settings & Uninstaller</span>
+        :class="activeTab === 'settings' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30 font-bold' : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60 font-medium'"
+        class="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-xs transition group">
+        <div class="flex items-center space-x-2.5">
+          <span class="text-base">⚙️</span>
+          <span>Settings & Uninstaller</span>
+        </div>
       </button>
     </nav>
 
-    <!-- Global Telemetry Bar -->
-    <div class="hidden md:flex items-center space-x-3 text-xs text-zinc-400">
-      <span x-show="currentNode?.agent_version" class="bg-indigo-600/30 text-indigo-300 border border-indigo-500/40 px-2 py-0.5 rounded font-mono text-[10px] font-bold" x-text="'Agent v' + currentNode.agent_version"></span>
-      <span x-show="currentNode?.hostname" x-text="'Host: ' + currentNode.hostname"></span>
-      <span x-show="currentNode?.os_version" class="text-zinc-500">|</span>
-      <span x-show="currentNode?.os_version" x-text="currentNode.os_version"></span>
-      <span x-show="currentNode?.uptime_seconds" class="text-zinc-500">|</span>
-      <span x-show="currentNode?.uptime_seconds" x-text="'Uptime: ' + formatUptime(currentNode.uptime_seconds)"></span>
+    <!-- Sidebar Bottom / Endpoint Status Footer -->
+    <div class="p-3 border-t border-zinc-800/80 bg-zinc-950/60 text-xs">
+      <div class="flex items-center justify-between mb-1.5">
+        <div class="flex items-center space-x-1.5 overflow-hidden">
+          <span class="relative flex h-2 w-2 flex-shrink-0">
+            <span :class="currentNode?.status?.startsWith('online') ? 'animate-ping bg-emerald-400' : 'bg-rose-500'" class="absolute inline-flex h-full w-full rounded-full opacity-75"></span>
+            <span :class="currentNode?.status?.startsWith('online') ? 'bg-emerald-500' : 'bg-rose-500'" class="relative inline-flex rounded-full h-2 w-2"></span>
+          </span>
+          <span class="font-bold text-[11px] text-zinc-200 truncate" x-text="currentNode?.name || 'No Target'"></span>
+        </div>
+        <button @click="pingCurrentNode()" class="text-zinc-400 hover:text-white p-1" title="Refresh Ping">
+          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+        </button>
+      </div>
+      <div class="text-[10px] text-zinc-400 font-mono flex items-center justify-between">
+        <span class="truncate" x-text="currentNode?.active_ip || currentNode?.lan_ip || 'Offline'"></span>
+        <span x-text="currentNode?.status?.startsWith('online') ? 'Online' : 'Offline'"></span>
+      </div>
     </div>
-  </div>
+  </aside>
 
-  <!-- Main Body Content Area -->
-  <main class="flex-1 p-6 max-w-7xl w-full mx-auto space-y-6">
+  <!-- RIGHT CONTENT CANVAS -->
+  <div class="flex-1 flex flex-col h-screen overflow-hidden">
+    <!-- Top Header Bar -->
+    <header class="h-14 flex-shrink-0 bg-[#11131c]/90 backdrop-blur border-b border-zinc-800/80 px-6 flex items-center justify-between z-20">
+      <div class="flex items-center space-x-3">
+        <h2 class="text-sm font-bold text-white tracking-wide flex items-center space-x-2">
+          <span x-show="activeTab === 'overview'">🛡️ Overview & Fleet Command</span>
+          <span x-show="activeTab === 'processes'">🚀 Live Process Monitor</span>
+          <span x-show="activeTab === 'users'">👥 User Accounts & Child Path Jail</span>
+          <span x-show="activeTab === 'rules'">📜 Application Rules & Schedules</span>
+          <span x-show="activeTab === 'installed'">📦 Installed Software Registry</span>
+          <span x-show="activeTab === 'logs'">📋 Intercepted Audit Logs</span>
+          <span x-show="activeTab === 'settings'">⚙️ Node Settings & Master Credentials</span>
+        </h2>
+        <span x-show="currentNode" class="text-[11px] text-zinc-400 bg-zinc-800/80 px-2 py-0.5 rounded border border-zinc-700/50 font-mono" x-text="currentNode?.name"></span>
+      </div>
+
+      <div class="flex items-center space-x-3 text-xs">
+        <!-- Global Telemetry -->
+        <div class="hidden lg:flex items-center space-x-3 text-[11px] text-zinc-400 mr-2">
+          <span x-show="currentNode?.agent_version" class="bg-indigo-600/30 text-indigo-300 border border-indigo-500/40 px-2 py-0.5 rounded font-mono text-[10px] font-bold" x-text="'Agent v' + currentNode.agent_version"></span>
+          <span x-show="currentNode?.uptime_seconds" x-text="'Uptime: ' + formatUptime(currentNode.uptime_seconds)"></span>
+        </div>
+
+        <button @click="showAddModal = true; runMdnsScan()" class="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700/60 px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition">
+          <span>🔍</span>
+          <span>Scan Subnet</span>
+        </button>
+        <button @click="showAddModal = true" class="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition shadow-md shadow-indigo-600/20">
+          <span>➕</span>
+          <span>Add PC</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Offline Target Notification Banner -->
+    <div x-show="currentNode && currentNode.status === 'offline'" class="bg-rose-950/40 border-b border-rose-500/30 px-6 py-2.5 flex flex-wrap items-center justify-between text-xs gap-2 flex-shrink-0">
+      <div class="flex items-center space-x-2 text-rose-300">
+        <span class="text-sm">🔴</span>
+        <span><strong>Target Computer Offline:</strong> Cannot communicate with <span class="font-bold text-white" x-text="currentNode.name"></span> (<span class="font-mono text-zinc-300" x-text="currentNode.active_ip || currentNode.lan_ip || '127.0.0.1'"></span>).</span>
+      </div>
+      <div class="flex items-center space-x-2">
+        <button @click="triggerOfflinePopUp('Manage PC', 'Target computer is offline.')" class="bg-rose-600/30 hover:bg-rose-600 text-rose-200 border border-rose-500/40 px-2.5 py-1 rounded text-[11px] font-semibold transition">
+          Resolve Connection
+        </button>
+        <button @click="showAddModal = true" class="bg-indigo-600 hover:bg-indigo-500 text-white px-2.5 py-1 rounded text-[11px] font-semibold transition">
+          + Add Client
+        </button>
+      </div>
+    </div>
+
+    <!-- Scrollable Main Content Canvas -->
+    <main class="flex-1 overflow-y-auto p-6 custom-scroll space-y-6">
+
+      <!-- Empty Fleet Prompt -->
+      <div x-show="fleet.length === 0" class="p-8 glass-card border border-indigo-500/30 rounded-2xl text-center space-y-4 max-w-xl mx-auto shadow-2xl">
+        <div class="w-16 h-16 mx-auto rounded-2xl bg-indigo-600/20 border border-indigo-500/40 flex items-center justify-center text-3xl">
+          🖥️
+        </div>
+        <h2 class="text-lg font-bold text-white">No Windows Computers in Fleet</h2>
+        <p class="text-xs text-zinc-400 leading-relaxed">
+          Welcome to AppShield v1.2.0. Add your child's Windows computer or scan your local network to start managing applications, schedules, and process security.
+        </p>
+        <div class="flex items-center justify-center space-x-3 pt-2">
+          <button @click="showAddModal = true" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl transition shadow-lg shadow-indigo-600/20">
+            ➕ Add Computer / Client
+          </button>
+          <button @click="showAddModal = true; runMdnsScan()" class="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 text-xs font-semibold rounded-xl transition">
+            🔍 Scan Local Subnet (mDNS)
+          </button>
+        </div>
+      </div>
+
+      <!-- TAB 0: OVERVIEW & FLEET COMMAND -->
+      <div x-show="activeTab === 'overview'" class="space-y-6">
+        <!-- Endpoint Hero Card -->
+        <div class="glass-card p-6 rounded-2xl border border-zinc-800 relative overflow-hidden">
+          <div class="absolute right-0 top-0 w-96 h-96 bg-indigo-600/10 rounded-full blur-3xl pointer-events-none"></div>
+          <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10">
+            <div class="space-y-1.5">
+              <div class="flex items-center space-x-2.5">
+                <span class="text-2xl">🛡️</span>
+                <h2 class="text-lg font-bold text-white tracking-wide" x-text="currentNode?.name || 'No Target Selected'"></h2>
+                <span :class="currentNode?.status?.startsWith('online') ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-rose-500/20 text-rose-300 border-rose-500/30'" 
+                      class="text-[10px] font-mono font-bold px-2.5 py-0.5 rounded-full border"
+                      x-text="formatStatus(currentNode?.status)"></span>
+              </div>
+              <p class="text-xs text-zinc-400">
+                Session 0 Kernel Protection & Remote Application Control
+              </p>
+            </div>
+
+            <!-- Quick Metrics Grid -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+              <div class="bg-zinc-900/80 border border-zinc-800 p-3 rounded-xl">
+                <span class="text-zinc-500 block text-[10px] uppercase font-bold">Active IP</span>
+                <span class="font-mono text-zinc-200 font-semibold" x-text="currentNode?.active_ip || currentNode?.lan_ip || 'Offline'"></span>
+              </div>
+              <div class="bg-zinc-900/80 border border-zinc-800 p-3 rounded-xl">
+                <span class="text-zinc-500 block text-[10px] uppercase font-bold">Agent Version</span>
+                <span class="font-mono text-indigo-300 font-semibold" x-text="'v' + (currentNode?.agent_version || '1.2.0')"></span>
+              </div>
+              <div class="bg-zinc-900/80 border border-zinc-800 p-3 rounded-xl">
+                <span class="text-zinc-500 block text-[10px] uppercase font-bold">Protected Users</span>
+                <span class="font-mono text-emerald-400 font-semibold" x-text="users.filter(u => u.isManaged).length + ' accounts'"></span>
+              </div>
+              <div class="bg-zinc-900/80 border border-zinc-800 p-3 rounded-xl">
+                <span class="text-zinc-500 block text-[10px] uppercase font-bold">Active Rules</span>
+                <span class="font-mono text-purple-400 font-semibold" x-text="rules.length + ' rules'"></span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Child Account Safety Alert Banner on Overview (if all accounts are admins) -->
+        <div x-show="!hasStandardAccount" class="p-5 rounded-2xl bg-amber-950/40 border border-amber-500/40 space-y-3 shadow-xl">
+          <div class="flex items-start space-x-3">
+            <span class="text-2xl flex-shrink-0">⚠️</span>
+            <div class="space-y-1">
+              <h3 class="text-sm font-bold text-amber-200">No Child or Standard User Account Found</h3>
+              <p class="text-xs text-amber-300/80 leading-relaxed">
+                All accounts on <strong class="text-white" x-text="currentNode?.name"></strong> are Windows Administrators! Parental controls can be bypassed if the child has administrator privileges. Create a standard account for your child below.
+              </p>
+            </div>
+          </div>
+          <div class="flex flex-wrap items-center gap-2 pl-9">
+            <button @click="showCreateUserModal = true" class="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold text-xs rounded-lg transition shadow-md flex items-center space-x-1.5">
+              <span>➕</span>
+              <span>Create Standard Child Account</span>
+            </button>
+            <button @click="openWindowsAccountSettings()" class="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 text-xs font-semibold rounded-lg transition flex items-center space-x-1.5">
+              <span>⚙️</span>
+              <span>Open Windows Settings</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Quick Action Cards (12pm-8pm Schedule Preset & Path Jail) -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <!-- Preset Card -->
+          <div class="glass-card p-5 rounded-xl border border-zinc-800 space-y-3">
+            <div class="flex items-center space-x-2.5">
+              <span class="text-lg">⏱️</span>
+              <h3 class="text-sm font-bold text-white">Allowed Hours Preset (12:00 PM – 8:00 PM)</h3>
+            </div>
+            <p class="text-xs text-zinc-400 leading-relaxed">
+              Quickly restrict games or applications to afternoon and evening hours only. Outside of 12pm-8pm, the app terminates automatically.
+            </p>
+            <button @click="activeTab = 'rules'; newRule.ruleType = 'AllowedWindow'; newRule.scheduleStart = '12:00'; newRule.scheduleEnd = '20:00'" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-lg transition shadow flex items-center space-x-1.5">
+              <span>⚡ Configure 12pm–8pm Schedule</span>
+            </button>
+          </div>
+
+          <!-- Path Jail Card -->
+          <div class="glass-card p-5 rounded-xl border border-zinc-800 space-y-3">
+            <div class="flex items-center space-x-2.5">
+              <span class="text-lg">🔒</span>
+              <h3 class="text-sm font-bold text-white">Path Jail & Anti-Bypass</h3>
+            </div>
+            <p class="text-xs text-zinc-400 leading-relaxed">
+              Blocks portable executables from Downloads, Temp, Desktop, and USB drives so kids cannot bypass rules by downloading renamed .exe files.
+            </p>
+            <button @click="activeTab = 'users'" class="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 text-xs font-semibold rounded-lg transition flex items-center space-x-1.5">
+              <span>👥 Manage Protected Accounts</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Fleet Overview Grid -->
+        <div class="glass-card p-5 rounded-xl border border-zinc-800 space-y-3">
+          <div class="flex items-center justify-between">
+            <h3 class="text-sm font-bold text-white flex items-center space-x-2">
+              <span>🖥️</span>
+              <span>All Managed Computers (<span x-text="fleet.length"></span>)</span>
+            </h3>
+            <button @click="showAddModal = true" class="text-xs font-bold text-indigo-400 hover:text-indigo-300">+ Add Computer</button>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            <template x-for="node in fleet" :key="node.id">
+              <div @click="selectedNodeId = node.id; onNodeChange()" 
+                   :class="selectedNodeId === node.id ? 'border-indigo-500 bg-indigo-950/20 shadow-md shadow-indigo-500/10' : 'border-zinc-800 bg-zinc-900/50 hover:border-zinc-700'"
+                   class="p-3.5 rounded-xl border cursor-pointer transition space-y-2">
+                <div class="flex items-center justify-between">
+                  <span class="font-bold text-xs text-white truncate" x-text="node.name"></span>
+                  <span :class="node.status?.startsWith('online') ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'" class="text-[9px] font-mono px-2 py-0.5 rounded-full" x-text="node.status || 'unknown'"></span>
+                </div>
+                <div class="text-[11px] text-zinc-400 font-mono space-y-0.5">
+                  <div>LAN: <span class="text-zinc-300" x-text="node.lan_ip || 'None'"></span></div>
+                  <div x-show="node.tailscale_ip">Tailscale: <span class="text-zinc-300" x-text="node.tailscale_ip"></span></div>
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
+      </div>
+
 
     <!-- TAB 1: LIVE PROCESS MONITOR -->
     <div x-show="activeTab === 'processes'" class="space-y-4">
@@ -845,6 +1019,7 @@
       </div>
     </div>
   </main>
+  </div>
 
   <!-- MODAL: ADD PC TO FLEET -->
   <div x-show="showAddModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
@@ -1242,7 +1417,7 @@
         fleet: [],
         selectedNodeId: '',
         currentNode: null,
-        activeTab: 'processes',
+        activeTab: 'overview',
         isRefreshing: false,
         isScanning: false,
 

@@ -255,7 +255,7 @@
 
 - (void)loadDashboardWithRetry {
     NSURL *url = [NSURL URLWithString:[NSString stringWithFormat:@"http://127.0.0.1:%ld", (long)self.targetPort]];
-    NSURLRequest *request = [NSURLRequest requestWithURL:url];
+    NSURLRequest *request = [NSURLRequest requestWithURL:url cachePolicy:NSURLRequestReloadIgnoringLocalCacheData timeoutInterval:30.0];
     [self.webView loadRequest:request];
 }
 
@@ -273,7 +273,7 @@
 }
 
 - (void)reloadWebView:(id)sender {
-    [self.webView reload];
+    [self loadDashboardWithRetry];
 }
 
 - (void)showAbout:(id)sender {
