@@ -19,12 +19,28 @@ public class AuthMiddleware
     {
         string path = context.Request.Path.Value ?? string.Empty;
 
-        // Exempt /api/v1/health from authentication
-        if (context.Request.Method.Equals("GET", StringComparison.OrdinalIgnoreCase) &&
-            path.Equals("/api/v1/health", StringComparison.OrdinalIgnoreCase))
+        // Exempt static dashboard resources, health check, and master password verification
+        if (path == "/" ||
+            path.Equals("/index.html", StringComparison.OrdinalIgnoreCase) ||
+            path.Equals("/favicon.jpg", StringComparison.OrdinalIgnoreCase) ||
+            path.Equals("/favicon.ico", StringComparison.OrdinalIgnoreCase) ||
+            path.Equals("/appshield.ico", StringComparison.OrdinalIgnoreCase) ||
+            path.Equals("/api/v1/health", StringComparison.OrdinalIgnoreCase) ||
+            path.Equals("/api/auth/verify-master", StringComparison.OrdinalIgnoreCase))
         {
             await _next(context);
             return;
+        }
+
+        // Allow localhost loopback requests on local Control Center port 54121
+        if (context.Connection.LocalPort == 54121)
+        {
+            var remoteIp = context.Connection.RemoteIpAddress;
+            if (remoteIp != null && System.Net.IPAddress.IsLoopback(remoteIp))
+            {
+                await _next(context);
+                return;
+            }
         }
 
         // 1. Verify Timestamp header

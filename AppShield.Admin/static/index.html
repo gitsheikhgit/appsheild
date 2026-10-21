@@ -421,16 +421,18 @@
                   <span 
                     :class="{
                       'bg-rose-500/20 text-rose-300 border border-rose-500/30': rule.ruleType === 'AlwaysBlock',
+                      'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30': rule.ruleType === 'AllowedWindow',
                       'bg-amber-500/20 text-amber-300 border border-amber-500/30': rule.ruleType === 'ScheduleBlock',
                       'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30': rule.ruleType === 'DailyQuota'
                     }"
                     class="text-[10px] font-bold px-2 py-0.5 rounded"
-                    x-text="rule.ruleType"></span>
+                    x-text="rule.ruleType === 'AllowedWindow' ? 'Allowed Window' : rule.ruleType"></span>
                 </td>
                 <td class="py-3 px-4 text-zinc-300 font-mono text-[11px]" x-text="rule.targetUserSid === '*' ? 'All Managed Users (*)' : rule.targetUserSid"></td>
                 <td class="py-3 px-4 text-zinc-300">
                   <span x-show="rule.ruleType === 'AlwaysBlock'">Always Restricted (24/7)</span>
-                  <span x-show="rule.ruleType === 'ScheduleBlock'" x-text="'Window: ' + rule.scheduleStart + ' to ' + rule.scheduleEnd"></span>
+                  <span x-show="rule.ruleType === 'AllowedWindow'" class="text-emerald-400 font-semibold" x-text="'Allowed: ' + formatTime12(rule.scheduleStart) + ' – ' + formatTime12(rule.scheduleEnd)"></span>
+                  <span x-show="rule.ruleType === 'ScheduleBlock'" class="text-amber-400" x-text="'Blocked: ' + formatTime12(rule.scheduleStart) + ' – ' + formatTime12(rule.scheduleEnd)"></span>
                   <span x-show="rule.ruleType === 'DailyQuota'" x-text="rule.quotaMinutes + ' min/day max'"></span>
                 </td>
                 <td class="py-3 px-4 text-[10px] font-mono space-y-0.5">
@@ -853,20 +855,61 @@
         <div>
           <label class="block text-zinc-400 mb-1">Enforcement Mode</label>
           <select x-model="newRule.ruleType" class="w-full bg-zinc-900 border border-zinc-700 rounded px-3 py-1.5 text-white">
-            <option value="AlwaysBlock">AlwaysBlock (24/7 immediate termination)</option>
-            <option value="ScheduleBlock">ScheduleBlock (Restricted during specific hours)</option>
-            <option value="DailyQuota">DailyQuota (Cumulative daily runtime limit)</option>
+            <option value="AllowedWindow">🟢 Allowed Hours Window (Kid can ONLY use between specific times, e.g. 12:00 PM – 8:00 PM)</option>
+            <option value="AlwaysBlock">🔴 Always Block (24/7 immediate termination)</option>
+            <option value="ScheduleBlock">⛔ Bedtime / Downtime Block (Block ONLY during specific hours, e.g. 9:00 PM – 7:00 AM)</option>
+            <option value="DailyQuota">⏱️ Daily Quota (Cumulative daily runtime limit, e.g. 60 min/day)</option>
           </select>
         </div>
 
-        <div x-show="newRule.ruleType === 'ScheduleBlock'" class="grid grid-cols-2 gap-3 p-3 bg-zinc-900/60 rounded-lg border border-zinc-800">
-          <div>
-            <label class="block text-zinc-400 mb-1">Start Time (HH:mm)</label>
-            <input type="time" x-model="newRule.scheduleStart" class="w-full bg-zinc-900 border border-zinc-700 rounded px-2.5 py-1.5 text-white">
+        <!-- Schedule / Allowed Time Configuration Box -->
+        <div x-show="newRule.ruleType === 'AllowedWindow' || newRule.ruleType === 'ScheduleBlock'" class="p-3 bg-zinc-900/80 rounded-lg border border-zinc-700/80 space-y-3">
+          <div class="flex items-center justify-between">
+            <span class="text-[11px] font-bold text-indigo-400 uppercase tracking-wider">
+              <span x-show="newRule.ruleType === 'AllowedWindow'">Allowed Usage Schedule</span>
+              <span x-show="newRule.ruleType === 'ScheduleBlock'">Restricted / Downtime Schedule</span>
+            </span>
           </div>
+
+          <!-- Quick Presets -->
           <div>
-            <label class="block text-zinc-400 mb-1">End Time (HH:mm)</label>
-            <input type="time" x-model="newRule.scheduleEnd" class="w-full bg-zinc-900 border border-zinc-700 rounded px-2.5 py-1.5 text-white">
+            <label class="block text-[11px] text-zinc-400 mb-1.5">Quick Time Presets:</label>
+            <div class="grid grid-cols-2 gap-1.5">
+              <button type="button" @click="setTimePreset('12:00', '20:00')" class="px-2 py-1 text-[11px] rounded bg-zinc-800 hover:bg-indigo-600/30 hover:border-indigo-500 text-zinc-200 border border-zinc-700 text-left transition">
+                🕒 12:00 PM – 8:00 PM (Afternoon/Evening)
+              </button>
+              <button type="button" @click="setTimePreset('15:00', '20:00')" class="px-2 py-1 text-[11px] rounded bg-zinc-800 hover:bg-indigo-600/30 hover:border-indigo-500 text-zinc-200 border border-zinc-700 text-left transition">
+                🎒 3:00 PM – 8:00 PM (After School)
+              </button>
+              <button type="button" @click="setTimePreset('09:00', '17:00')" class="px-2 py-1 text-[11px] rounded bg-zinc-800 hover:bg-indigo-600/30 hover:border-indigo-500 text-zinc-200 border border-zinc-700 text-left transition">
+                ☀️ 9:00 AM – 5:00 PM (Daytime)
+              </button>
+              <button type="button" @click="setTimePreset('21:00', '07:00')" class="px-2 py-1 text-[11px] rounded bg-zinc-800 hover:bg-indigo-600/30 hover:border-indigo-500 text-zinc-200 border border-zinc-700 text-left transition">
+                🌙 9:00 PM – 7:00 AM (Bedtime Downtime)
+              </button>
+            </div>
+          </div>
+
+          <!-- Custom Time Pickers -->
+          <div class="grid grid-cols-2 gap-3 pt-1">
+            <div>
+              <label class="block text-zinc-400 mb-1">Start Time (HH:mm)</label>
+              <input type="time" x-model="newRule.scheduleStart" class="w-full bg-zinc-950 border border-zinc-700 rounded px-2.5 py-1.5 text-white font-mono">
+              <div class="text-[10px] text-zinc-500 mt-0.5" x-text="formatTime12(newRule.scheduleStart)"></div>
+            </div>
+            <div>
+              <label class="block text-zinc-400 mb-1">End Time (HH:mm)</label>
+              <input type="time" x-model="newRule.scheduleEnd" class="w-full bg-zinc-950 border border-zinc-700 rounded px-2.5 py-1.5 text-white font-mono">
+              <div class="text-[10px] text-zinc-500 mt-0.5" x-text="formatTime12(newRule.scheduleEnd)"></div>
+            </div>
+          </div>
+
+          <!-- Dynamic Behavior Summary Notice -->
+          <div x-show="newRule.ruleType === 'AllowedWindow'" class="p-2.5 rounded bg-emerald-500/10 border border-emerald-500/30 text-[11px] text-emerald-300">
+            <span class="font-bold">🟢 Active Policy:</span> Kid can <strong class="underline">ONLY</strong> launch and use this app between <span class="font-bold text-white" x-text="formatTime12(newRule.scheduleStart)"></span> and <span class="font-bold text-white" x-text="formatTime12(newRule.scheduleEnd)"></span>. It will be automatically blocked at all other times.
+          </div>
+          <div x-show="newRule.ruleType === 'ScheduleBlock'" class="p-2.5 rounded bg-amber-500/10 border border-amber-500/30 text-[11px] text-amber-300">
+            <span class="font-bold">⛔ Active Policy:</span> App is <strong class="underline">BLOCKED</strong> between <span class="font-bold text-white" x-text="formatTime12(newRule.scheduleStart)"></span> and <span class="font-bold text-white" x-text="formatTime12(newRule.scheduleEnd)"></span>. Kid can run it freely outside this window.
           </div>
         </div>
 
@@ -1040,12 +1083,12 @@
         discoveredServices: [],
         newRule: {
           targetUserSid: '*',
-          ruleType: 'AlwaysBlock',
+          ruleType: 'AllowedWindow',
           processName: '',
           originalFilename: '',
           sha256Hash: '',
-          scheduleStart: '21:00',
-          scheduleEnd: '07:00',
+          scheduleStart: '12:00',
+          scheduleEnd: '20:00',
           quotaMinutes: 60,
           description: ''
         },
@@ -1053,6 +1096,23 @@
         uninstallPassword: '',
         showPskInSettings: false,
         showPskInAdd: false,
+
+        formatTime12(timeStr) {
+          if (!timeStr) return '';
+          const parts = timeStr.split(':');
+          if (parts.length < 2) return timeStr;
+          let hours = parseInt(parts[0], 10);
+          const minutes = parts[1];
+          const ampm = hours >= 12 ? 'PM' : 'AM';
+          hours = hours % 12;
+          hours = hours ? hours : 12;
+          return `${hours}:${minutes} ${ampm}`;
+        },
+
+        setTimePreset(start, end) {
+          this.newRule.scheduleStart = start;
+          this.newRule.scheduleEnd = end;
+        },
 
         generateNewPsk() {
           const chars = 'abcdef0123456789';
@@ -1210,14 +1270,14 @@
         openBlockModalForProcess(proc) {
           this.newRule = {
             targetUserSid: proc.sid || '*',
-            ruleType: 'AlwaysBlock',
+            ruleType: 'AllowedWindow',
             processName: proc.processName,
             originalFilename: proc.originalFilename || '',
             sha256Hash: proc.sha256Hash || '',
-            scheduleStart: '21:00',
-            scheduleEnd: '07:00',
+            scheduleStart: '12:00',
+            scheduleEnd: '20:00',
             quotaMinutes: 60,
-            description: `Block ${proc.processName}`
+            description: `Schedule for ${proc.processName}`
           };
           this.showRuleModal = true;
         },
@@ -1225,12 +1285,12 @@
         openCreateRuleModal() {
           this.newRule = {
             targetUserSid: '*',
-            ruleType: 'AlwaysBlock',
+            ruleType: 'AllowedWindow',
             processName: '',
             originalFilename: '',
             sha256Hash: '',
-            scheduleStart: '21:00',
-            scheduleEnd: '07:00',
+            scheduleStart: '12:00',
+            scheduleEnd: '20:00',
             quotaMinutes: 60,
             description: ''
           };

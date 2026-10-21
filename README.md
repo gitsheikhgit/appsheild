@@ -68,23 +68,25 @@ Standard parental control tools and Windows Family Safety are frequently rendere
   - Built-in Privacy Disclosure Agreement & custom installation path selector.
   - Generates SQLite database, configures Windows Service, and opens local firewall port 54120.
   - Automatically creates Desktop & Start Menu shortcuts scoped exclusively to the Administrator profile.
-- **🖥️ Dual-Purpose Administrator Control Center**:
-  - Running `AppShield-Setup.exe` after installation launches the local desktop Control Center GUI.
-  - Protected with your Master Password.
-  - Denies access to standard (kid) accounts with an explicit access-denied security notice.
-  - Manage blocked applications, inspect active users, toggle Path Jail, view live block logs, and uninstall safely.
+- **🖥️ Full Native Administrator Control Center (Windows & macOS)**:
+  - Both Windows and macOS offer the **exact same rich, dark-mode management interface** with full feature parity.
+  - On Windows: Double-clicking the `AppShield` desktop or Start Menu icon launches a dedicated, frameless standalone window powered by the local background service on port 54121.
+  - Protected with Windows UAC administrator elevation and Master Password authentication. Standard (kid) accounts cannot access it.
+  - Control live processes, user accounts, path jails, blocked apps, bedtime/allowed schedules, registry-scanned installed apps, and uninstallation from **both Windows and Mac**.
 - **🛡️ 3-Layer Anti-Rename Process Detection**:
   - Matches process name (e.g., `discord.exe`).
   - Matches binary metadata PE header `OriginalFilename` (e.g., `Discord.exe` via `FileVersionInfo`).
   - Matches cryptographic SHA-256 binary hash (cached by file path and modification timestamp to preserve CPU performance).
 - **🔒 Path Jail (`BlockUserWritableDirectories`)**:
   - Blocks portable and unapproved executables from `%USERPROFILE%\Downloads`, `%USERPROFILE%\Desktop`, `%APPDATA%`, `%LOCALAPPDATA%\Temp`, and removable USB drives.
-- **⏱️ Daily Quotas & Schedule Enforcement**:
-  - **Always Block**: Immediate process tree termination (`process.Kill(entireProcessTree: true)`).
-  - **Daily Time Quotas**: Tracks active foreground execution in seconds; delivers a 60-second warning countdown before termination.
-  - **Schedule Blocks**: Enforces downtime windows (e.g., bedtime block from `21:00` to `07:00`).
+- **⏱️ Daily Quotas, Allowed Usage Windows & Bedtime Schedules**:
+  - **🟢 Allowed Hours Window**: Specify exact hours when an app is permitted (e.g., kid can **ONLY** use games from `12:00 PM to 8:00 PM`). The app is terminated automatically at all other times.
+  - **⛔ Bedtime / Downtime Block**: Restrict apps during nighttime hours (e.g., bedtime block from `9:00 PM to 7:00 AM`).
+  - **⏱️ Daily Time Quotas**: Tracks active foreground execution in seconds; delivers a 60-second warning countdown before termination (e.g., 60 minutes/day).
+  - **🔴 Always Block**: 24/7 immediate process tree termination (`process.Kill(entireProcessTree: true)`).
+  - **⚡ Quick 1-Click Presets**: Fast schedule buttons for `12:00 PM – 8:00 PM (Afternoon/Evening)`, `3:00 PM – 8:00 PM (After School)`, `9:00 AM – 5:00 PM (Daytime)`, and Bedtime.
 - **🌐 Remote Fleet Management with Dual-IP Failover**:
-  - Manage multiple endpoints from a unified macOS Dashboard (`AppShield Admin.app`).
+  - Manage multiple endpoints from a unified macOS Dashboard (`AppShield Admin.app`) or Windows Control Center.
   - Automatic failover between local LAN IP (at home) and Tailscale WireGuard IP (when away).
   - Mutual HTTPS communication with 32-character Pre-Shared Key (PSK) and anti-replay timestamps.
 - **🧹 100% Clean Safe Uninstaller**:

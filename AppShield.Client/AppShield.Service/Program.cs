@@ -25,23 +25,29 @@ if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows) && WindowsServiceHelpers
 
 // Singletons
 builder.Services.AddSingleton<StorageManager>();
+builder.Services.AddSingleton<FleetManager>();
 builder.Services.AddSingleton<QuotaTracker>();
 builder.Services.AddSingleton<EnforcementWorker>();
 builder.Services.AddSingleton<OverridePipeServer>();
 builder.Services.AddSingleton<MdnsAdvertiser>();
+builder.Services.AddHttpClient();
 
 // Initialize Storage and Certificate
 var tempStorage = new StorageManager();
 string certPath = Path.Combine(tempStorage.BaseDirectory, "cert.pfx");
 var cert = CertificateGenerator.GetOrCreateCertificate(certPath);
 
-// Configure Kestrel HTTPS listener on Port 54120
+// Configure Kestrel listeners
 builder.WebHost.ConfigureKestrel(options =>
 {
+    // Port 54120: Remote HTTPS listener (Tailscale / LAN / macOS Admin)
     options.ListenAnyIP(54120, listenOptions =>
     {
         listenOptions.UseHttps(cert);
     });
+
+    // Port 54121: Local HTTP listener strictly on localhost for Windows Admin Control Center GUI
+    options.ListenLocalhost(54121);
 });
 
 var app = builder.Build();
@@ -89,72 +95,18 @@ app.MapPost("/api/v1/users/manage", (ManageUserRequestDto req, StorageManager st
 });
 
 // 4. GET /api/v1/processes
+// 4. GET /api/v1/processes
 app.MapGet("/api/v1/processes", (StorageManager storage) =>
 {
-    var users = storage.GetAllUsers().ToDictionary(u => u.Sid, u => u, StringComparer.OrdinalIgnoreCase);
-    var results = new List<ProcessInfoDto>();
-    var processes = Process.GetProcesses();
-
-    foreach (var proc in processes)
-    {
-        try
-        {
-            int pid = proc.Id;
-            if (pid <= 4) continue;
-
-            string procName = proc.ProcessName;
-            string exePath = string.Empty;
-            double memoryMb = 0;
-
-            try
-            {
-                exePath = proc.MainModule?.FileName ?? string.Empty;
-                memoryMb = Math.Round(proc.WorkingSet64 / (1024.0 * 1024.0), 1);
-            }
-            catch
-            {
-            }
-
-            var (username, domain, sid) = Win32ProcessHelper.GetProcessOwner(pid);
-
-            bool isManaged = false;
-            if (!string.IsNullOrEmpty(sid) && users.TryGetValue(sid, out var userAcc))
-            {
-                isManaged = userAcc.IsManaged;
-            }
-
-            string originalFilename = string.Empty;
-            string sha256 = string.Empty;
-            if (!string.IsNullOrEmpty(exePath))
-            {
-                originalFilename = Win32ProcessHelper.GetOriginalFilename(exePath);
-                sha256 = CryptoHelper.ComputeFileSha256(exePath);
-            }
-
-            int sessionId = 0;
-            try { sessionId = proc.SessionId; } catch { }
-
-            results.Add(new ProcessInfoDto
-            {
-                Pid = pid,
-                ProcessName = procName + ".exe",
-                ExecutablePath = exePath,
-                OriginalFilename = originalFilename,
-                Sha256Hash = sha256,
-                MemoryMB = memoryMb,
-                SessionId = sessionId,
-                Username = username,
-                Domain = domain,
-                Sid = sid,
-                IsManagedUser = isManaged
-            });
-        }
-        catch
-        {
-        }
-    }
-
+    var results = GetRunningProcesses(storage);
     return Results.Ok(ApiResponse<List<ProcessInfoDto>>.Ok(results));
+});
+
+// 4b. DELETE /api/v1/processes/{pid}
+app.MapDelete("/api/v1/processes/{pid:int}", (int pid) =>
+{
+    Win32ProcessHelper.KillProcessTree(pid);
+    return Results.Ok(ApiResponse<string>.Ok($"Process {pid} terminated."));
 });
 
 // 5. GET /api/v1/rules
@@ -297,6 +249,215 @@ app.MapPost("/api/v1/system/uninstall", (UninstallRequestDto req, StorageManager
     return Results.Ok(ApiResponse<string>.Ok("Remote self-destruct uninstaller initiated successfully."));
 });
 
+// ==============================================================================
+// 12. Local Windows Control Center GUI & Fleet Manager Routes (Port 54121 / Local)
+// ==============================================================================
+
+// Dashboard HTML and Static Assets
+app.MapGet("/", async (HttpContext ctx) =>
+{
+    ctx.Response.ContentType = "text/html; charset=utf-8";
+    await ctx.Response.WriteAsync(GetDashboardHtml());
+});
+
+app.MapGet("/index.html", async (HttpContext ctx) =>
+{
+    ctx.Response.ContentType = "text/html; charset=utf-8";
+    await ctx.Response.WriteAsync(GetDashboardHtml());
+});
+
+app.MapGet("/favicon.jpg", () =>
+{
+    var stream = typeof(Program).Assembly.GetManifestResourceStream("AppShield.Service.static.favicon.jpg");
+    return stream != null ? Results.Stream(stream, "image/jpeg") : Results.NotFound();
+});
+
+app.MapGet("/appshield.ico", () =>
+{
+    string iconPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "appshield.ico");
+    return File.Exists(iconPath) ? Results.File(iconPath, "image/x-icon") : Results.NotFound();
+});
+
+// Master Password Verification
+app.MapPost("/api/auth/verify-master", (VerifyPasswordDto req, StorageManager storage) =>
+{
+    string storedHash = storage.GetSetting("MasterPasswordHash");
+    if (string.IsNullOrEmpty(storedHash))
+    {
+        return Results.Ok(new { success = true, message = "Authorized" });
+    }
+    bool valid = CryptoHelper.VerifyPassword(req.Password ?? "", storedHash);
+    return valid 
+        ? Results.Ok(new { success = true, message = "Authorized" })
+        : Results.BadRequest(new { success = false, message = "Invalid Master Password" });
+});
+
+// Fleet Management API
+app.MapGet("/api/fleet", (FleetManager fm) =>
+{
+    return Results.Ok(new { success = true, data = fm.GetAll() });
+});
+
+app.MapPost("/api/fleet", (FleetNode node, FleetManager fm) =>
+{
+    var created = fm.Add(node);
+    return Results.Ok(new { success = true, data = created });
+});
+
+app.MapPut("/api/fleet/{id}", (string id, Dictionary<string, object> updates, FleetManager fm) =>
+{
+    var updated = fm.Update(id, updates);
+    return updated != null 
+        ? Results.Ok(new { success = true, data = updated })
+        : Results.NotFound(new { success = false, message = "Node not found" });
+});
+
+app.MapDelete("/api/fleet/{id}", (string id, FleetManager fm) =>
+{
+    bool deleted = fm.Delete(id);
+    return deleted 
+        ? Results.Ok(new { success = true, message = "Node removed" })
+        : Results.BadRequest(new { success = false, message = "Cannot delete local node or node not found" });
+});
+
+app.MapPost("/api/fleet/{id}/ping", (string id, FleetManager fm) =>
+{
+    var node = fm.Get(id);
+    if (node == null) return Results.NotFound(new { success = false, message = "Node not found" });
+    long uptime = (long)(DateTime.UtcNow - startTimeUtc).TotalSeconds;
+    return Results.Ok(new { 
+        success = true, 
+        data = new { 
+            is_online = true, 
+            hostname = Environment.MachineName, 
+            os_version = Environment.OSVersion.ToString(),
+            client_version = typeof(Program).Assembly.GetName().Version?.ToString(3) ?? "1.0.0",
+            mode = "Local Endpoint",
+            uptime_seconds = uptime
+        } 
+    });
+});
+
+app.MapGet("/api/discovery/scan", () =>
+{
+    return Results.Ok(new { success = true, data = new List<object>() });
+});
+
+// Node Process & User Management Endpoints
+app.MapGet("/api/nodes/{nodeId}/processes", (string nodeId, StorageManager storage) =>
+{
+    return Results.Ok(new { success = true, data = GetRunningProcesses(storage) });
+});
+
+app.MapDelete("/api/nodes/{nodeId}/processes/{pid:int}", (string nodeId, int pid) =>
+{
+    Win32ProcessHelper.KillProcessTree(pid);
+    return Results.Ok(new { success = true, message = "Process terminated" });
+});
+
+app.MapGet("/api/nodes/{nodeId}/users", (string nodeId, StorageManager storage) =>
+{
+    var localUsers = Win32ProcessHelper.EnumerateLocalUsers();
+    storage.UpsertUsers(localUsers);
+    return Results.Ok(new { success = true, data = storage.GetAllUsers() });
+});
+
+app.MapPost("/api/nodes/{nodeId}/users/manage", (string nodeId, ManageUserRequestDto req, StorageManager storage) =>
+{
+    storage.UpdateUserManagement(req.Sid, req.IsManaged, req.BlockUserWritableDirectories);
+    return Results.Ok(new { success = true, message = "User settings updated" });
+});
+
+app.MapGet("/api/nodes/{nodeId}/rules", (string nodeId, StorageManager storage) =>
+{
+    return Results.Ok(new { 
+        success = true, 
+        data = new { 
+            rules = storage.GetAllRules(), 
+            overrides = storage.GetActiveOverrides() 
+        } 
+    });
+});
+
+app.MapPost("/api/nodes/{nodeId}/rules", (string nodeId, CreateRuleRequestDto req, StorageManager storage) =>
+{
+    var rule = new Rule
+    {
+        TargetUserSid = string.IsNullOrWhiteSpace(req.TargetUserSid) ? "*" : req.TargetUserSid,
+        RuleType = req.RuleType,
+        ProcessName = req.ProcessName?.Trim(),
+        OriginalFilename = req.OriginalFilename?.Trim(),
+        Sha256Hash = req.Sha256Hash?.Trim(),
+        ScheduleStart = req.ScheduleStart?.Trim(),
+        ScheduleEnd = req.ScheduleEnd?.Trim(),
+        QuotaMinutes = req.QuotaMinutes,
+        IsEnabled = true,
+        CreatedAtUtc = DateTime.UtcNow,
+        Description = string.IsNullOrWhiteSpace(req.Description) ? $"Rule for {req.ProcessName ?? req.OriginalFilename ?? "App"}" : req.Description.Trim()
+    };
+    storage.SaveRule(rule);
+    return Results.Ok(new { success = true, data = rule, message = "Rule created" });
+});
+
+app.MapDelete("/api/nodes/{nodeId}/rules/{ruleId}", (string nodeId, string ruleId, StorageManager storage) =>
+{
+    bool deleted = storage.DeleteRule(ruleId);
+    return deleted 
+        ? Results.Ok(new { success = true, message = "Rule deleted" })
+        : Results.NotFound(new { success = false, message = "Rule not found" });
+});
+
+app.MapPost("/api/nodes/{nodeId}/override", (string nodeId, OverrideRequestDto req, StorageManager storage) =>
+{
+    int minutes = req.Minutes > 0 ? req.Minutes : 60;
+    var ov = new TemporaryOverride
+    {
+        UserSid = string.IsNullOrWhiteSpace(req.UserSid) ? "*" : req.UserSid,
+        ProcessName = req.ProcessName.Trim(),
+        GrantedAtUtc = DateTime.UtcNow,
+        ExpiresAtUtc = DateTime.UtcNow.AddMinutes(minutes),
+        GrantedBy = "LocalAdmin"
+    };
+    storage.AddOverride(ov);
+    return Results.Ok(new { success = true, data = new { success = true, message = $"Override granted for {minutes} min.", expiresAtUtc = ov.ExpiresAtUtc } });
+});
+
+app.MapGet("/api/nodes/{nodeId}/logs", (string nodeId, int? limit, StorageManager storage) =>
+{
+    var logs = storage.GetAuditLogs(limit ?? 100, 0);
+    return Results.Ok(new { success = true, data = logs });
+});
+
+app.MapGet("/api/nodes/{nodeId}/installed-apps", (string nodeId, StorageManager storage) =>
+{
+    var installed = Win32ProcessHelper.EnumerateInstalledApplications();
+    var existingRules = storage.GetAllRules();
+    var blockedExes = new HashSet<string>(existingRules.Where(r => !string.IsNullOrEmpty(r.ProcessName)).Select(r => r.ProcessName!), StringComparer.OrdinalIgnoreCase);
+    foreach (var a in installed)
+    {
+        if (!string.IsNullOrEmpty(a.ExeName) && blockedExes.Contains(a.ExeName))
+        {
+            a.IsBlocked = true;
+        }
+    }
+    return Results.Ok(new { success = true, data = installed });
+});
+
+app.MapPost("/api/nodes/{nodeId}/system/uninstall", (string nodeId, UninstallRequestDto req, StorageManager storage) =>
+{
+    if (string.IsNullOrWhiteSpace(req.MasterPassword))
+    {
+        return Results.BadRequest(new { success = false, message = "Master Password required" });
+    }
+    bool launched = UninstallRoutine.ExecuteRemoteUninstall(
+        storage,
+        req.MasterPassword,
+        () => AppShieldWindowsServiceLifetime.AllowStop());
+    return launched 
+        ? Results.Ok(new { success = true, message = "Uninstallation started" })
+        : Results.BadRequest(new { success = false, message = "Invalid Master Password" });
+});
+
 // Start Background Services
 var lifetime = app.Services.GetRequiredService<IHostApplicationLifetime>();
 var enforcementWorker = app.Services.GetRequiredService<EnforcementWorker>();
@@ -313,7 +474,7 @@ lifetime.ApplicationStarted.Register(() =>
     overridePipeServer.Start();
     Console.WriteLine("[AppShield.Service] Advertising via mDNS (_appshield._tcp.local)...");
     mdnsAdvertiser.Start();
-    Console.WriteLine($"[AppShield.Service] Headless Service & Kestrel API ready on HTTPS port 54120 (v{version}).");
+    Console.WriteLine($"[AppShield.Service] Headless Service & Kestrel API ready on HTTPS port 54120 and Local Dashboard on HTTP port 54121 (v{version}).");
 });
 
 lifetime.ApplicationStopping.Register(() =>
@@ -325,3 +486,103 @@ lifetime.ApplicationStopping.Register(() =>
 });
 
 app.Run();
+
+// ==============================================================================
+// Helper Methods
+// ==============================================================================
+
+static string GetDashboardHtml()
+{
+    try
+    {
+        string diskPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "static", "index.html");
+        if (File.Exists(diskPath))
+        {
+            return File.ReadAllText(diskPath);
+        }
+    }
+    catch { }
+
+    try
+    {
+        using var stream = typeof(Program).Assembly.GetManifestResourceStream("AppShield.Service.static.index.html");
+        if (stream != null)
+        {
+            using var reader = new StreamReader(stream);
+            return reader.ReadToEnd();
+        }
+    }
+    catch { }
+
+    return "<html><body><h2>AppShield Control Center</h2><p>Dashboard HTML loading...</p></body></html>";
+}
+
+static List<ProcessInfoDto> GetRunningProcesses(StorageManager storage)
+{
+    var users = storage.GetAllUsers().ToDictionary(u => u.Sid, u => u, StringComparer.OrdinalIgnoreCase);
+    var results = new List<ProcessInfoDto>();
+    var processes = Process.GetProcesses();
+
+    foreach (var proc in processes)
+    {
+        try
+        {
+            int pid = proc.Id;
+            if (pid <= 4) continue;
+
+            string procName = proc.ProcessName;
+            string exePath = string.Empty;
+            double memoryMb = 0;
+
+            try
+            {
+                exePath = proc.MainModule?.FileName ?? string.Empty;
+                memoryMb = Math.Round(proc.WorkingSet64 / (1024.0 * 1024.0), 1);
+            }
+            catch { }
+
+            var (username, domain, sid) = Win32ProcessHelper.GetProcessOwner(pid);
+
+            bool isManaged = false;
+            if (!string.IsNullOrEmpty(sid) && users.TryGetValue(sid, out var userAcc))
+            {
+                isManaged = userAcc.IsManaged;
+            }
+
+            string originalFilename = string.Empty;
+            string sha256 = string.Empty;
+            if (!string.IsNullOrEmpty(exePath))
+            {
+                originalFilename = Win32ProcessHelper.GetOriginalFilename(exePath);
+                sha256 = CryptoHelper.ComputeFileSha256(exePath);
+            }
+
+            int sessionId = 0;
+            try { sessionId = proc.SessionId; } catch { }
+
+            results.Add(new ProcessInfoDto
+            {
+                Pid = pid,
+                ProcessName = procName + ".exe",
+                ExecutablePath = exePath,
+                OriginalFilename = originalFilename,
+                Sha256Hash = sha256,
+                MemoryMB = memoryMb,
+                SessionId = sessionId,
+                Username = username,
+                Domain = domain,
+                Sid = sid,
+                IsManagedUser = isManaged
+            });
+        }
+        catch { }
+    }
+
+    return results;
+}
+
+public class VerifyPasswordDto
+{
+    public string? Password { get; set; }
+}
+

@@ -71,6 +71,58 @@ public static class InstallEngine
         return File.Exists(svcExe) && File.Exists(db);
     }
 
+    public static void LaunchControlCenter()
+    {
+        string url = "http://127.0.0.1:54121";
+
+        // Start service if stopped
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            try
+            {
+                RunCommand("net.exe", "start AppShieldService");
+            }
+            catch { }
+        }
+
+        // Look for Edge (Chromium) or Chrome to launch in dedicated app window mode
+        string edge1 = @"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe";
+        string edge2 = @"C:\Program Files\Microsoft\Edge\Application\msedge.exe";
+        string chrome1 = @"C:\Program Files\Google\Chrome\Application\chrome.exe";
+        string chrome2 = @"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe";
+
+        string? browser = null;
+        if (File.Exists(edge1)) browser = edge1;
+        else if (File.Exists(edge2)) browser = edge2;
+        else if (File.Exists(chrome1)) browser = chrome1;
+        else if (File.Exists(chrome2)) browser = chrome2;
+
+        try
+        {
+            if (!string.IsNullOrEmpty(browser))
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = browser,
+                    Arguments = $"--app={url} --window-size=1380,880",
+                    UseShellExecute = true
+                });
+            }
+            else
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = url,
+                    UseShellExecute = true
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Unable to launch browser window: {ex.Message}\r\nPlease open http://127.0.0.1:54121 in your browser.", "AppShield", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+    }
+
     public static bool IsCurrentProcessElevatedAdmin()
     {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))

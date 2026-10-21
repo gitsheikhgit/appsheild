@@ -270,6 +270,15 @@ public class EnforcementWorker : IDisposable
                         }
                     }
                     break;
+
+                case RuleType.AllowedWindow:
+                    // Only allowed between ScheduleStart and ScheduleEnd. If NOT active, terminate!
+                    if (!IsScheduleActive(rule.ScheduleStart, rule.ScheduleEnd))
+                    {
+                        BlockProcess(proc, sid, username, procName, originalFilename, sha256Hash, exePath, $"Outside allowed usage window (Allowed: {rule.ScheduleStart} - {rule.ScheduleEnd})");
+                        return;
+                    }
+                    break;
             }
         }
     }

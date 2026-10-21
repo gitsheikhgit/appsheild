@@ -467,12 +467,12 @@ public class InstallerForm : Form
 
         _btnCopy = new Button
         {
-            Text = "📋 Copy Setup Details to Clipboard",
+            Text = "📋 Copy Setup Details",
             Location = new Point(25, 400),
-            Size = new Size(420, 44),
+            Size = new Size(405, 44),
             BackColor = Color.FromArgb(37, 99, 235),
             ForeColor = Color.White,
-            Font = new Font("Segoe UI", 10.5f, FontStyle.Bold),
+            Font = new Font("Segoe UI", 10f, FontStyle.Bold),
             FlatStyle = FlatStyle.Flat,
             Cursor = Cursors.Hand
         };
@@ -486,13 +486,21 @@ public class InstallerForm : Form
 
         _btnClose = new Button
         {
-            Text = "Finish",
-            Location = new Point(460, 400),
-            Size = new Size(175, 44),
-            Font = new Font("Segoe UI", 10.5f, FontStyle.Bold),
+            Text = "🚀 Open Control Center",
+            Location = new Point(445, 400),
+            Size = new Size(190, 44),
+            BackColor = Color.FromArgb(16, 185, 129),
+            ForeColor = Color.White,
+            FlatStyle = FlatStyle.Flat,
+            Font = new Font("Segoe UI", 10f, FontStyle.Bold),
             Cursor = Cursors.Hand
         };
-        _btnClose.Click += (s, e) => Close();
+        _btnClose.FlatAppearance.BorderSize = 0;
+        _btnClose.Click += (s, e) =>
+        {
+            InstallEngine.LaunchControlCenter();
+            Close();
+        };
         _pnlStep3Success.Controls.Add(_btnClose);
 
         Controls.Add(_pnlStep3Success);

@@ -7,7 +7,8 @@ public enum RuleType
 {
     AlwaysBlock,
     ScheduleBlock,
-    DailyQuota
+    DailyQuota,
+    AllowedWindow
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter))]
