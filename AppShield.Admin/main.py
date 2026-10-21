@@ -100,6 +100,14 @@ async def proxy_get_processes(node_id: str):
         return JSONResponse(status_code=502, content={"success": False, "error": data})
     return data
 
+@app.get("/api/nodes/{node_id}/installed-apps")
+async def proxy_get_installed_apps(node_id: str):
+    node = _get_target_node(node_id)
+    success, data, mode = await proxy.request(node, "GET", "/api/v1/installed-apps")
+    if not success:
+        return JSONResponse(status_code=502, content={"success": False, "error": data})
+    return data
+
 @app.get("/api/nodes/{node_id}/rules")
 async def proxy_get_rules(node_id: str):
     node = _get_target_node(node_id)

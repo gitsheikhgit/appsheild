@@ -30,7 +30,9 @@ public class PromptForm : Form
 
     private void InitializeComponent()
     {
-        Text = "AppShield Security Notice";
+        string version = typeof(PromptForm).Assembly.GetName().Version?.ToString(3) ?? "1.0.0";
+
+        Text = $"AppShield Security Notice (v{version})";
         Size = new Size(480, 360);
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = false;
@@ -51,7 +53,7 @@ public class PromptForm : Form
 
         var lblShieldBadge = new Label
         {
-            Text = "🛡️ AppShield Control",
+            Text = $"🛡️ AppShield Control (v{version})",
             Font = new Font("Segoe UI", 12f, FontStyle.Bold),
             ForeColor = Color.FromArgb(129, 140, 248), // Indigo-400
             Location = new Point(20, 14),
@@ -163,10 +165,19 @@ public class PromptForm : Form
         _lblCountdown = new Label
         {
             Text = "Closing in 60s...",
-            Location = new Point(2, 170),
+            Location = new Point(2, 168),
             AutoSize = true,
             Font = new Font("Segoe UI", 8f),
             ForeColor = Color.FromArgb(113, 113, 122) // Zinc-500
+        };
+
+        var lblVerTag = new Label
+        {
+            Text = $"AppShield Engine v{version}",
+            Location = new Point(2, 186),
+            AutoSize = true,
+            Font = new Font("Segoe UI", 7.5f),
+            ForeColor = Color.FromArgb(82, 82, 91) // Zinc-600
         };
 
         pnlBody.Controls.Add(lblAppTitle);
@@ -175,6 +186,7 @@ public class PromptForm : Form
         pnlBody.Controls.Add(_txtPassword);
         pnlBody.Controls.Add(_lblStatus);
         pnlBody.Controls.Add(_lblCountdown);
+        pnlBody.Controls.Add(lblVerTag);
         pnlBody.Controls.Add(_btnUnlock);
         pnlBody.Controls.Add(_btnDismiss);
 

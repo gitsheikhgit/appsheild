@@ -14,8 +14,11 @@ echo "    AppShield: macOS-to-Windows Cross-Compilation & Packaging       "
 echo "===================================================================="
 echo ""
 
-# Ensure .NET 8 is in PATH (check ~/.dotnet first, then system path)
-if [ -d "$HOME/.dotnet" ]; then
+# Ensure .NET 8 is in PATH (check /usr/local/share/dotnet first, then ~/.dotnet)
+if [ -d "/usr/local/share/dotnet" ]; then
+    export PATH="/usr/local/share/dotnet:$PATH"
+    export DOTNET_ROOT="/usr/local/share/dotnet"
+elif [ -d "$HOME/.dotnet" ]; then
     export PATH="$HOME/.dotnet:$PATH"
     export DOTNET_ROOT="$HOME/.dotnet"
 fi
@@ -132,8 +135,18 @@ fi
 
 echo "[+] Starting Admin Dashboard on http://127.0.0.1:$ADMIN_PORT..."
 
-# Open browser after a brief delay in the background
-(sleep 1.5 && open "http://127.0.0.1:$ADMIN_PORT") &
+# Open standalone desktop app window (Chrome/Edge App Mode) or fallback to default browser
+(sleep 1.5 && {
+    if [ -d "/Applications/Google Chrome.app" ]; then
+        open -na "Google Chrome" --args "--app=http://127.0.0.1:$ADMIN_PORT" "--window-size=1380,880"
+    elif [ -d "/Applications/Microsoft Edge.app" ]; then
+        open -na "Microsoft Edge" --args "--app=http://127.0.0.1:$ADMIN_PORT" "--window-size=1380,880"
+    elif [ -d "/Applications/Brave Browser.app" ]; then
+        open -na "Brave Browser" --args "--app=http://127.0.0.1:$ADMIN_PORT" "--window-size=1380,880"
+    else
+        open "http://127.0.0.1:$ADMIN_PORT"
+    fi
+}) &
 
 # Start Uvicorn Server
 python3 -m uvicorn main:app --host 127.0.0.1 --port $ADMIN_PORT

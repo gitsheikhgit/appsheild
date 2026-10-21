@@ -13,12 +13,6 @@ if (!([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]:
     Exit 1
 }
 
-Write-Host "==========================================================" -ForegroundColor Cyan
-Write-Host "         AppShield Security Client Installer             " -ForegroundColor Cyan
-Write-Host "  Tamper-Resistant Application Control for Windows 10/11 " -ForegroundColor Cyan
-Write-Host "==========================================================" -ForegroundColor Cyan
-Write-Host ""
-
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $ServiceBinary = Join-Path $ScriptDir "AppShield.Service.exe"
 $PromptBinary = Join-Path $ScriptDir "AppShield.Prompt.exe"
@@ -27,6 +21,21 @@ if (!(Test-Path $ServiceBinary) -or !(Test-Path $PromptBinary)) {
     Write-Error "Required binary files (AppShield.Service.exe, AppShield.Prompt.exe) were not found in '$ScriptDir'!"
     Exit 1
 }
+
+# Extract Version from binary
+$AppVersion = (Get-Item $ServiceBinary).VersionInfo.ProductVersion
+if ([string]::IsNullOrWhiteSpace($AppVersion)) {
+    $AppVersion = (Get-Item $ServiceBinary).VersionInfo.FileVersion
+}
+if ([string]::IsNullOrWhiteSpace($AppVersion)) {
+    $AppVersion = "1.0.0"
+}
+
+Write-Host "==========================================================" -ForegroundColor Cyan
+Write-Host "      AppShield Security Client Installer (v$AppVersion)  " -ForegroundColor Cyan
+Write-Host "  Tamper-Resistant Application Control for Windows 10/11 " -ForegroundColor Cyan
+Write-Host "==========================================================" -ForegroundColor Cyan
+Write-Host ""
 
 # 1. Prompt for initial Master Password
 Write-Host "Configure the Master Password for emergency offline unlocks and administrative authorization:" -ForegroundColor Yellow
@@ -93,9 +102,9 @@ if (Get-Service -Name $ServiceName -ErrorAction SilentlyContinue) {
 # 7. Register Windows Service under NT AUTHORITY\SYSTEM
 Write-Host "[4/6] Registering $ServiceName under NT AUTHORITY\SYSTEM..." -ForegroundColor Gray
 $BinPath = "`"$InstallDir\AppShield.Service.exe`""
-New-Service -Name $ServiceName -DisplayName "AppShield Security Service" `
+New-Service -Name $ServiceName -DisplayName "AppShield Security Service (v$AppVersion)" `
     -BinaryPathName $BinPath -StartupType Automatic `
-    -Description "Tamper-resistant application control and multi-user endpoint management service." | Out-Null
+    -Description "Tamper-resistant application control and multi-user endpoint management service (v$AppVersion)." | Out-Null
 
 # Configure Service Failure Recovery (Restart on crash: 1s / 1s / 1s)
 & sc.exe failure $ServiceName reset= 0 actions= restart/1000/restart/1000/restart/1000 | Out-Null
@@ -117,17 +126,18 @@ $TailscaleIp = (Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.Interfa
 
 Write-Host ""
 Write-Host "==========================================================" -ForegroundColor Green
-Write-Host "           AppShield Successfully Installed!             " -ForegroundColor Green
+Write-Host "      AppShield v$AppVersion Successfully Installed!      " -ForegroundColor Green
 Write-Host "==========================================================" -ForegroundColor Green
 Write-Host ""
-Write-Host "Add this Windows machine to your macOS/Admin Control Dashboard using:"
-Write-Host "  Computer Name: " -NoNewline; Write-Host $env:COMPUTERNAME -ForegroundColor Cyan
-Write-Host "  LAN Subnet IP: " -NoNewline; Write-Host ($LanIps -join ", ") -ForegroundColor Cyan
+Write-Host "Target Machine Summary:"
+Write-Host "  Installed Version: " -NoNewline; Write-Host "v$AppVersion" -ForegroundColor Green
+Write-Host "  Computer Name:     " -NoNewline; Write-Host $env:COMPUTERNAME -ForegroundColor Cyan
+Write-Host "  LAN Subnet IP:     " -NoNewline; Write-Host ($LanIps -join ", ") -ForegroundColor Cyan
 if ($TailscaleIp) {
-    Write-Host "  Tailscale IP:  " -NoNewline; Write-Host ($TailscaleIp -join ", ") -ForegroundColor Cyan
+    Write-Host "  Tailscale IP:      " -NoNewline; Write-Host ($TailscaleIp -join ", ") -ForegroundColor Cyan
 }
-Write-Host "  API Port:      " -NoNewline; Write-Host "54120 (HTTPS)" -ForegroundColor Cyan
-Write-Host "  PSK:           " -NoNewline; Write-Host $GeneratedPsk -ForegroundColor Yellow -BackgroundColor Black
+Write-Host "  API Port:          " -NoNewline; Write-Host "54120 (HTTPS)" -ForegroundColor Cyan
+Write-Host "  PSK:               " -NoNewline; Write-Host $GeneratedPsk -ForegroundColor Yellow -BackgroundColor Black
 Write-Host ""
 Write-Host "Note: Keep your Master Password safe for emergency overrides." -ForegroundColor Yellow
 Write-Host ""

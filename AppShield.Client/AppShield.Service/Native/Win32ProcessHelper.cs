@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Security.Principal;
 using System.Text;
+using Microsoft.Win32;
 using AppShield.Shared.DTOs;
 using AppShield.Shared.Models;
 using AppShield.Shared.Security;
@@ -359,5 +360,99 @@ public static class Win32ProcessHelper
         {
         }
         return false;
+    }
+
+    public static List<InstalledAppDto> EnumerateInstalledApplications()
+    {
+        var apps = new Dictionary<string, InstalledAppDto>(StringComparer.OrdinalIgnoreCase);
+
+        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            return apps.Values.ToList();
+        }
+
+        try
+        {
+            var registryViews = new[] { RegistryView.Registry64, RegistryView.Registry32 };
+            var hives = new[] { RegistryHive.LocalMachine, RegistryHive.CurrentUser };
+
+            foreach (var hive in hives)
+            {
+                foreach (var view in registryViews)
+                {
+                    try
+                    {
+                        using var baseKey = RegistryKey.OpenBaseKey(hive, view);
+                        using var uninstallKey = baseKey.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall");
+                        if (uninstallKey == null) continue;
+
+                        foreach (var subKeyName in uninstallKey.GetSubKeyNames())
+                        {
+                            try
+                            {
+                                using var subKey = uninstallKey.OpenSubKey(subKeyName);
+                                if (subKey == null) continue;
+
+                                string displayName = subKey.GetValue("DisplayName")?.ToString()?.Trim() ?? string.Empty;
+                                if (string.IsNullOrWhiteSpace(displayName)) continue;
+
+                                var isSystemComponent = subKey.GetValue("SystemComponent");
+                                if (isSystemComponent is int sys && sys == 1) continue;
+
+                                var parentKeyName = subKey.GetValue("ParentKeyName");
+                                if (parentKeyName != null) continue;
+
+                                string publisher = subKey.GetValue("Publisher")?.ToString()?.Trim() ?? string.Empty;
+                                string version = subKey.GetValue("DisplayVersion")?.ToString()?.Trim() ?? string.Empty;
+                                string installLocation = subKey.GetValue("InstallLocation")?.ToString()?.Trim() ?? string.Empty;
+                                string displayIcon = subKey.GetValue("DisplayIcon")?.ToString()?.Trim() ?? string.Empty;
+
+                                string exeName = string.Empty;
+                                if (!string.IsNullOrEmpty(displayIcon))
+                                {
+                                    string cleanIcon = displayIcon.Split(',')[0].Trim('"', ' ');
+                                    if (cleanIcon.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+                                    {
+                                        exeName = Path.GetFileName(cleanIcon);
+                                    }
+                                }
+
+                                if (string.IsNullOrEmpty(exeName) && !string.IsNullOrEmpty(installLocation) && Directory.Exists(installLocation))
+                                {
+                                    try
+                                    {
+                                        var mainExe = Directory.GetFiles(installLocation, "*.exe", SearchOption.TopDirectoryOnly)
+                                            .OrderByDescending(f => new FileInfo(f).Length)
+                                            .FirstOrDefault();
+                                        if (mainExe != null)
+                                        {
+                                            exeName = Path.GetFileName(mainExe);
+                                        }
+                                    }
+                                    catch { }
+                                }
+
+                                if (!apps.ContainsKey(displayName))
+                                {
+                                    apps[displayName] = new InstalledAppDto
+                                    {
+                                        DisplayName = displayName,
+                                        DisplayVersion = version,
+                                        Publisher = publisher,
+                                        ExeName = exeName,
+                                        InstallPath = installLocation
+                                    };
+                                }
+                            }
+                            catch { }
+                        }
+                    }
+                    catch { }
+                }
+            }
+        }
+        catch { }
+
+        return apps.Values.OrderBy(a => a.DisplayName).ToList();
     }
 }

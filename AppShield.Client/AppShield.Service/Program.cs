@@ -258,7 +258,25 @@ app.MapGet("/api/v1/logs", (int? limit, int? offset, StorageManager storage) =>
     return Results.Ok(ApiResponse<List<AuditLog>>.Ok(logs));
 });
 
-// 10. POST /api/v1/system/uninstall
+// 10. GET /api/v1/installed-apps
+app.MapGet("/api/v1/installed-apps", (StorageManager storage) =>
+{
+    var installed = Win32ProcessHelper.EnumerateInstalledApplications();
+    var existingRules = storage.GetAllRules();
+    var blockedExes = new HashSet<string>(existingRules.Where(r => !string.IsNullOrEmpty(r.ProcessName)).Select(r => r.ProcessName!), StringComparer.OrdinalIgnoreCase);
+
+    foreach (var a in installed)
+    {
+        if (!string.IsNullOrEmpty(a.ExeName) && blockedExes.Contains(a.ExeName))
+        {
+            a.IsBlocked = true;
+        }
+    }
+
+    return Results.Ok(ApiResponse<List<InstalledAppDto>>.Ok(installed));
+});
+
+// 11. POST /api/v1/system/uninstall
 app.MapPost("/api/v1/system/uninstall", (UninstallRequestDto req, StorageManager storage) =>
 {
     if (string.IsNullOrWhiteSpace(req.MasterPassword))
@@ -287,13 +305,15 @@ var mdnsAdvertiser = app.Services.GetRequiredService<MdnsAdvertiser>();
 
 lifetime.ApplicationStarted.Register(() =>
 {
+    string version = typeof(Program).Assembly.GetName().Version?.ToString(3) ?? "1.0.0";
+    Console.WriteLine($"[AppShield.Service] AppShield Windows Service v{version} initialized.");
     Console.WriteLine("[AppShield.Service] Starting background process enforcement engine...");
     enforcementWorker.Start();
     Console.WriteLine("[AppShield.Service] Starting Named Pipe override server...");
     overridePipeServer.Start();
     Console.WriteLine("[AppShield.Service] Advertising via mDNS (_appshield._tcp.local)...");
     mdnsAdvertiser.Start();
-    Console.WriteLine("[AppShield.Service] Headless Service & Kestrel API ready on HTTPS port 54120.");
+    Console.WriteLine($"[AppShield.Service] Headless Service & Kestrel API ready on HTTPS port 54120 (v{version}).");
 });
 
 lifetime.ApplicationStopping.Register(() =>

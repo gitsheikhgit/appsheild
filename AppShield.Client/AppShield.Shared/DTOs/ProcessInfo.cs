@@ -14,3 +14,14 @@ public class ProcessInfoDto
     public string Sid { get; set; } = string.Empty;
     public bool IsManagedUser { get; set; }
 }
+
+public class InstalledAppDto
+{
+    public string DisplayName { get; set; } = string.Empty;
+    public string DisplayVersion { get; set; } = string.Empty;
+    public string Publisher { get; set; } = string.Empty;
+    public string ExeName { get; set; } = string.Empty;
+    public string InstallPath { get; set; } = string.Empty;
+    public string OriginalFilename { get; set; } = string.Empty;
+    public bool IsBlocked { get; set; }
+}
