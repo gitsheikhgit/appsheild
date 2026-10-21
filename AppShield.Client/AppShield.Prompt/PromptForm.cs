@@ -42,6 +42,13 @@ public class PromptForm : Form
         BackColor = Color.FromArgb(24, 24, 27); // Zinc-900
         ForeColor = Color.FromArgb(244, 244, 245); // Zinc-100
         Font = new Font("Segoe UI", 9.5f, FontStyle.Regular);
+        try
+        {
+            Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath);
+        }
+        catch
+        {
+        }
 
         // Header Shield Icon / Badge
         var pnlHeader = new Panel

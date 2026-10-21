@@ -6,6 +6,7 @@
     <UseWindowsForms>true</UseWindowsForms>
     <RootNamespace>AppShield.Prompt</RootNamespace>
     <AssemblyName>AppShield.Prompt</AssemblyName>
+    <ApplicationIcon>appshield.ico</ApplicationIcon>
     <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
   </PropertyGroup>
 

@@ -5,6 +5,7 @@
     <OutputType>Exe</OutputType>
     <RootNamespace>AppShield.Service</RootNamespace>
     <AssemblyName>AppShield.Service</AssemblyName>
+    <ApplicationIcon>appshield.ico</ApplicationIcon>
     <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
   </PropertyGroup>
 
