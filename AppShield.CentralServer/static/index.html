@@ -1,0 +1,2095 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#11131c">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="manifest" href="/static/manifest.json">
+  <link rel="icon" type="image/jpeg" href="/static/favicon.jpg">
+  <title>AppShield Fleet Manager — Tamper-Resistant Security</title>
+  <meta name="description" content="Centralized Multi-PC Control & Security Dashboard for AppShield Endpoints">
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Alpine.js CDN -->
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <!-- Inter & Outfit Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            display: ['Outfit', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            brand: {
+              50: '#eef2ff',
+              400: '#818cf8',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      background-color: #0c0e14;
+      color: #f3f4f6;
+    }
+    .glass-card {
+      background: rgba(18, 22, 34, 0.75);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.07);
+    }
+    .custom-scroll::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .custom-scroll::-webkit-scrollbar-track {
+      background: rgba(0, 0, 0, 0.2);
+    }
+    .custom-scroll::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 3px;
+    }
+    .custom-scroll::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 255, 255, 0.25);
+    }
+  </style>
+</head>
+<body class="font-sans antialiased h-screen overflow-hidden flex bg-[#0c0e14] text-gray-100" x-data="appShieldApp()" x-init="init()">
+
+  <!-- Backdrop for Mobile Sidebar -->
+  <div x-show="mobileSidebarOpen" 
+       x-transition:enter="transition-opacity ease-linear duration-200"
+       x-transition:enter-start="opacity-0"
+       x-transition:enter-end="opacity-100"
+       x-transition:leave="transition-opacity ease-linear duration-200"
+       x-transition:leave-start="opacity-100"
+       x-transition:leave-end="opacity-0"
+       @click="mobileSidebarOpen = false" 
+       class="fixed inset-0 bg-black/70 backdrop-blur-sm z-40 md:hidden" style="display: none;"></div>
+
+  <!-- LEFT SIDEBAR NAVIGATION -->
+  <aside 
+    :class="mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'"
+    class="fixed md:static inset-y-0 left-0 w-64 flex-shrink-0 bg-[#11131c] border-r border-zinc-800/80 flex flex-col h-screen select-none z-50 transition-transform duration-200 ease-in-out shadow-2xl md:shadow-none">
+    <!-- Brand Header -->
+    <div class="p-4 border-b border-zinc-800/80 flex items-center space-x-3 bg-zinc-950/40">
+      <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/20 flex-shrink-0">
+        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+        </svg>
+      </div>
+      <div class="overflow-hidden">
+        <div class="flex items-center space-x-1.5">
+          <h1 class="text-base font-display font-bold text-white tracking-wide truncate">AppShield</h1>
+          <span class="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">v1.2.0</span>
+        </div>
+        <p class="text-[11px] text-zinc-400 truncate">Fleet Control Center</p>
+      </div>
+    </div>
+
+    <!-- Target PC / Node Selector -->
+    <div class="p-3 border-b border-zinc-800/80 bg-zinc-950/20">
+      <div class="text-[10px] font-semibold uppercase tracking-wider text-zinc-400 mb-1.5 flex items-center justify-between">
+        <span>Target Computer</span>
+        <button @click="showAddModal = true" class="text-indigo-400 hover:text-indigo-300 font-bold text-xs" title="Add Computer">+ Add</button>
+      </div>
+      <div class="relative">
+        <select 
+          x-model="selectedNodeId" 
+          @change="onNodeChange()"
+          class="w-full bg-zinc-900 border border-zinc-700/60 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-white focus:outline-none focus:border-indigo-500 cursor-pointer">
+          <template x-for="node in fleet" :key="node.id">
+            <option :value="node.id" class="bg-zinc-800 text-white" x-text="node.name + (node.status?.startsWith('online') ? ' (🟢)' : ' (🔴)')"></option>
+          </template>
+        </select>
+      </div>
+    </div>
+
+    <!-- Navigation Tabs (Vertical Sidebar) -->
+    <nav class="flex-1 px-2.5 py-3 space-y-1 overflow-y-auto custom-scroll">
+      <!-- Overview & Fleet -->
+      <button 
+        @click="activeTab = 'overview'; mobileSidebarOpen = false" 
+        :class="activeTab === 'overview' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30 font-bold' : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60 font-medium'"
+        class="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-xs transition group">
+        <div class="flex items-center space-x-2.5">
+          <span class="text-base">🛡️</span>
+          <span>Overview & Fleet</span>
+        </div>
+      </button>
+
+      <!-- Live Processes -->
+      <button 
+        @click="activeTab = 'processes'; mobileSidebarOpen = false" 
+        :class="activeTab === 'processes' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30 font-bold' : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60 font-medium'"
+        class="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-xs transition group">
+        <div class="flex items-center space-x-2.5">
+          <span class="text-base">🚀</span>
+          <span>Live Processes</span>
+        </div>
+        <span class="text-[10px] px-1.5 py-0.5 rounded-full" 
+              :class="activeTab === 'processes' ? 'bg-white/20 text-white' : 'bg-zinc-800 text-zinc-400'"
+              x-text="processes.length"></span>
+      </button>
+
+      <!-- Users & Child Jail -->
+      <button 
+        @click="activeTab = 'users'; mobileSidebarOpen = false" 
+        :class="activeTab === 'users' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30 font-bold' : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60 font-medium'"
+        class="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-xs transition group">
+        <div class="flex items-center space-x-2.5">
+          <span class="text-base">👥</span>
+          <span>Users & Child Jail</span>
+        </div>
+        <span class="text-[10px] px-1.5 py-0.5 rounded-full" 
+              :class="activeTab === 'users' ? 'bg-white/20 text-white' : 'bg-zinc-800 text-zinc-400'"
+              x-text="users.length"></span>
+      </button>
+
+      <!-- Rules & Schedules -->
+      <button 
+        @click="activeTab = 'rules'; mobileSidebarOpen = false" 
+        :class="activeTab === 'rules' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30 font-bold' : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60 font-medium'"
+        class="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-xs transition group">
+        <div class="flex items-center space-x-2.5">
+          <span class="text-base">📜</span>
+          <span>Rules & Schedules</span>
+        </div>
+        <span class="text-[10px] px-1.5 py-0.5 rounded-full" 
+              :class="activeTab === 'rules' ? 'bg-white/20 text-white' : 'bg-zinc-800 text-zinc-400'"
+              x-text="rules.length"></span>
+      </button>
+
+      <!-- Installed Applications -->
+      <button 
+        @click="activeTab = 'installed'; mobileSidebarOpen = false; loadInstalledApps()" 
+        :class="activeTab === 'installed' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30 font-bold' : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60 font-medium'"
+        class="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-xs transition group">
+        <div class="flex items-center space-x-2.5">
+          <span class="text-base">📦</span>
+          <span>Installed Software</span>
+        </div>
+        <span class="text-[10px] px-1.5 py-0.5 rounded-full" 
+              :class="activeTab === 'installed' ? 'bg-white/20 text-white' : 'bg-zinc-800 text-zinc-400'"
+              x-text="installedApps.length"></span>
+      </button>
+
+      <!-- Audit & Block Logs -->
+      <button 
+        @click="activeTab = 'logs'; mobileSidebarOpen = false" 
+        :class="activeTab === 'logs' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30 font-bold' : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60 font-medium'"
+        class="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-xs transition group">
+        <div class="flex items-center space-x-2.5">
+          <span class="text-base">📋</span>
+          <span>Audit & Block Logs</span>
+        </div>
+        <span class="text-[10px] px-1.5 py-0.5 rounded-full" 
+              :class="activeTab === 'logs' ? 'bg-white/20 text-white' : 'bg-zinc-800 text-zinc-400'"
+              x-text="logs.length"></span>
+      </button>
+
+      <!-- Settings & Uninstaller -->
+      <button 
+        @click="activeTab = 'settings'; mobileSidebarOpen = false" 
+        :class="activeTab === 'settings' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30 font-bold' : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60 font-medium'"
+        class="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-xs transition group">
+        <div class="flex items-center space-x-2.5">
+          <span class="text-base">⚙️</span>
+          <span>Settings & Uninstaller</span>
+        </div>
+      </button>
+    </nav>
+
+    <!-- Sidebar Bottom / Endpoint Status Footer -->
+    <div class="p-3 border-t border-zinc-800/80 bg-zinc-950/60 text-xs">
+      <div class="flex items-center justify-between mb-1.5">
+        <div class="flex items-center space-x-1.5 overflow-hidden">
+          <span class="relative flex h-2 w-2 flex-shrink-0">
+            <span :class="currentNode?.status?.startsWith('online') ? 'animate-ping bg-emerald-400' : 'bg-rose-500'" class="absolute inline-flex h-full w-full rounded-full opacity-75"></span>
+            <span :class="currentNode?.status?.startsWith('online') ? 'bg-emerald-500' : 'bg-rose-500'" class="relative inline-flex rounded-full h-2 w-2"></span>
+          </span>
+          <span class="font-bold text-[11px] text-zinc-200 truncate" x-text="currentNode?.name || 'No Target'"></span>
+        </div>
+        <button @click="pingCurrentNode()" class="text-zinc-400 hover:text-white p-1" title="Refresh Ping">
+          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+        </button>
+      </div>
+      <div class="text-[10px] text-zinc-400 font-mono flex items-center justify-between">
+        <span class="truncate" x-text="currentNode?.active_ip || currentNode?.lan_ip || 'Offline'"></span>
+        <span x-text="currentNode?.status?.startsWith('online') ? 'Online' : 'Offline'"></span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- RIGHT CONTENT CANVAS -->
+  <div class="flex-1 flex flex-col h-screen overflow-hidden">
+    <!-- Top Header Bar -->
+    <header class="h-14 flex-shrink-0 bg-[#11131c]/90 backdrop-blur border-b border-zinc-800/80 px-4 md:px-6 flex items-center justify-between z-20">
+      <div class="flex items-center space-x-2 md:space-x-3">
+        <!-- Mobile Sidebar Toggle -->
+        <button @click="mobileSidebarOpen = !mobileSidebarOpen" class="md:hidden p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 focus:outline-none flex items-center justify-center">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+        </button>
+        <h2 class="text-xs md:text-sm font-bold text-white tracking-wide flex items-center space-x-2 truncate">
+          <span x-show="activeTab === 'overview'">🛡️ Overview & Fleet Command</span>
+          <span x-show="activeTab === 'processes'">🚀 Live Process Monitor</span>
+          <span x-show="activeTab === 'users'">👥 User Accounts & Child Path Jail</span>
+          <span x-show="activeTab === 'rules'">📜 Application Rules & Schedules</span>
+          <span x-show="activeTab === 'installed'">📦 Installed Software Registry</span>
+          <span x-show="activeTab === 'logs'">📋 Intercepted Audit Logs</span>
+          <span x-show="activeTab === 'settings'">⚙️ Node Settings & Master Credentials</span>
+        </h2>
+        <span x-show="currentNode" class="text-[11px] text-zinc-400 bg-zinc-800/80 px-2 py-0.5 rounded border border-zinc-700/50 font-mono" x-text="currentNode?.name"></span>
+      </div>
+
+      <div class="flex items-center space-x-3 text-xs">
+        <!-- Global Telemetry -->
+        <div class="hidden lg:flex items-center space-x-3 text-[11px] text-zinc-400 mr-2">
+          <span x-show="currentNode?.agent_version" class="bg-indigo-600/30 text-indigo-300 border border-indigo-500/40 px-2 py-0.5 rounded font-mono text-[10px] font-bold" x-text="'Agent v' + currentNode.agent_version"></span>
+          <span x-show="currentNode?.uptime_seconds" x-text="'Uptime: ' + formatUptime(currentNode.uptime_seconds)"></span>
+        </div>
+
+        <button @click="showAddModal = true; runMdnsScan()" class="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700/60 px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition">
+          <span>🔍</span>
+          <span>Scan Subnet</span>
+        </button>
+        <button @click="showAddModal = true" class="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition shadow-md shadow-indigo-600/20">
+          <span>➕</span>
+          <span>Add PC</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Offline Target Notification Banner -->
+    <div x-show="currentNode && currentNode.status === 'offline'" class="bg-rose-950/40 border-b border-rose-500/30 px-6 py-2.5 flex flex-wrap items-center justify-between text-xs gap-2 flex-shrink-0">
+      <div class="flex items-center space-x-2 text-rose-300">
+        <span class="text-sm">🔴</span>
+        <span><strong>Target Computer Offline:</strong> Cannot communicate with <span class="font-bold text-white" x-text="currentNode.name"></span> (<span class="font-mono text-zinc-300" x-text="currentNode.active_ip || currentNode.lan_ip || '127.0.0.1'"></span>).</span>
+      </div>
+      <div class="flex items-center space-x-2">
+        <button @click="triggerOfflinePopUp('Manage PC', 'Target computer is offline.')" class="bg-rose-600/30 hover:bg-rose-600 text-rose-200 border border-rose-500/40 px-2.5 py-1 rounded text-[11px] font-semibold transition">
+          Resolve Connection
+        </button>
+        <button @click="showAddModal = true" class="bg-indigo-600 hover:bg-indigo-500 text-white px-2.5 py-1 rounded text-[11px] font-semibold transition">
+          + Add Client
+        </button>
+      </div>
+    </div>
+
+    <!-- Scrollable Main Content Canvas -->
+    <main class="flex-1 overflow-y-auto p-6 custom-scroll space-y-6">
+
+      <!-- Empty Fleet Prompt -->
+      <div x-show="fleet.length === 0" class="p-8 glass-card border border-indigo-500/30 rounded-2xl text-center space-y-4 max-w-xl mx-auto shadow-2xl">
+        <div class="w-16 h-16 mx-auto rounded-2xl bg-indigo-600/20 border border-indigo-500/40 flex items-center justify-center text-3xl">
+          🖥️
+        </div>
+        <h2 class="text-lg font-bold text-white">No Windows Computers in Fleet</h2>
+        <p class="text-xs text-zinc-400 leading-relaxed">
+          Welcome to AppShield v1.2.0. Add your child's Windows computer or scan your local network to start managing applications, schedules, and process security.
+        </p>
+        <div class="flex items-center justify-center space-x-3 pt-2">
+          <button @click="showAddModal = true" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl transition shadow-lg shadow-indigo-600/20">
+            ➕ Add Computer / Client
+          </button>
+          <button @click="showAddModal = true; runMdnsScan()" class="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 text-xs font-semibold rounded-xl transition">
+            🔍 Scan Local Subnet (mDNS)
+          </button>
+        </div>
+      </div>
+
+      <!-- TAB 0: OVERVIEW & FLEET COMMAND -->
+      <div x-show="activeTab === 'overview'" class="space-y-6">
+        <!-- Endpoint Hero Card -->
+        <div class="glass-card p-6 rounded-2xl border border-zinc-800 relative overflow-hidden">
+          <div class="absolute right-0 top-0 w-96 h-96 bg-indigo-600/10 rounded-full blur-3xl pointer-events-none"></div>
+          <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10">
+            <div class="space-y-1.5">
+              <div class="flex items-center space-x-2.5">
+                <span class="text-2xl">🛡️</span>
+                <h2 class="text-lg font-bold text-white tracking-wide" x-text="currentNode?.name || 'No Target Selected'"></h2>
+                <span :class="currentNode?.status?.startsWith('online') ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-rose-500/20 text-rose-300 border-rose-500/30'" 
+                      class="text-[10px] font-mono font-bold px-2.5 py-0.5 rounded-full border"
+                      x-text="formatStatus(currentNode?.status)"></span>
+              </div>
+              <p class="text-xs text-zinc-400">
+                Session 0 Kernel Protection & Remote Application Control
+              </p>
+            </div>
+
+            <!-- Quick Metrics Grid -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+              <div class="bg-zinc-900/80 border border-zinc-800 p-3 rounded-xl">
+                <span class="text-zinc-500 block text-[10px] uppercase font-bold">Active IP</span>
+                <span class="font-mono text-zinc-200 font-semibold" x-text="currentNode?.active_ip || currentNode?.lan_ip || 'Offline'"></span>
+              </div>
+              <div class="bg-zinc-900/80 border border-zinc-800 p-3 rounded-xl">
+                <span class="text-zinc-500 block text-[10px] uppercase font-bold">Agent Version</span>
+                <span class="font-mono text-indigo-300 font-semibold" x-text="'v' + (currentNode?.agent_version || '1.2.0')"></span>
+              </div>
+              <div class="bg-zinc-900/80 border border-zinc-800 p-3 rounded-xl">
+                <span class="text-zinc-500 block text-[10px] uppercase font-bold">Protected Users</span>
+                <span class="font-mono text-emerald-400 font-semibold" x-text="users.filter(u => u.isManaged).length + ' accounts'"></span>
+              </div>
+              <div class="bg-zinc-900/80 border border-zinc-800 p-3 rounded-xl">
+                <span class="text-zinc-500 block text-[10px] uppercase font-bold">Active Rules</span>
+                <span class="font-mono text-purple-400 font-semibold" x-text="rules.length + ' rules'"></span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Child Account Safety Alert Banner on Overview (if all accounts are admins) -->
+        <div x-show="!hasStandardAccount" class="p-5 rounded-2xl bg-amber-950/40 border border-amber-500/40 space-y-3 shadow-xl">
+          <div class="flex items-start space-x-3">
+            <span class="text-2xl flex-shrink-0">⚠️</span>
+            <div class="space-y-1">
+              <h3 class="text-sm font-bold text-amber-200">No Child or Standard User Account Found</h3>
+              <p class="text-xs text-amber-300/80 leading-relaxed">
+                All accounts on <strong class="text-white" x-text="currentNode?.name"></strong> are Windows Administrators! Parental controls can be bypassed if the child has administrator privileges. Create a standard account for your child below.
+              </p>
+            </div>
+          </div>
+          <div class="flex flex-wrap items-center gap-2 pl-9">
+            <button @click="showCreateUserModal = true" class="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold text-xs rounded-lg transition shadow-md flex items-center space-x-1.5">
+              <span>➕</span>
+              <span>Create Standard Child Account</span>
+            </button>
+            <button @click="openWindowsAccountSettings()" class="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 text-xs font-semibold rounded-lg transition flex items-center space-x-1.5">
+              <span>⚙️</span>
+              <span>Open Windows Settings</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Quick Action Cards (12pm-8pm Schedule Preset & Path Jail) -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <!-- Preset Card -->
+          <div class="glass-card p-5 rounded-xl border border-zinc-800 space-y-3">
+            <div class="flex items-center space-x-2.5">
+              <span class="text-lg">⏱️</span>
+              <h3 class="text-sm font-bold text-white">Allowed Hours Preset (12:00 PM – 8:00 PM)</h3>
+            </div>
+            <p class="text-xs text-zinc-400 leading-relaxed">
+              Quickly restrict games or applications to afternoon and evening hours only. Outside of 12pm-8pm, the app terminates automatically.
+            </p>
+            <button @click="activeTab = 'rules'; newRule.ruleType = 'AllowedWindow'; newRule.scheduleStart = '12:00'; newRule.scheduleEnd = '20:00'" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-lg transition shadow flex items-center space-x-1.5">
+              <span>⚡ Configure 12pm–8pm Schedule</span>
+            </button>
+          </div>
+
+          <!-- Path Jail Card -->
+          <div class="glass-card p-5 rounded-xl border border-zinc-800 space-y-3">
+            <div class="flex items-center space-x-2.5">
+              <span class="text-lg">🔒</span>
+              <h3 class="text-sm font-bold text-white">Path Jail & Anti-Bypass</h3>
+            </div>
+            <p class="text-xs text-zinc-400 leading-relaxed">
+              Blocks portable executables from Downloads, Temp, Desktop, and USB drives so kids cannot bypass rules by downloading renamed .exe files.
+            </p>
+            <button @click="activeTab = 'users'" class="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 text-xs font-semibold rounded-lg transition flex items-center space-x-1.5">
+              <span>👥 Manage Protected Accounts</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Fleet Overview Grid -->
+        <div class="glass-card p-5 rounded-xl border border-zinc-800 space-y-3">
+          <div class="flex items-center justify-between">
+            <h3 class="text-sm font-bold text-white flex items-center space-x-2">
+              <span>🖥️</span>
+              <span>All Managed Computers (<span x-text="fleet.length"></span>)</span>
+            </h3>
+            <button @click="showAddModal = true" class="text-xs font-bold text-indigo-400 hover:text-indigo-300">+ Add Computer</button>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            <template x-for="node in fleet" :key="node.id">
+              <div @click="selectedNodeId = node.id; onNodeChange()" 
+                   :class="selectedNodeId === node.id ? 'border-indigo-500 bg-indigo-950/20 shadow-md shadow-indigo-500/10' : 'border-zinc-800 bg-zinc-900/50 hover:border-zinc-700'"
+                   class="p-3.5 rounded-xl border cursor-pointer transition space-y-2">
+                <div class="flex items-center justify-between">
+                  <span class="font-bold text-xs text-white truncate" x-text="node.name"></span>
+                  <span :class="node.status?.startsWith('online') ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'" class="text-[9px] font-mono px-2 py-0.5 rounded-full" x-text="node.status || 'unknown'"></span>
+                </div>
+                <div class="text-[11px] text-zinc-400 font-mono space-y-0.5">
+                  <div>LAN: <span class="text-zinc-300" x-text="node.lan_ip || 'None'"></span></div>
+                  <div x-show="node.tailscale_ip">Tailscale: <span class="text-zinc-300" x-text="node.tailscale_ip"></span></div>
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
+      </div>
+
+
+    <!-- TAB 1: LIVE PROCESS MONITOR -->
+    <div x-show="activeTab === 'processes'" class="space-y-4">
+      <!-- Search & Filters -->
+      <div class="flex flex-col sm:flex-row justify-between items-center gap-3 glass-card p-4 rounded-xl">
+        <div class="flex items-center space-x-2 w-full sm:w-80">
+          <div class="relative w-full">
+            <input 
+              type="text" 
+              x-model="processSearch" 
+              placeholder="Search executable, PID, or user..." 
+              class="w-full bg-zinc-900 border border-zinc-700/80 rounded-lg pl-9 pr-3 py-1.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-indigo-500">
+            <svg class="w-4 h-4 text-zinc-500 absolute left-2.5 top-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+          </div>
+        </div>
+
+        <div class="flex items-center space-x-2 self-end sm:self-auto">
+          <span class="text-xs text-zinc-400">User Filter:</span>
+          <select 
+            x-model="selectedUserFilter" 
+            class="bg-zinc-900 border border-zinc-700/80 text-xs rounded-lg px-2.5 py-1.5 text-zinc-200 focus:outline-none">
+            <option value="ALL">All Users</option>
+            <option value="MANAGED_ONLY">Managed Users Only</option>
+            <template x-for="u in users" :key="u.sid">
+              <option :value="u.sid" x-text="u.username + (u.isManaged ? ' (Managed)' : '')"></option>
+            </template>
+          </select>
+
+          <button 
+            @click="loadProcesses()" 
+            class="bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs px-3 py-1.5 rounded-lg border border-zinc-700 flex items-center space-x-1 transition">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+            <span>Scan Processes</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Process Table -->
+      <div class="glass-card rounded-xl overflow-hidden border border-zinc-800">
+        <div class="overflow-x-auto custom-scroll max-h-[640px]">
+          <table class="w-full text-left text-xs">
+            <thead class="bg-zinc-950/80 text-zinc-400 uppercase text-[10px] tracking-wider sticky top-0 border-b border-zinc-800">
+              <tr>
+                <th class="py-3 px-4">Process / Exe Name</th>
+                <th class="py-3 px-4">PID</th>
+                <th class="py-3 px-4">User Account (Win32 Token)</th>
+                <th class="py-3 px-4">PE OriginalFilename</th>
+                <th class="py-3 px-4">SHA-256 Hash</th>
+                <th class="py-3 px-4">RAM</th>
+                <th class="py-3 px-4 text-right">Instant Action</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-zinc-800/60">
+              <template x-for="proc in filteredProcesses" :key="proc.pid">
+                <tr class="hover:bg-zinc-800/30 transition">
+                  <td class="py-2.5 px-4">
+                    <div class="font-medium text-white flex items-center space-x-1.5">
+                      <span class="text-indigo-400">⚡</span>
+                      <span x-text="proc.processName"></span>
+                    </div>
+                    <div class="text-[10px] text-zinc-500 font-mono truncate max-w-xs" :title="proc.executablePath" x-text="proc.executablePath"></div>
+                  </td>
+                  <td class="py-2.5 px-4 font-mono text-zinc-300" x-text="proc.pid"></td>
+                  <td class="py-2.5 px-4">
+                    <div class="flex items-center space-x-1.5">
+                      <span class="font-medium text-zinc-200" x-text="proc.username || 'SYSTEM'"></span>
+                      <span x-show="proc.isManagedUser" class="bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[9px] px-1.5 py-0.2 rounded font-semibold">Managed</span>
+                    </div>
+                    <div class="text-[10px] text-zinc-500 font-mono" x-text="proc.domain"></div>
+                  </td>
+                  <td class="py-2.5 px-4 font-mono text-zinc-300" x-text="proc.originalFilename || '—'"></td>
+                  <td class="py-2.5 px-4 font-mono text-zinc-400 text-[11px]">
+                    <span :title="proc.sha256Hash" x-text="proc.sha256Hash ? proc.sha256Hash.substring(0, 10) + '...' : '—'"></span>
+                  </td>
+                  <td class="py-2.5 px-4 text-zinc-300 font-mono" x-text="proc.memoryMB + ' MB'"></td>
+                  <td class="py-2.5 px-4 text-right">
+                    <!-- 1-Click Block App Button -->
+                    <button 
+                      @click="openBlockModalForProcess(proc)" 
+                      class="bg-rose-600/20 hover:bg-rose-600 text-rose-300 hover:text-white border border-rose-500/40 text-[11px] font-semibold px-2.5 py-1 rounded transition shadow-sm">
+                      🛡️ Block App
+                    </button>
+                  </td>
+                </tr>
+              </template>
+              <tr x-show="filteredProcesses.length === 0">
+                <td colspan="7" class="py-8 text-center text-zinc-500">
+                  No running processes match your search filter.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 2: USER ACCOUNTS & PATH JAIL -->
+    <div x-show="activeTab === 'users'" class="space-y-4">
+      <div class="flex flex-wrap justify-between items-center glass-card p-4 rounded-xl gap-3">
+        <div>
+          <h2 class="text-sm font-bold text-white">Target Machine Windows Accounts</h2>
+          <p class="text-xs text-zinc-400">Toggle "Managed" to enforce blocklists, quotas, and path jails on specific children or standard accounts.</p>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+          <button 
+            @click="showCreateUserModal = true" 
+            class="bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold px-3 py-1.5 rounded-lg transition flex items-center space-x-1.5 shadow-sm">
+            <span>➕ Create Standard Child Account</span>
+          </button>
+          <button 
+            @click="openWindowsAccountSettings()" 
+            class="bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 text-xs px-3 py-1.5 rounded-lg transition flex items-center space-x-1.5">
+            <span>⚙️ Open Account Settings</span>
+          </button>
+          <button 
+            @click="loadUsers()" 
+            class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs px-3 py-1.5 rounded-lg transition">
+            Refresh Accounts
+          </button>
+        </div>
+      </div>
+
+      <!-- Warning Banner: No Child or Standard Account Detected -->
+      <div x-show="users.length > 0 && !hasStandardAccount" class="p-5 bg-amber-950/40 border border-amber-500/50 rounded-2xl space-y-3 shadow-xl">
+        <div class="flex items-start space-x-3.5">
+          <div class="text-3xl select-none">⚠️</div>
+          <div class="flex-1">
+            <div class="flex items-center space-x-2">
+              <h3 class="text-sm font-bold text-amber-300">No Child or Standard User Account Found</h3>
+              <span class="bg-amber-500/20 text-amber-300 text-[10px] font-bold px-2 py-0.5 rounded border border-amber-500/40 uppercase">Action Needed</span>
+            </div>
+            <p class="text-xs text-amber-100/90 mt-1 leading-relaxed">
+              All accounts detected on this Windows PC currently have <strong>full Administrator privileges</strong>.
+              Parental controls (application blocking, path jails, and allowed schedules) require a <strong>Standard (non-admin) Windows account</strong> so your child cannot bypass or modify security services. To protect your child, they must use a Standard account.
+            </p>
+          </div>
+        </div>
+        <div class="flex flex-wrap items-center gap-2.5 pt-2 border-t border-amber-500/20">
+          <button 
+            @click="showCreateUserModal = true" 
+            class="px-3.5 py-1.5 text-xs font-bold bg-amber-500 hover:bg-amber-400 text-black rounded-lg transition flex items-center space-x-1.5 shadow-md shadow-amber-500/20">
+            <span>➕ Create Standard Child Account</span>
+          </button>
+          <button 
+            @click="openWindowsAccountSettings()" 
+            class="px-3.5 py-1.5 text-xs font-semibold bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 rounded-lg transition flex items-center space-x-1.5">
+            <span>⚙️ Open Windows Account Settings</span>
+          </button>
+          <button 
+            @click="showAddModal = true" 
+            class="px-3.5 py-1.5 text-xs font-semibold bg-indigo-600/30 hover:bg-indigo-600 text-indigo-200 border border-indigo-500/30 rounded-lg transition flex items-center space-x-1.5">
+            <span>🌐 Add Remote PC to Manage</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <template x-for="user in users" :key="user.sid">
+          <div class="glass-card p-5 rounded-xl border border-zinc-800 space-y-4">
+            <div class="flex items-start justify-between">
+              <div>
+                <div class="flex items-center space-x-2">
+                  <span class="text-base font-bold text-white" x-text="user.username"></span>
+                  <span x-show="user.isAdmin" class="bg-purple-500/20 text-purple-300 border border-purple-500/30 text-[10px] px-2 py-0.5 rounded font-semibold">Admin</span>
+                  <span x-show="!user.isAdmin" class="bg-blue-500/20 text-blue-300 border border-blue-500/30 text-[10px] px-2 py-0.5 rounded font-semibold">Standard</span>
+                </div>
+                <div class="text-xs text-zinc-400" x-text="user.domain"></div>
+                <div class="text-[10px] text-zinc-500 font-mono mt-1" x-text="user.sid"></div>
+              </div>
+            </div>
+
+            <div class="pt-2 border-t border-zinc-800 space-y-3">
+              <!-- Managed Account Toggle -->
+              <div class="flex items-center justify-between">
+                <div>
+                  <div class="text-xs font-semibold text-zinc-200">Managed Account</div>
+                  <div class="text-[10px] text-zinc-400">Apply rules, schedules & quotas</div>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" x-model="user.isManaged" @change="saveUserManagement(user)" class="sr-only peer">
+                  <div class="w-9 h-5 bg-zinc-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
+                </label>
+              </div>
+
+              <!-- Path Jail Toggle -->
+              <div class="flex items-center justify-between">
+                <div>
+                  <div class="text-xs font-semibold text-zinc-200">Path Jail Protection</div>
+                  <div class="text-[10px] text-zinc-400">Block Downloads, Desktop, Temp & USB</div>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" x-model="user.blockUserWritableDirectories" @change="saveUserManagement(user)" class="sr-only peer">
+                  <div class="w-9 h-5 bg-zinc-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-rose-600"></div>
+                </label>
+              </div>
+            </div>
+          </div>
+        </template>
+      </div>
+    </div>
+
+    <!-- TAB 3: RULES, SCHEDULES & QUOTAS -->
+    <div x-show="activeTab === 'rules'" class="space-y-6">
+      <div class="flex flex-col sm:flex-row justify-between items-center gap-3 glass-card p-4 rounded-xl">
+        <div>
+          <h2 class="text-sm font-bold text-white">Active Application Rules & Overrides</h2>
+          <p class="text-xs text-zinc-400">Manage 3-layer anti-rename rules, daily runtime limits, and schedule blocks.</p>
+        </div>
+        <div class="flex items-center space-x-2">
+          <button 
+            @click="openOverrideModal()" 
+            class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold px-3 py-2 rounded-lg transition shadow-md shadow-emerald-600/20">
+            ⏳ Grant Remote Override
+          </button>
+          <button 
+            @click="openCreateRuleModal()" 
+            class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold px-3 py-2 rounded-lg transition shadow-md shadow-indigo-600/20">
+            + Create New Rule
+          </button>
+        </div>
+      </div>
+
+      <!-- Active Overrides Banner -->
+      <div x-show="overrides.length > 0" class="glass-card p-4 rounded-xl border border-emerald-500/30 space-y-2">
+        <h3 class="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center space-x-1.5">
+          <span>✓ Active Temporary Overrides</span>
+        </h3>
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+          <template x-for="ov in overrides" :key="ov.id">
+            <div class="bg-zinc-900/80 border border-zinc-800 p-3 rounded-lg flex justify-between items-center">
+              <div>
+                <div class="text-xs font-bold text-white" x-text="ov.processName"></div>
+                <div class="text-[10px] text-zinc-400" x-text="'User: ' + (ov.userSid === '*' ? 'All' : ov.userSid)"></div>
+                <div class="text-[10px] text-emerald-400" x-text="'Expires: ' + formatExpiry(ov.expiresAtUtc)"></div>
+              </div>
+              <span class="text-xs bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded font-mono">Active</span>
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <!-- Rules Table -->
+      <div class="glass-card rounded-xl overflow-hidden border border-zinc-800">
+        <table class="w-full text-left text-xs">
+          <thead class="bg-zinc-950/80 text-zinc-400 uppercase text-[10px] tracking-wider border-b border-zinc-800">
+            <tr>
+              <th class="py-3 px-4">Target Rule</th>
+              <th class="py-3 px-4">Enforcement Type</th>
+              <th class="py-3 px-4">Applied Account</th>
+              <th class="py-3 px-4">Schedule / Quota Limits</th>
+              <th class="py-3 px-4">3-Layer Criteria</th>
+              <th class="py-3 px-4 text-right">Action</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-zinc-800/60">
+            <template x-for="rule in rules" :key="rule.id">
+              <tr class="hover:bg-zinc-800/30 transition">
+                <td class="py-3 px-4">
+                  <div class="font-bold text-white text-sm" x-text="rule.description || rule.processName || 'App Rule'"></div>
+                  <div class="text-[11px] text-zinc-400" x-text="rule.processName || 'All executables matching criteria'"></div>
+                </td>
+                <td class="py-3 px-4">
+                  <span 
+                    :class="{
+                      'bg-rose-500/20 text-rose-300 border border-rose-500/30': rule.ruleType === 'AlwaysBlock',
+                      'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30': rule.ruleType === 'AllowedWindow',
+                      'bg-amber-500/20 text-amber-300 border border-amber-500/30': rule.ruleType === 'ScheduleBlock',
+                      'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30': rule.ruleType === 'DailyQuota'
+                    }"
+                    class="text-[10px] font-bold px-2 py-0.5 rounded"
+                    x-text="rule.ruleType === 'AllowedWindow' ? 'Allowed Window' : rule.ruleType"></span>
+                </td>
+                <td class="py-3 px-4 text-zinc-300 font-mono text-[11px]" x-text="rule.targetUserSid === '*' ? 'All Managed Users (*)' : rule.targetUserSid"></td>
+                <td class="py-3 px-4 text-zinc-300">
+                  <span x-show="rule.ruleType === 'AlwaysBlock'">Always Restricted (24/7)</span>
+                  <span x-show="rule.ruleType === 'AllowedWindow'" class="text-emerald-400 font-semibold" x-text="'Allowed: ' + formatTime12(rule.scheduleStart) + ' – ' + formatTime12(rule.scheduleEnd)"></span>
+                  <span x-show="rule.ruleType === 'ScheduleBlock'" class="text-amber-400" x-text="'Blocked: ' + formatTime12(rule.scheduleStart) + ' – ' + formatTime12(rule.scheduleEnd)"></span>
+                  <span x-show="rule.ruleType === 'DailyQuota'" x-text="rule.quotaMinutes + ' min/day max'"></span>
+                </td>
+                <td class="py-3 px-4 text-[10px] font-mono space-y-0.5">
+                  <div x-show="rule.originalFilename" class="text-zinc-400" x-text="'PE: ' + rule.originalFilename"></div>
+                  <div x-show="rule.sha256Hash" class="text-zinc-500" x-text="'Hash: ' + rule.sha256Hash.substring(0, 12) + '...'"></div>
+                </td>
+                <td class="py-3 px-4 text-right">
+                  <button 
+                    @click="deleteRule(rule.id)" 
+                    class="text-rose-400 hover:text-rose-200 text-xs px-2 py-1 rounded hover:bg-rose-900/30 transition">
+                    Delete
+                  </button>
+                </td>
+              </tr>
+            </template>
+            <tr x-show="rules.length === 0">
+              <td colspan="6" class="py-8 text-center text-zinc-500">
+                No active rules defined. Click "+ Create New Rule" or block an app directly from the Process Monitor.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- TAB 4: AUDIT LOGS -->
+    <div x-show="activeTab === 'logs'" class="space-y-4">
+      <div class="flex justify-between items-center glass-card p-4 rounded-xl">
+        <div>
+          <h2 class="text-sm font-bold text-white">Application Block & Enforcement Audit Log</h2>
+          <p class="text-xs text-zinc-400">Forensic trail of all blocked attempts, daily quota hits, and granted overrides.</p>
+        </div>
+        <button 
+          @click="loadLogs()" 
+          class="bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs px-3 py-1.5 rounded-lg border border-zinc-700 transition">
+          Refresh Logs
+        </button>
+      </div>
+
+      <div class="glass-card rounded-xl overflow-hidden border border-zinc-800">
+        <div class="overflow-x-auto custom-scroll max-h-[640px]">
+          <table class="w-full text-left text-xs">
+            <thead class="bg-zinc-950/80 text-zinc-400 uppercase text-[10px] tracking-wider sticky top-0 border-b border-zinc-800">
+              <tr>
+                <th class="py-3 px-4">Timestamp (UTC)</th>
+                <th class="py-3 px-4">User</th>
+                <th class="py-3 px-4">Executable / OriginalFilename</th>
+                <th class="py-3 px-4">Action</th>
+                <th class="py-3 px-4">Reason / Rule Trigger</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-zinc-800/60 font-mono">
+              <template x-for="log in logs" :key="log.id">
+                <tr class="hover:bg-zinc-800/30 transition">
+                  <td class="py-2.5 px-4 text-zinc-400" x-text="formatDate(log.timestampUtc)"></td>
+                  <td class="py-2.5 px-4 font-sans">
+                    <span class="font-bold text-zinc-200" x-text="log.username || 'User'"></span>
+                    <div class="text-[10px] text-zinc-500 font-mono" x-text="log.userSid"></div>
+                  </td>
+                  <td class="py-2.5 px-4">
+                    <div class="font-bold text-white font-sans" x-text="log.processName"></div>
+                    <div class="text-[10px] text-zinc-500" x-show="log.originalFilename" x-text="'PE: ' + log.originalFilename"></div>
+                  </td>
+                  <td class="py-2.5 px-4 font-sans">
+                    <span 
+                      :class="{
+                        'bg-rose-500/20 text-rose-300 border border-rose-500/30': log.action === 'Blocked',
+                        'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30': log.action === 'OverrideGranted',
+                        'bg-blue-500/20 text-blue-300 border border-blue-500/30': log.action === 'Allowed'
+                      }"
+                      class="text-[10px] font-bold px-2 py-0.5 rounded"
+                      x-text="log.action"></span>
+                  </td>
+                  <td class="py-2.5 px-4 font-sans text-zinc-300" x-text="log.reason"></td>
+                </tr>
+              </template>
+              <tr x-show="logs.length === 0">
+                <td colspan="5" class="py-8 text-center text-zinc-500 font-sans">
+                  No execution logs recorded yet.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 4: INSTALLED APPLICATIONS SCANNER -->
+    <div x-show="activeTab === 'installed'" class="space-y-4">
+      <div class="glass-card p-4 rounded-xl border border-zinc-800 flex flex-col md:flex-row items-center justify-between gap-4">
+        <div class="flex items-center space-x-3 w-full md:w-auto">
+          <input 
+            type="text" 
+            x-model="installedAppFilter" 
+            placeholder="Search installed software (e.g. Roblox, Steam, Chrome, Discord)..." 
+            class="bg-zinc-900 border border-zinc-700 rounded-lg px-3.5 py-1.5 text-xs text-white placeholder-zinc-500 w-full md:w-80 focus:outline-none focus:border-indigo-500">
+        </div>
+        <div class="flex items-center space-x-3">
+          <span class="text-xs text-zinc-400">Total Installed: <span class="font-bold text-white" x-text="installedApps.length"></span></span>
+          <button 
+            @click="loadInstalledApps()" 
+            class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition flex items-center space-x-1.5 shadow-md shadow-indigo-600/20"
+            :class="{'animate-pulse': isLoadingApps}">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+            <span x-text="isLoadingApps ? 'Scanning Windows PC...' : 'Scan Windows Apps'"></span>
+          </button>
+        </div>
+      </div>
+
+      <div class="glass-card rounded-xl border border-zinc-800 overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs">
+            <thead class="bg-zinc-900/80 text-zinc-400 border-b border-zinc-800 uppercase tracking-wider text-[10px]">
+              <tr>
+                <th class="py-3 px-4">Application Name</th>
+                <th class="py-3 px-4">Publisher / Version</th>
+                <th class="py-3 px-4">Target Executable</th>
+                <th class="py-3 px-4">Status</th>
+                <th class="py-3 px-4 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-zinc-800/60 font-mono">
+              <template x-for="app in filteredInstalledApps" :key="app.DisplayName + app.ExeName">
+                <tr class="hover:bg-zinc-800/40 transition">
+                  <td class="py-2.5 px-4 font-sans font-semibold text-white flex items-center space-x-2">
+                    <span class="text-base">📦</span>
+                    <span x-text="app.DisplayName"></span>
+                  </td>
+                  <td class="py-2.5 px-4 font-sans text-zinc-400">
+                    <div x-text="app.Publisher || 'Unknown'"></div>
+                    <div class="text-[10px] text-zinc-500 font-mono" x-text="app.DisplayVersion ? 'v' + app.DisplayVersion : ''"></div>
+                  </td>
+                  <td class="py-2.5 px-4 text-zinc-300">
+                    <span x-text="app.ExeName || '(Package)'" class="bg-zinc-800 px-2 py-0.5 rounded text-[11px]"></span>
+                  </td>
+                  <td class="py-2.5 px-4 font-sans">
+                    <span 
+                      :class="app.IsBlocked ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40' : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'" 
+                      class="px-2 py-0.5 rounded text-[10px] font-semibold uppercase" 
+                      x-text="app.IsBlocked ? 'Blocked' : 'Allowed'"></span>
+                  </td>
+                  <td class="py-2.5 px-4 text-right space-x-1.5 font-sans">
+                    <button 
+                      x-show="!app.IsBlocked && app.ExeName" 
+                      @click="blockInstalledApp(app)" 
+                      class="bg-rose-600/80 hover:bg-rose-600 text-white px-2.5 py-1 rounded text-[11px] font-semibold transition">
+                      Block
+                    </button>
+                    <button 
+                      x-show="!app.IsBlocked && app.ExeName" 
+                      @click="setQuotaForApp(app.ExeName, app.DisplayName)" 
+                      class="bg-amber-600/80 hover:bg-amber-600 text-white px-2.5 py-1 rounded text-[11px] font-semibold transition">
+                      Set Quota
+                    </button>
+                    <button 
+                      x-show="app.IsBlocked && app.ExeName" 
+                      @click="unblockAppByName(app.ExeName)" 
+                      class="bg-emerald-600/80 hover:bg-emerald-600 text-white px-2.5 py-1 rounded text-[11px] font-semibold transition">
+                      Allow
+                    </button>
+                  </td>
+                </tr>
+              </template>
+              <tr x-show="filteredInstalledApps.length === 0">
+                <td colspan="5" class="py-8 text-center text-zinc-500 font-sans">
+                  No installed applications match your filter or scanner has not run yet. Click "Scan Windows Apps".
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 5: NODE SETTINGS, COMMANDS & UNINSTALLER -->
+    <div x-show="activeTab === 'settings'" class="max-w-3xl mx-auto space-y-6">
+      <!-- Node Configuration Card -->
+      <div class="glass-card p-6 rounded-xl border border-zinc-800 space-y-4">
+        <h2 class="text-base font-bold text-white flex items-center space-x-2">
+          <span>⚙️ Node Configuration: </span>
+          <span class="text-indigo-400" x-text="currentNode?.name"></span>
+        </h2>
+
+        <div class="space-y-3 text-xs">
+          <div>
+            <label class="block text-zinc-400 mb-1">Friendly Computer Name</label>
+            <input type="text" x-model="currentNode.name" class="w-full bg-zinc-900 border border-zinc-700 rounded px-3 py-1.5 text-white">
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-zinc-400 mb-1">LAN IP Address</label>
+              <input type="text" x-model="currentNode.lan_ip" class="w-full bg-zinc-900 border border-zinc-700 rounded px-3 py-1.5 text-white font-mono">
+            </div>
+            <div>
+              <label class="block text-zinc-400 mb-1">Tailscale IP Address</label>
+              <input type="text" x-model="currentNode.tailscale_ip" class="w-full bg-zinc-900 border border-zinc-700 rounded px-3 py-1.5 text-white font-mono">
+            </div>
+          </div>
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <label class="block text-zinc-400">Pre-Shared Key (PSK)</label>
+              <div class="flex items-center space-x-2 text-[11px]">
+                <button type="button" @click="showPskInSettings = !showPskInSettings" class="text-indigo-400 hover:text-indigo-300 font-semibold">
+                  <span x-text="showPskInSettings ? '🙈 Hide Key' : '👁️ Reveal Key'"></span>
+                </button>
+                <button type="button" @click="copyCommand(currentNode.psk)" class="text-indigo-400 hover:text-indigo-300 font-semibold">
+                  <span>📋 Copy Key</span>
+                </button>
+              </div>
+            </div>
+            <input :type="showPskInSettings ? 'text' : 'password'" x-model="currentNode.psk" class="w-full bg-zinc-900 border border-zinc-700 rounded px-3 py-1.5 text-white font-mono text-xs">
+          </div>
+
+          <div class="pt-3 flex justify-between">
+            <button 
+              @click="saveCurrentNodeSettings()" 
+              class="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-4 py-2 rounded-lg text-xs transition">
+              Save Settings
+            </button>
+            <button 
+              @click="deleteCurrentNode()" 
+              class="text-rose-400 hover:text-rose-200 text-xs px-3 py-1.5 rounded transition">
+              Remove from Fleet
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Windows Endpoint Command Center & Quick Reference -->
+      <div class="glass-card p-6 rounded-xl border border-zinc-800 space-y-4">
+        <div class="flex items-center space-x-2 text-indigo-400">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+          <h3 class="text-sm font-bold text-white">Windows Endpoint Command Center (PowerShell / Admin)</h3>
+        </div>
+        <p class="text-xs text-zinc-400">
+          Essential PowerShell commands to execute on the Windows PC for deployment, key retrieval, and diagnostic checks. Click any command to copy it directly to your clipboard.
+        </p>
+
+        <div class="space-y-3 pt-1">
+          <!-- Install Command -->
+          <div class="bg-zinc-900/90 border border-zinc-800 rounded-lg p-3 space-y-1.5">
+            <div class="flex items-center justify-between text-xs">
+              <span class="font-semibold text-zinc-300">1. Install Client on Windows (Run as Admin):</span>
+              <button @click="copyCommand('powershell -ExecutionPolicy Bypass -File .\\Install-AppShield.ps1')" class="text-indigo-400 hover:text-indigo-300 text-[11px] font-semibold flex items-center space-x-1">
+                <span>📋 Copy</span>
+              </button>
+            </div>
+            <code class="block text-indigo-300 bg-zinc-950 p-2 rounded text-[11px] font-mono select-all">powershell -ExecutionPolicy Bypass -File .\Install-AppShield.ps1</code>
+          </div>
+
+          <!-- Retrieve PSK -->
+          <div class="bg-zinc-900/90 border border-zinc-800 rounded-lg p-3 space-y-1.5">
+            <div class="flex items-center justify-between text-xs">
+              <span class="font-semibold text-zinc-300">2. Retrieve Pre-Shared Key (PSK) if Lost:</span>
+              <button @click="copyCommand('Get-Content \"C:\\ProgramData\\AppShield\\psk.key\"')" class="text-indigo-400 hover:text-indigo-300 text-[11px] font-semibold flex items-center space-x-1">
+                <span>📋 Copy</span>
+              </button>
+            </div>
+            <code class="block text-amber-300 bg-zinc-950 p-2 rounded text-[11px] font-mono select-all">Get-Content "C:\ProgramData\AppShield\psk.key"</code>
+          </div>
+
+          <!-- Check Service Status -->
+          <div class="bg-zinc-900/90 border border-zinc-800 rounded-lg p-3 space-y-1.5">
+            <div class="flex items-center justify-between text-xs">
+              <span class="font-semibold text-zinc-300">3. Verify Background Service Status:</span>
+              <button @click="copyCommand('Get-Service AppShieldService')" class="text-indigo-400 hover:text-indigo-300 text-[11px] font-semibold flex items-center space-x-1">
+                <span>📋 Copy</span>
+              </button>
+            </div>
+            <code class="block text-emerald-300 bg-zinc-950 p-2 rounded text-[11px] font-mono select-all">Get-Service AppShieldService</code>
+          </div>
+
+          <!-- Tail Service Logs -->
+          <div class="bg-zinc-900/90 border border-zinc-800 rounded-lg p-3 space-y-1.5">
+            <div class="flex items-center justify-between text-xs">
+              <span class="font-semibold text-zinc-300">4. Tail Live Service Diagnostic Logs:</span>
+              <button @click="copyCommand('Get-Content \"C:\\ProgramData\\AppShield\\service.log\" -Tail 50 -Wait')" class="text-indigo-400 hover:text-indigo-300 text-[11px] font-semibold flex items-center space-x-1">
+                <span>📋 Copy</span>
+              </button>
+            </div>
+            <code class="block text-zinc-300 bg-zinc-950 p-2 rounded text-[11px] font-mono select-all">Get-Content "C:\ProgramData\AppShield\service.log" -Tail 50 -Wait</code>
+          </div>
+
+          <!-- Check Tailscale IP -->
+          <div class="bg-zinc-900/90 border border-zinc-800 rounded-lg p-3 space-y-1.5">
+            <div class="flex items-center justify-between text-xs">
+              <span class="font-semibold text-zinc-300">5. Check Tailscale Mesh IP Address:</span>
+              <button @click="copyCommand('tailscale ip -4')" class="text-indigo-400 hover:text-indigo-300 text-[11px] font-semibold flex items-center space-x-1">
+                <span>📋 Copy</span>
+              </button>
+            </div>
+            <code class="block text-purple-300 bg-zinc-950 p-2 rounded text-[11px] font-mono select-all">tailscale ip -4</code>
+          </div>
+
+          <!-- Safe Local Uninstaller -->
+          <div class="bg-zinc-900/90 border border-zinc-800 rounded-lg p-3 space-y-1.5">
+            <div class="flex items-center justify-between text-xs">
+              <span class="font-semibold text-zinc-300">6. Safe Local Uninstaller on Windows (Run as Admin):</span>
+              <button @click="copyCommand('powershell -ExecutionPolicy Bypass -File .\\Uninstall-AppShield.ps1')" class="text-indigo-400 hover:text-indigo-300 text-[11px] font-semibold flex items-center space-x-1">
+                <span>📋 Copy</span>
+              </button>
+            </div>
+            <code class="block text-rose-300 bg-zinc-950 p-2 rounded text-[11px] font-mono select-all">powershell -ExecutionPolicy Bypass -File .\Uninstall-AppShield.ps1</code>
+          </div>
+        </div>
+      </div>
+
+      <!-- Remote Uninstaller Danger Zone -->
+      <div class="glass-card p-6 rounded-xl border border-rose-500/40 bg-rose-950/20 space-y-4">
+        <div class="flex items-center space-x-2 text-rose-400">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+          <h3 class="text-sm font-bold">Tamper-Proof Remote Self-Destruct Uninstaller</h3>
+        </div>
+        <p class="text-xs text-zinc-300">
+          Because AppShield runs with no local uninstaller in Windows "Apps & Features" and blocks service termination in Session 0, it can only be uninstalled remotely via this verified command.
+        </p>
+        <p class="text-xs text-zinc-400">
+          This initiates a detached PowerShell script that stops the service, deletes service registration, removes Windows Defender Firewall rules, and forcefully purges all program files and data.
+        </p>
+
+        <button 
+          @click="showUninstallModal = true" 
+          class="bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs px-4 py-2.5 rounded-lg transition shadow-md shadow-rose-600/30">
+          Initiate Remote Self-Destruct Uninstaller...
+        </button>
+      </div>
+    </div>
+  </main>
+  </div>
+
+  <!-- MODAL: ADD PC TO FLEET -->
+  <div x-show="showAddModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
+    <div class="glass-card max-w-md w-full p-6 rounded-2xl border border-zinc-700 space-y-4">
+      <div class="flex justify-between items-center">
+        <h3 class="text-base font-bold text-white">Add Windows Machine to Fleet</h3>
+        <button @click="showAddModal = false" class="text-zinc-400 hover:text-white">&times;</button>
+      </div>
+
+      <!-- Quick mDNS Local Discovery -->
+      <div class="p-3 bg-zinc-900/90 rounded-xl border border-zinc-800 space-y-2">
+        <div class="flex justify-between items-center">
+          <span class="text-xs font-semibold text-indigo-400">Auto-Discovery (mDNS)</span>
+          <button @click="runMdnsScan()" :disabled="isScanning" class="text-[11px] bg-indigo-600/30 hover:bg-indigo-600 text-indigo-200 px-2.5 py-1 rounded transition">
+            <span x-text="isScanning ? 'Scanning LAN...' : 'Scan Subnet'"></span>
+          </button>
+        </div>
+        <div x-show="discoveredServices.length > 0" class="space-y-1">
+          <template x-for="item in discoveredServices" :key="item.name">
+            <div @click="selectDiscovered(item)" class="p-2 bg-zinc-800 hover:bg-zinc-700 rounded cursor-pointer flex justify-between items-center text-xs">
+              <span class="font-bold text-white" x-text="item.name"></span>
+              <span class="font-mono text-zinc-400" x-text="item.primary_ip + ':' + item.port"></span>
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <!-- Manual IP Entry Form -->
+      <div class="space-y-3 text-xs">
+        <div>
+          <label class="block text-zinc-400 mb-1">Machine Name (e.g. LivingRoom-PC)</label>
+          <input type="text" x-model="newNode.name" class="w-full bg-zinc-900 border border-zinc-700 rounded px-3 py-1.5 text-white">
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-zinc-400 mb-1">LAN Subnet IP</label>
+            <input type="text" x-model="newNode.lan_ip" placeholder="192.168.1.150" class="w-full bg-zinc-900 border border-zinc-700 rounded px-3 py-1.5 text-white font-mono">
+          </div>
+          <div>
+            <label class="block text-zinc-400 mb-1">Tailscale IP (Mesh)</label>
+            <input type="text" x-model="newNode.tailscale_ip" placeholder="100.x.y.z" class="w-full bg-zinc-900 border border-zinc-700 rounded px-3 py-1.5 text-white font-mono">
+          </div>
+        </div>
+        <div>
+          <div class="flex items-center justify-between mb-1">
+            <label class="block text-zinc-400">Pre-Shared Key (PSK)</label>
+            <div class="flex items-center space-x-2 text-[11px]">
+              <button type="button" @click="generateNewPsk()" class="text-amber-400 hover:text-amber-300 font-semibold flex items-center space-x-1">
+                <span>⚡ Generate Key</span>
+              </button>
+              <button type="button" @click="showPskInAdd = !showPskInAdd" class="text-indigo-400 hover:text-indigo-300 font-semibold">
+                <span x-text="showPskInAdd ? '🙈 Hide' : '👁️ Reveal'"></span>
+              </button>
+              <button type="button" x-show="newNode.psk" @click="copyCommand(newNode.psk)" class="text-indigo-400 hover:text-indigo-300 font-semibold">
+                <span>📋 Copy</span>
+              </button>
+            </div>
+          </div>
+          <input :type="showPskInAdd ? 'text' : 'password'" x-model="newNode.psk" placeholder="Enter 32-char PSK from installer or click Generate" class="w-full bg-zinc-900 border border-zinc-700 rounded px-3 py-1.5 text-white font-mono text-xs">
+          <p class="text-[10px] text-zinc-500 mt-1">
+            Tip: You can click "Generate Key", copy it, and install on Windows with <code>.\Install-AppShield.ps1 -Psk "&lt;Key&gt;"</code>, or paste the key printed by the Windows installer.
+          </p>
+        </div>
+      </div>
+
+      <div class="pt-3 flex justify-end space-x-2">
+        <button @click="showAddModal = false" class="px-4 py-2 text-xs text-zinc-400 hover:text-white">Cancel</button>
+        <button @click="saveNewNode()" class="px-4 py-2 text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg">Save & Connect</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: CREATE / BLOCK RULE -->
+  <div x-show="showRuleModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
+    <div class="glass-card max-w-lg w-full p-6 rounded-2xl border border-zinc-700 space-y-4">
+      <div class="flex justify-between items-center">
+        <h3 class="text-base font-bold text-white">Create Application Enforcement Rule</h3>
+        <button @click="showRuleModal = false" class="text-zinc-400 hover:text-white">&times;</button>
+      </div>
+
+      <div class="space-y-3 text-xs">
+        <div>
+          <label class="block text-zinc-400 mb-1">Target Account</label>
+          <select x-model="newRule.targetUserSid" class="w-full bg-zinc-900 border border-zinc-700 rounded px-3 py-1.5 text-white">
+            <option value="*">All Managed Accounts (*)</option>
+            <template x-for="u in users" :key="u.sid">
+              <option :value="u.sid" x-text="u.username + ' (' + u.sid + ')'"></option>
+            </template>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-zinc-400 mb-1">Enforcement Mode</label>
+          <select x-model="newRule.ruleType" class="w-full bg-zinc-900 border border-zinc-700 rounded px-3 py-1.5 text-white">
+            <option value="AllowedWindow">🟢 Allowed Hours Window (Kid can ONLY use between specific times, e.g. 12:00 PM – 8:00 PM)</option>
+            <option value="AlwaysBlock">🔴 Always Block (24/7 immediate termination)</option>
+            <option value="ScheduleBlock">⛔ Bedtime / Downtime Block (Block ONLY during specific hours, e.g. 9:00 PM – 7:00 AM)</option>
+            <option value="DailyQuota">⏱️ Daily Quota (Cumulative daily runtime limit, e.g. 60 min/day)</option>
+          </select>
+        </div>
+
+        <!-- Schedule / Allowed Time Configuration Box -->
+        <div x-show="newRule.ruleType === 'AllowedWindow' || newRule.ruleType === 'ScheduleBlock'" class="p-3 bg-zinc-900/80 rounded-lg border border-zinc-700/80 space-y-3">
+          <div class="flex items-center justify-between">
+            <span class="text-[11px] font-bold text-indigo-400 uppercase tracking-wider">
+              <span x-show="newRule.ruleType === 'AllowedWindow'">Allowed Usage Schedule</span>
+              <span x-show="newRule.ruleType === 'ScheduleBlock'">Restricted / Downtime Schedule</span>
+            </span>
+          </div>
+
+          <!-- Quick Presets -->
+          <div>
+            <label class="block text-[11px] text-zinc-400 mb-1.5">Quick Time Presets:</label>
+            <div class="grid grid-cols-2 gap-1.5">
+              <button type="button" @click="setTimePreset('12:00', '20:00')" class="px-2 py-1 text-[11px] rounded bg-zinc-800 hover:bg-indigo-600/30 hover:border-indigo-500 text-zinc-200 border border-zinc-700 text-left transition">
+                🕒 12:00 PM – 8:00 PM (Afternoon/Evening)
+              </button>
+              <button type="button" @click="setTimePreset('15:00', '20:00')" class="px-2 py-1 text-[11px] rounded bg-zinc-800 hover:bg-indigo-600/30 hover:border-indigo-500 text-zinc-200 border border-zinc-700 text-left transition">
+                🎒 3:00 PM – 8:00 PM (After School)
+              </button>
+              <button type="button" @click="setTimePreset('09:00', '17:00')" class="px-2 py-1 text-[11px] rounded bg-zinc-800 hover:bg-indigo-600/30 hover:border-indigo-500 text-zinc-200 border border-zinc-700 text-left transition">
+                ☀️ 9:00 AM – 5:00 PM (Daytime)
+              </button>
+              <button type="button" @click="setTimePreset('21:00', '07:00')" class="px-2 py-1 text-[11px] rounded bg-zinc-800 hover:bg-indigo-600/30 hover:border-indigo-500 text-zinc-200 border border-zinc-700 text-left transition">
+                🌙 9:00 PM – 7:00 AM (Bedtime Downtime)
+              </button>
+            </div>
+          </div>
+
+          <!-- Custom Time Pickers -->
+          <div class="grid grid-cols-2 gap-3 pt-1">
+            <div>
+              <label class="block text-zinc-400 mb-1">Start Time (HH:mm)</label>
+              <input type="time" x-model="newRule.scheduleStart" class="w-full bg-zinc-950 border border-zinc-700 rounded px-2.5 py-1.5 text-white font-mono">
+              <div class="text-[10px] text-zinc-500 mt-0.5" x-text="formatTime12(newRule.scheduleStart)"></div>
+            </div>
+            <div>
+              <label class="block text-zinc-400 mb-1">End Time (HH:mm)</label>
+              <input type="time" x-model="newRule.scheduleEnd" class="w-full bg-zinc-950 border border-zinc-700 rounded px-2.5 py-1.5 text-white font-mono">
+              <div class="text-[10px] text-zinc-500 mt-0.5" x-text="formatTime12(newRule.scheduleEnd)"></div>
+            </div>
+          </div>
+
+          <!-- Dynamic Behavior Summary Notice -->
+          <div x-show="newRule.ruleType === 'AllowedWindow'" class="p-2.5 rounded bg-emerald-500/10 border border-emerald-500/30 text-[11px] text-emerald-300">
+            <span class="font-bold">🟢 Active Policy:</span> Kid can <strong class="underline">ONLY</strong> launch and use this app between <span class="font-bold text-white" x-text="formatTime12(newRule.scheduleStart)"></span> and <span class="font-bold text-white" x-text="formatTime12(newRule.scheduleEnd)"></span>. It will be automatically blocked at all other times.
+          </div>
+          <div x-show="newRule.ruleType === 'ScheduleBlock'" class="p-2.5 rounded bg-amber-500/10 border border-amber-500/30 text-[11px] text-amber-300">
+            <span class="font-bold">⛔ Active Policy:</span> App is <strong class="underline">BLOCKED</strong> between <span class="font-bold text-white" x-text="formatTime12(newRule.scheduleStart)"></span> and <span class="font-bold text-white" x-text="formatTime12(newRule.scheduleEnd)"></span>. Kid can run it freely outside this window.
+          </div>
+        </div>
+
+        <div x-show="newRule.ruleType === 'DailyQuota'" class="p-3 bg-zinc-900/60 rounded-lg border border-zinc-800">
+          <label class="block text-zinc-400 mb-1">Daily Quota (Minutes allowed per calendar day)</label>
+          <input type="number" min="1" max="1440" x-model.number="newRule.quotaMinutes" class="w-full bg-zinc-900 border border-zinc-700 rounded px-3 py-1.5 text-white font-mono">
+        </div>
+
+        <!-- 3-Layer Anti-Rename Identification Fields -->
+        <div class="p-3 bg-zinc-900/90 rounded-lg border border-zinc-800 space-y-2">
+          <div class="text-[11px] font-bold text-indigo-400 uppercase tracking-wider">3-Layer Anti-Rename Identification</div>
+          <div>
+            <label class="block text-zinc-400 mb-1">1. Executable Name (e.g. discord.exe)</label>
+            <input type="text" x-model="newRule.processName" class="w-full bg-zinc-950 border border-zinc-700 rounded px-2.5 py-1.5 text-white font-mono text-xs">
+          </div>
+          <div>
+            <label class="block text-zinc-400 mb-1">2. PE Header OriginalFilename (anti-rename)</label>
+            <input type="text" x-model="newRule.originalFilename" class="w-full bg-zinc-950 border border-zinc-700 rounded px-2.5 py-1.5 text-white font-mono text-xs">
+          </div>
+          <div>
+            <label class="block text-zinc-400 mb-1">3. SHA-256 File Hash (tamper-proof binary signature)</label>
+            <input type="text" x-model="newRule.sha256Hash" class="w-full bg-zinc-950 border border-zinc-700 rounded px-2.5 py-1.5 text-white font-mono text-xs">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-zinc-400 mb-1">Rule Description / Notes</label>
+          <input type="text" x-model="newRule.description" placeholder="e.g. Bedtime gaming restriction" class="w-full bg-zinc-900 border border-zinc-700 rounded px-3 py-1.5 text-white">
+        </div>
+      </div>
+
+      <div class="pt-3 flex justify-end space-x-2">
+        <button @click="showRuleModal = false" class="px-4 py-2 text-xs text-zinc-400 hover:text-white">Cancel</button>
+        <button @click="submitRule()" class="px-4 py-2 text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg">Save Rule</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: REMOTE OVERRIDE -->
+  <div x-show="showOverrideModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
+    <div class="glass-card max-w-sm w-full p-6 rounded-2xl border border-zinc-700 space-y-4">
+      <div class="flex justify-between items-center">
+        <h3 class="text-base font-bold text-white">Grant Remote Whitelist Override</h3>
+        <button @click="showOverrideModal = false" class="text-zinc-400 hover:text-white">&times;</button>
+      </div>
+
+      <div class="space-y-3 text-xs">
+        <div>
+          <label class="block text-zinc-400 mb-1">Process Name (e.g. roblox.exe)</label>
+          <input type="text" x-model="overrideForm.processName" class="w-full bg-zinc-900 border border-zinc-700 rounded px-3 py-1.5 text-white font-mono">
+        </div>
+        <div>
+          <label class="block text-zinc-400 mb-1">Target Account</label>
+          <select x-model="overrideForm.userSid" class="w-full bg-zinc-900 border border-zinc-700 rounded px-3 py-1.5 text-white">
+            <option value="*">All Accounts (*)</option>
+            <template x-for="u in users" :key="u.sid">
+              <option :value="u.sid" x-text="u.username"></option>
+            </template>
+          </select>
+        </div>
+        <div>
+          <label class="block text-zinc-400 mb-1">Duration (Minutes)</label>
+          <select x-model.number="overrideForm.minutes" class="w-full bg-zinc-900 border border-zinc-700 rounded px-3 py-1.5 text-white">
+            <option :value="15">15 Minutes</option>
+            <option :value="30">30 Minutes</option>
+            <option :value="60">60 Minutes (1 Hour)</option>
+            <option :value="120">120 Minutes (2 Hours)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="pt-3 flex justify-end space-x-2">
+        <button @click="showOverrideModal = false" class="px-4 py-2 text-xs text-zinc-400 hover:text-white">Cancel</button>
+        <button @click="submitOverride()" class="px-4 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg">Grant Access</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: REMOTE SELF-DESTRUCT UNINSTALLER -->
+  <div x-show="showUninstallModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4">
+    <div class="glass-card max-w-md w-full p-6 rounded-2xl border border-rose-500/80 bg-zinc-900 space-y-4">
+      <div class="flex items-center space-x-3 text-rose-500">
+        <div class="p-2 bg-rose-500/20 rounded-xl">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+        </div>
+        <div>
+          <h3 class="text-base font-bold text-white">Confirm Remote Uninstallation</h3>
+          <p class="text-xs text-rose-400">Irreversible self-destruct operation</p>
+        </div>
+      </div>
+
+      <p class="text-xs text-zinc-300">
+        This will stop <strong class="text-white">AppShieldService</strong> on <strong class="text-indigo-400" x-text="currentNode?.name"></strong>, unregister the Windows service, remove the Windows Firewall rule, and delete all binaries in Program Files and ProgramData.
+      </p>
+
+      <div class="space-y-1">
+        <label class="block text-xs font-semibold text-zinc-200">Enter Master Password to Authenticate:</label>
+        <input 
+          type="password" 
+          x-model="uninstallPassword" 
+          placeholder="Master Password" 
+          class="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white font-mono focus:outline-none focus:border-rose-500">
+      </div>
+
+      <div class="pt-2 flex justify-end space-x-2">
+        <button @click="showUninstallModal = false" class="px-4 py-2 text-xs text-zinc-400 hover:text-white">Cancel</button>
+        <button 
+          @click="submitUninstall()" 
+          class="px-4 py-2 text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white rounded-lg transition shadow-md shadow-rose-600/30">
+          Execute Self-Destruct Purge
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: TARGET COMPUTER OFFLINE / ADD CLIENT TO CONTINUE -->
+  <div x-show="showOfflineModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
+    <div class="glass-card max-w-lg w-full p-6 rounded-2xl border border-rose-500/40 space-y-4 shadow-2xl">
+      <div class="flex justify-between items-start">
+        <div class="flex items-center space-x-3">
+          <div class="w-10 h-10 rounded-xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-xl">
+            ⚠️
+          </div>
+          <div>
+            <h3 class="text-base font-bold text-white">Target Computer Offline / Unreachable</h3>
+            <p class="text-xs text-rose-300 font-mono mt-0.5" x-text="currentNode ? (currentNode.name + ' (' + (currentNode.active_ip || currentNode.lan_ip || 'No IP') + ')') : 'No computer selected'"></p>
+          </div>
+        </div>
+        <button @click="showOfflineModal = false" class="text-zinc-400 hover:text-white text-xl leading-none">&times;</button>
+      </div>
+
+      <div class="p-4 bg-zinc-900/90 rounded-xl border border-zinc-800 space-y-2 text-xs text-zinc-300">
+        <p>
+          AppShield was unable to complete <strong class="text-white" x-text="offlineActionTitle || 'this request'"></strong> because the target Windows computer is not responding on port 54120.
+        </p>
+        <p class="text-[11px] text-zinc-400 leading-relaxed">
+          • Ensure the Windows computer is turned on and connected to your LAN or Tailscale network.<br>
+          • Verify that the <strong>AppShield Security Service</strong> is running on the computer.<br>
+          • To connect a remote computer or add your child's laptop, use the options below:
+        </p>
+      </div>
+
+      <div class="space-y-2 pt-1">
+        <button 
+          @click="showOfflineModal = false; showAddModal = true" 
+          class="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl transition flex items-center justify-center space-x-2 shadow-lg shadow-indigo-600/30">
+          <span>➕ Add Computer / Client to Continue</span>
+        </button>
+
+        <div class="grid grid-cols-2 gap-2">
+          <button 
+            @click="showOfflineModal = false; showAddModal = true; runMdnsScan()" 
+            class="py-2 px-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 text-xs rounded-lg transition flex items-center justify-center space-x-1.5">
+            <span>🔍 Scan Local Subnet (mDNS)</span>
+          </button>
+          <button 
+            @click="showOfflineModal = false; refreshAllNodeData()" 
+            class="py-2 px-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 text-xs rounded-lg transition flex items-center justify-center space-x-1.5">
+            <span>🔄 Retry Connection</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: CREATE STANDARD CHILD ACCOUNT -->
+  <div x-show="showCreateUserModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
+    <div class="glass-card max-w-md w-full p-6 rounded-2xl border border-amber-500/40 space-y-4 shadow-2xl">
+      <div class="flex justify-between items-center">
+        <div class="flex items-center space-x-2">
+          <span class="text-xl">👤</span>
+          <h3 class="text-base font-bold text-white">Create Standard Child Account</h3>
+        </div>
+        <button @click="showCreateUserModal = false" class="text-zinc-400 hover:text-white text-xl leading-none">&times;</button>
+      </div>
+
+      <p class="text-xs text-zinc-300 leading-relaxed">
+        Creates a new Standard (non-admin) Windows user account on <strong class="text-white" x-text="currentNode ? currentNode.name : 'Target PC'"></strong>. Standard users cannot tamper with security, bypass time schedules, or alter system settings.
+      </p>
+
+      <div class="space-y-3 text-xs">
+        <div>
+          <label class="block text-zinc-400 mb-1">Child Username (e.g. Alex, Kid, Child)</label>
+          <input 
+            type="text" 
+            x-model="newChildUser.username" 
+            placeholder="Child" 
+            class="w-full bg-zinc-900 border border-zinc-700 rounded px-3 py-2 text-white font-medium focus:border-amber-400 outline-none">
+        </div>
+        <div>
+          <label class="block text-zinc-400 mb-1">Account Password</label>
+          <input 
+            type="password" 
+            x-model="newChildUser.password" 
+            placeholder="Create password for child" 
+            class="w-full bg-zinc-900 border border-zinc-700 rounded px-3 py-2 text-white font-medium focus:border-amber-400 outline-none">
+        </div>
+        <div>
+          <label class="block text-zinc-400 mb-1">Confirm Password</label>
+          <input 
+            type="password" 
+            x-model="newChildUser.confirmPassword" 
+            placeholder="Re-enter password" 
+            class="w-full bg-zinc-900 border border-zinc-700 rounded px-3 py-2 text-white font-medium focus:border-amber-400 outline-none">
+        </div>
+      </div>
+
+      <div class="p-3 bg-zinc-900/90 rounded-xl border border-zinc-800 text-[11px] text-zinc-400 space-y-1">
+        <div>🛡️ Assigned to standard <code>Users</code> group (Non-Admin).</div>
+        <div>🔒 Automatically enrolled in <strong>Managed Protection</strong> and <strong>Path Jail</strong>.</div>
+        <div>🚫 Excluded from <code>Administrators</code> to prevent bypass.</div>
+      </div>
+
+      <div class="pt-2 flex justify-end space-x-2">
+        <button 
+          @click="showCreateUserModal = false" 
+          class="px-4 py-2 text-xs text-zinc-400 hover:text-white">
+          Cancel
+        </button>
+        <button 
+          @click="createStandardUser()" 
+          :disabled="isCreatingChildUser || !newChildUser.username || !newChildUser.password" 
+          class="px-4 py-2 text-xs font-bold bg-amber-500 hover:bg-amber-400 text-black rounded-lg transition disabled:opacity-50 shadow-md shadow-amber-500/20">
+          <span x-text="isCreatingChildUser ? 'Creating Account...' : 'Create & Protect Account'"></span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Notification Toast -->
+  <div 
+    x-show="toast.visible" 
+    x-transition
+    :class="{
+      'bg-emerald-600 text-white': toast.type === 'success',
+      'bg-rose-600 text-white': toast.type === 'error',
+      'bg-indigo-600 text-white': toast.type === 'info'
+    }"
+    class="fixed bottom-6 right-6 z-50 glass-card px-4 py-3 rounded-xl shadow-2xl text-xs font-semibold flex items-center space-x-2">
+    <span x-text="toast.message"></span>
+  </div>
+
+  <script>
+    function appShieldApp() {
+      return {
+        fleet: [],
+        selectedNodeId: '',
+        currentNode: null,
+        activeTab: 'overview',
+        mobileSidebarOpen: false,
+        isRefreshing: false,
+        isScanning: false,
+
+        // Data Models
+        processes: [],
+        users: [],
+        rules: [],
+        overrides: [],
+        logs: [],
+        installedApps: [],
+        installedAppFilter: '',
+        isLoadingApps: false,
+
+        get filteredInstalledApps() {
+          if (!this.installedAppFilter.trim()) return this.installedApps;
+          const q = this.installedAppFilter.toLowerCase();
+          return this.installedApps.filter(a => 
+            (a.DisplayName && a.DisplayName.toLowerCase().includes(q)) ||
+            (a.ExeName && a.ExeName.toLowerCase().includes(q)) ||
+            (a.Publisher && a.Publisher.toLowerCase().includes(q))
+          );
+        },
+
+        get hasStandardAccount() {
+          return this.users.length > 0 && this.users.some(u => !u.isAdmin);
+        },
+
+        // Filters
+        processSearch: '',
+        selectedUserFilter: 'ALL',
+
+        // Modals
+        showAddModal: false,
+        showRuleModal: false,
+        showOverrideModal: false,
+        showUninstallModal: false,
+        showOfflineModal: false,
+        offlineActionTitle: '',
+        offlineActionDescription: '',
+        showCreateUserModal: false,
+        isCreatingChildUser: false,
+        newChildUser: { username: '', password: '', confirmPassword: '' },
+
+        triggerOfflinePopUp(actionTitle = 'Connection', actionDesc = '') {
+          this.offlineActionTitle = actionTitle;
+          this.offlineActionDescription = actionDesc || 'The target computer is unreachable or offline.';
+          this.showOfflineModal = true;
+          this.showToast(`Target Offline: ${actionTitle} failed`, 'error');
+        },
+
+        async createStandardUser() {
+          if (!this.currentNode) {
+            this.triggerOfflinePopUp('Create Standard Account', 'No active computer selected.');
+            return;
+          }
+          if (!this.newChildUser.username.trim()) {
+            alert('Please enter a username for the child account.');
+            return;
+          }
+          if (!this.newChildUser.password) {
+            alert('Please enter a password for the account.');
+            return;
+          }
+          if (this.newChildUser.password !== this.newChildUser.confirmPassword) {
+            alert('Passwords do not match. Please re-enter.');
+            return;
+          }
+
+          this.isCreatingChildUser = true;
+          try {
+            const res = await fetch(`/api/nodes/${this.currentNode.id}/users/create-standard`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                username: this.newChildUser.username.trim(),
+                password: this.newChildUser.password
+              })
+            });
+            const data = await res.json();
+            if (data.success) {
+              this.showToast(`Created Standard Account '${this.newChildUser.username}' with Shield enabled!`, 'success');
+              this.showCreateUserModal = false;
+              this.newChildUser = { username: '', password: '', confirmPassword: '' };
+              await this.loadUsers();
+            } else {
+              if (res.status === 502) {
+                this.triggerOfflinePopUp('Create Standard Account', data.error?.message || data.error);
+              } else {
+                this.showToast(data.error?.message || data.error || 'Failed to create account', 'error');
+              }
+            }
+          } catch (e) {
+            this.triggerOfflinePopUp('Create Standard Account', 'Network connection failed.');
+          } finally {
+            this.isCreatingChildUser = false;
+          }
+        },
+
+        async openWindowsAccountSettings() {
+          if (!this.currentNode) {
+            this.triggerOfflinePopUp('Open Account Settings', 'No active computer selected.');
+            return;
+          }
+          try {
+            const res = await fetch(`/api/nodes/${this.currentNode.id}/system/open-account-settings`, {
+              method: 'POST'
+            });
+            const data = await res.json();
+            if (data.success) {
+              this.showToast('Opened Windows Account Settings on target PC.', 'success');
+            } else {
+              if (res.status === 502) {
+                this.triggerOfflinePopUp('Open Account Settings', data.error?.message || data.error);
+              } else {
+                this.showToast('Unable to open Settings on host.', 'error');
+              }
+            }
+          } catch (e) {
+            this.triggerOfflinePopUp('Open Account Settings', 'Network connection failed.');
+          }
+        },
+
+        // Forms
+        newNode: { name: '', lan_ip: '', tailscale_ip: '', port: 54120, psk: '' },
+        discoveredServices: [],
+        newRule: {
+          targetUserSid: '*',
+          ruleType: 'AllowedWindow',
+          processName: '',
+          originalFilename: '',
+          sha256Hash: '',
+          scheduleStart: '12:00',
+          scheduleEnd: '20:00',
+          quotaMinutes: 60,
+          description: ''
+        },
+        overrideForm: { processName: '', userSid: '*', minutes: 60 },
+        uninstallPassword: '',
+        showPskInSettings: false,
+        showPskInAdd: false,
+
+        formatTime12(timeStr) {
+          if (!timeStr) return '';
+          const parts = timeStr.split(':');
+          if (parts.length < 2) return timeStr;
+          let hours = parseInt(parts[0], 10);
+          const minutes = parts[1];
+          const ampm = hours >= 12 ? 'PM' : 'AM';
+          hours = hours % 12;
+          hours = hours ? hours : 12;
+          return `${hours}:${minutes} ${ampm}`;
+        },
+
+        setTimePreset(start, end) {
+          this.newRule.scheduleStart = start;
+          this.newRule.scheduleEnd = end;
+        },
+
+        generateNewPsk() {
+          const chars = 'abcdef0123456789';
+          let result = '';
+          const randomValues = new Uint8Array(48);
+          window.crypto.getRandomValues(randomValues);
+          for (let i = 0; i < 48; i++) {
+            result += chars[randomValues[i] % chars.length];
+          }
+          this.newNode.psk = result;
+          this.showPskInAdd = true;
+          this.showToast('Generated 48-char secure Pre-Shared Key!', 'success');
+        },
+
+        toast: { visible: false, message: '', type: 'info' },
+
+        showToast(message, type = 'info') {
+          this.toast = { visible: true, message, type };
+          setTimeout(() => { this.toast.visible = false; }, 3500);
+        },
+
+        async init() {
+          await this.loadFleet();
+          if (this.fleet.length > 0) {
+            this.selectedNodeId = this.fleet[0].id;
+            this.currentNode = this.fleet[0];
+            await this.refreshAllNodeData();
+          }
+        },
+
+        async loadFleet() {
+          try {
+            const res = await fetch('/api/fleet');
+            const data = await res.json();
+            if (data.success) {
+              this.fleet = data.data;
+              if (this.selectedNodeId) {
+                this.currentNode = this.fleet.find(n => n.id === this.selectedNodeId) || this.fleet[0];
+              }
+            }
+          } catch (e) {
+            console.error('Failed to load fleet:', e);
+          }
+        },
+
+        onNodeChange() {
+          this.currentNode = this.fleet.find(n => n.id === this.selectedNodeId);
+          this.refreshAllNodeData();
+        },
+
+        async refreshAllNodeData() {
+          if (!this.currentNode) return;
+          this.isRefreshing = true;
+          try {
+            await Promise.all([
+              this.pingCurrentNode(),
+              this.loadProcesses(),
+              this.loadUsers(),
+              this.loadRules(),
+              this.loadLogs()
+            ]);
+          } finally {
+            this.isRefreshing = false;
+          }
+        },
+
+        async pingCurrentNode() {
+          if (!this.currentNode) return;
+          try {
+            const res = await fetch(`/api/fleet/${this.currentNode.id}/ping`, { method: 'POST' });
+            const data = await res.json();
+            if (data.success) {
+              await this.loadFleet();
+            }
+          } catch (e) {
+            console.error('Ping failed:', e);
+          }
+        },
+
+        async loadProcesses() {
+          if (!this.currentNode) return;
+          try {
+            const res = await fetch(`/api/nodes/${this.currentNode.id}/processes`);
+            const json = await res.json();
+            if (json.success) {
+              this.processes = json.data || [];
+            }
+          } catch (e) {
+            console.error('Error fetching processes:', e);
+          }
+        },
+
+        async loadUsers() {
+          if (!this.currentNode) return;
+          try {
+            const res = await fetch(`/api/nodes/${this.currentNode.id}/users`);
+            const json = await res.json();
+            if (json.success) {
+              this.users = json.data || [];
+            }
+          } catch (e) {
+            console.error('Error fetching users:', e);
+          }
+        },
+
+        async saveUserManagement(user) {
+          try {
+            const res = await fetch(`/api/nodes/${this.currentNode.id}/users/manage`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                sid: user.sid,
+                isManaged: user.isManaged,
+                blockUserWritableDirectories: user.blockUserWritableDirectories
+              })
+            });
+            const json = await res.json();
+            if (json.success) {
+              this.showToast(`Updated policy for ${user.username}`, 'success');
+            } else {
+              this.showToast('Failed to update user', 'error');
+            }
+          } catch (e) {
+            this.showToast('Network error updating user', 'error');
+          }
+        },
+
+        async loadRules() {
+          if (!this.currentNode) return;
+          try {
+            const res = await fetch(`/api/nodes/${this.currentNode.id}/rules`);
+            const json = await res.json();
+            if (json.success && json.data) {
+              this.rules = json.data.rules || [];
+              this.overrides = json.data.overrides || [];
+            }
+          } catch (e) {
+            console.error('Error fetching rules:', e);
+          }
+        },
+
+        async loadLogs() {
+          if (!this.currentNode) return;
+          try {
+            const res = await fetch(`/api/nodes/${this.currentNode.id}/logs?limit=100`);
+            const json = await res.json();
+            if (json.success) {
+              this.logs = json.data || [];
+            }
+          } catch (e) {
+            console.error('Error fetching logs:', e);
+          }
+        },
+
+        openBlockModalForProcess(proc) {
+          this.newRule = {
+            targetUserSid: proc.sid || '*',
+            ruleType: 'AllowedWindow',
+            processName: proc.processName,
+            originalFilename: proc.originalFilename || '',
+            sha256Hash: proc.sha256Hash || '',
+            scheduleStart: '12:00',
+            scheduleEnd: '20:00',
+            quotaMinutes: 60,
+            description: `Schedule for ${proc.processName}`
+          };
+          this.showRuleModal = true;
+        },
+
+        openCreateRuleModal() {
+          this.newRule = {
+            targetUserSid: '*',
+            ruleType: 'AllowedWindow',
+            processName: '',
+            originalFilename: '',
+            sha256Hash: '',
+            scheduleStart: '12:00',
+            scheduleEnd: '20:00',
+            quotaMinutes: 60,
+            description: ''
+          };
+          this.showRuleModal = true;
+        },
+
+        async submitRule() {
+          try {
+            const res = await fetch(`/api/nodes/${this.currentNode.id}/rules`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(this.newRule)
+            });
+            const json = await res.json();
+            if (json.success) {
+              this.showToast('Enforcement rule created successfully!', 'success');
+              this.showRuleModal = false;
+              await this.loadRules();
+            } else {
+              this.showToast(json.message || 'Failed to create rule', 'error');
+            }
+          } catch (e) {
+            this.showToast('Network error creating rule', 'error');
+          }
+        },
+
+        async deleteRule(ruleId) {
+          if (!confirm('Are you sure you want to delete this enforcement rule?')) return;
+          try {
+            const res = await fetch(`/api/nodes/${this.currentNode.id}/rules/${ruleId}`, { method: 'DELETE' });
+            const json = await res.json();
+            if (json.success) {
+              this.showToast('Rule removed.', 'info');
+              await this.loadRules();
+            }
+          } catch (e) {
+            this.showToast('Failed to delete rule', 'error');
+          }
+        },
+
+        openOverrideModal() {
+          this.overrideForm = { processName: '', userSid: '*', minutes: 60 };
+          this.showOverrideModal = true;
+        },
+
+        async submitOverride() {
+          try {
+            const res = await fetch(`/api/nodes/${this.currentNode.id}/override`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(this.overrideForm)
+            });
+            const json = await res.json();
+            if (json.success) {
+              this.showToast('Temporary override granted!', 'success');
+              this.showOverrideModal = false;
+              await this.loadRules();
+            } else {
+              this.showToast(json.message || 'Override rejected', 'error');
+            }
+          } catch (e) {
+            this.showToast('Network error granting override', 'error');
+          }
+        },
+
+        async submitUninstall() {
+          if (!this.uninstallPassword) {
+            this.showToast('Master Password required', 'error');
+            return;
+          }
+          try {
+            const res = await fetch(`/api/nodes/${this.currentNode.id}/uninstall`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ masterPassword: this.uninstallPassword })
+            });
+            const json = await res.json();
+            if (json.success) {
+              this.showToast('Remote self-destruct uninstaller initiated on target PC.', 'success');
+              this.showUninstallModal = false;
+              this.uninstallPassword = '';
+              setTimeout(() => { this.pingCurrentNode(); }, 4000);
+            } else {
+              this.showToast(json.message || 'Authorization rejected: Invalid Password', 'error');
+            }
+          } catch (e) {
+            this.showToast('Communication error during uninstallation', 'error');
+          }
+        },
+
+        async loadInstalledApps() {
+          if (!this.currentNode) {
+            this.triggerOfflinePopUp('Scan Installed Applications', 'No computer is currently selected in your fleet.');
+            return;
+          }
+          if (this.currentNode.status === 'offline') {
+            this.triggerOfflinePopUp('Scan Installed Applications', `Computer '${this.currentNode.name}' is offline.`);
+            return;
+          }
+          this.isLoadingApps = true;
+          try {
+            const res = await fetch(`/api/nodes/${this.currentNode.id}/installed-apps`);
+            const json = await res.json();
+            if (json.success && json.data) {
+              this.installedApps = json.data;
+              this.showToast(`Found ${this.installedApps.length} installed apps on ${this.currentNode.name}`, 'success');
+            } else {
+              this.triggerOfflinePopUp('Scan Installed Applications', json.error?.message || json.error || 'Computer not reachable');
+            }
+          } catch (e) {
+            this.triggerOfflinePopUp('Scan Installed Applications', 'Network connection error or target computer unreachable.');
+          } finally {
+            this.isLoadingApps = false;
+          }
+        },
+
+        async blockInstalledApp(app) {
+          if (!this.currentNode || !app.ExeName) return;
+          this.newRule = {
+            targetUserSid: '*',
+            ruleType: 'AlwaysBlock',
+            processName: app.ExeName,
+            originalFilename: app.OriginalFilename || '',
+            sha256Hash: '',
+            scheduleStart: '21:00',
+            scheduleEnd: '07:00',
+            quotaMinutes: 60,
+            description: `Block ${app.DisplayName}`
+          };
+          await this.submitRule();
+          app.IsBlocked = true;
+        },
+
+        async setQuotaForApp(exeName, displayName) {
+          const minutesStr = prompt(`Set daily time quota (in minutes) for ${displayName}:`, '60');
+          if (!minutesStr) return;
+          const minutes = parseInt(minutesStr);
+          if (isNaN(minutes) || minutes <= 0) {
+            alert('Please enter a valid positive number of minutes.');
+            return;
+          }
+          this.newRule = {
+            targetUserSid: '*',
+            ruleType: 'DailyQuota',
+            processName: exeName,
+            originalFilename: '',
+            sha256Hash: '',
+            scheduleStart: '21:00',
+            scheduleEnd: '07:00',
+            quotaMinutes: minutes,
+            description: `${minutes}m/day quota for ${displayName}`
+          };
+          await this.submitRule();
+        },
+
+        async unblockAppByName(exeName) {
+          const rule = this.rules.find(r => r.processName && r.processName.toLowerCase() === exeName.toLowerCase());
+          if (rule) {
+            await this.deleteRule(rule.id);
+            const found = this.installedApps.find(a => a.ExeName && a.ExeName.toLowerCase() === exeName.toLowerCase());
+            if (found) found.IsBlocked = false;
+          }
+        },
+
+        copyCommand(cmdText) {
+          navigator.clipboard.writeText(cmdText).then(() => {
+            this.showToast('Command copied to clipboard!', 'success');
+          }).catch(() => {
+            prompt('Copy this command:', cmdText);
+          });
+        },
+
+        async runMdnsScan() {
+          this.isScanning = true;
+          this.discoveredServices = [];
+          try {
+            const res = await fetch('/api/discovery/scan');
+            const json = await res.json();
+            if (json.success) {
+              this.discoveredServices = json.data || [];
+              if (this.discoveredServices.length === 0) {
+                this.showToast('No active mDNS services found on subnet', 'info');
+              }
+            }
+          } catch (e) {
+            console.error('Scan error:', e);
+          } finally {
+            this.isScanning = false;
+          }
+        },
+
+        selectDiscovered(item) {
+          this.newNode.name = item.name;
+          this.newNode.lan_ip = item.primary_ip || '';
+          this.newNode.port = item.port || 54120;
+        },
+
+        async saveNewNode() {
+          if (!this.newNode.name || !this.newNode.psk) {
+            this.showToast('Name and PSK are required', 'error');
+            return;
+          }
+          try {
+            const res = await fetch('/api/fleet', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(this.newNode)
+            });
+            const json = await res.json();
+            if (json.success) {
+              this.showToast('PC added to fleet!', 'success');
+              this.showAddModal = false;
+              this.newNode = { name: '', lan_ip: '', tailscale_ip: '', port: 54120, psk: '' };
+              await this.loadFleet();
+              this.selectedNodeId = json.data.id;
+              this.onNodeChange();
+            }
+          } catch (e) {
+            this.showToast('Failed to add node', 'error');
+          }
+        },
+
+        async saveCurrentNodeSettings() {
+          try {
+            const res = await fetch(`/api/fleet/${this.currentNode.id}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                name: this.currentNode.name,
+                lan_ip: this.currentNode.lan_ip,
+                tailscale_ip: this.currentNode.tailscale_ip,
+                psk: this.currentNode.psk
+              })
+            });
+            const json = await res.json();
+            if (json.success) {
+              this.showToast('Node settings saved', 'success');
+              await this.loadFleet();
+            }
+          } catch (e) {
+            this.showToast('Error saving settings', 'error');
+          }
+        },
+
+        async deleteCurrentNode() {
+          if (!confirm(`Remove ${this.currentNode.name} from fleet management?`)) return;
+          try {
+            await fetch(`/api/fleet/${this.currentNode.id}`, { method: 'DELETE' });
+            this.showToast('Node removed from fleet', 'info');
+            await this.loadFleet();
+            if (this.fleet.length > 0) {
+              this.selectedNodeId = this.fleet[0].id;
+              this.onNodeChange();
+            } else {
+              this.currentNode = null;
+            }
+          } catch (e) {
+            this.showToast('Error removing node', 'error');
+          }
+        },
+
+        get filteredProcesses() {
+          return this.processes.filter(p => {
+            if (this.selectedUserFilter === 'MANAGED_ONLY' && !p.isManagedUser) return false;
+            if (this.selectedUserFilter !== 'ALL' && this.selectedUserFilter !== 'MANAGED_ONLY' && p.sid !== this.selectedUserFilter) return false;
+            if (this.processSearch) {
+              const q = this.processSearch.toLowerCase();
+              return (
+                p.processName.toLowerCase().includes(q) ||
+                (p.executablePath && p.executablePath.toLowerCase().includes(q)) ||
+                (p.username && p.username.toLowerCase().includes(q)) ||
+                p.pid.toString().includes(q) ||
+                (p.originalFilename && p.originalFilename.toLowerCase().includes(q))
+              );
+            }
+            return true;
+          });
+        },
+
+        formatStatus(status) {
+          if (status === 'online-lan') return 'Online (LAN Subnet)';
+          if (status === 'online-tailscale') return 'Online (Tailscale Mesh)';
+          if (status === 'offline') return 'Target Offline';
+          return 'Connecting...';
+        },
+
+        formatUptime(seconds) {
+          if (!seconds) return '0m';
+          const hrs = Math.floor(seconds / 3600);
+          const mins = Math.floor((seconds % 3600) / 60);
+          return `${hrs}h ${mins}m`;
+        },
+
+        formatDate(iso) {
+          if (!iso) return '';
+          try {
+            const d = new Date(iso);
+            return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) + ' ' + d.toLocaleDateString();
+          } catch {
+            return iso;
+          }
+        },
+
+        formatExpiry(iso) {
+          if (!iso) return '';
+          try {
+            const d = new Date(iso);
+            return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          } catch {
+            return iso;
+          }
+        }
+      }
+    }
+  </script>
+</body>
+</html>
