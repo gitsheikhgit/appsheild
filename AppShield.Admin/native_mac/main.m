@@ -241,7 +241,7 @@
     [self.backendTask setCurrentDirectoryURL:[NSURL fileURLWithPath:adminDir]];
     [self.backendTask setArguments:@[
         @"-m", @"uvicorn", @"main:app",
-        @"--host", @"127.0.0.1",
+        @"--host", @"0.0.0.0",
         @"--port", [NSString stringWithFormat:@"%ld", (long)self.targetPort]
     ]];
 
