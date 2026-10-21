@@ -42,7 +42,10 @@ Write-Host "[2/4] Removing Windows Service registration..." -ForegroundColor Gra
 Write-Host "[3/4] Removing Windows Defender Firewall rules..." -ForegroundColor Gray
 Remove-NetFirewallRule -DisplayName "AppShield_API_Port" -ErrorAction SilentlyContinue
 
-Write-Host "[4/4] Removing AppShield binaries and application data..." -ForegroundColor Gray
+Write-Host "[4/5] Removing Windows Settings uninstall entry..." -ForegroundColor Gray
+Remove-Item -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\AppShield" -Recurse -Force -ErrorAction SilentlyContinue
+
+Write-Host "[5/5] Removing AppShield binaries and application data..." -ForegroundColor Gray
 $progFiles = "$env:ProgramFiles\AppShield"
 if (Test-Path $progFiles) {
     Remove-Item -Path $progFiles -Recurse -Force -ErrorAction SilentlyContinue

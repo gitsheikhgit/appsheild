@@ -44,6 +44,11 @@ try {
     Remove-NetFirewallRule -DisplayName ""AppShield_API_Port"" -ErrorAction SilentlyContinue
 } catch {}
 
+# Remove Windows Settings Uninstall Registration
+try {
+    Remove-Item -Path ""HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\AppShield"" -Recurse -Force -ErrorAction SilentlyContinue
+} catch {}
+
 # Force delete Program Files
 $progFiles = ""$env:ProgramFiles\AppShield""
 if (Test-Path $progFiles) {

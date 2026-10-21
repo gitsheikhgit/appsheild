@@ -99,10 +99,37 @@ $Acl.AddAccessRule($SystemRule)
 $Acl.AddAccessRule($AdminRule)
 Set-Acl -Path $DataDir -AclObject $Acl
 
-# 5. Copy Executable Binaries
-Write-Host "[3/6] Copying AppShield binaries to $InstallDir..." -ForegroundColor Gray
+# 5. Copy Executable Binaries and Uninstaller
+Write-Host "[3/7] Copying AppShield binaries and uninstaller to $InstallDir..." -ForegroundColor Gray
 Copy-Item -Path $ServiceBinary -Destination $InstallDir -Force
 Copy-Item -Path $PromptBinary -Destination $InstallDir -Force
+
+$UninstallSource = Join-Path $ScriptDir "Uninstall-AppShield.ps1"
+if (Test-Path $UninstallSource) {
+    Copy-Item -Path $UninstallSource -Destination $InstallDir -Force
+}
+
+$IconSource = Join-Path $ScriptDir "appshield.ico"
+if (Test-Path $IconSource) {
+    Copy-Item -Path $IconSource -Destination $InstallDir -Force
+}
+
+# Create quick-launcher Uninstall.cmd
+$UninstallCmd = "@echo off`r`npowershell.exe -ExecutionPolicy Bypass -NoProfile -File `"%~dp0Uninstall-AppShield.ps1`""
+Set-Content -Path (Join-Path $InstallDir "Uninstall.cmd") -Value $UninstallCmd -Force
+
+# Register in Windows Settings "Installed Apps" (Add or Remove Programs)
+$UninstallRegKey = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\AppShield"
+New-Item -Path $UninstallRegKey -Force | Out-Null
+Set-ItemProperty -Path $UninstallRegKey -Name "DisplayName" -Value "AppShield Security Client (v$AppVersion)"
+Set-ItemProperty -Path $UninstallRegKey -Name "DisplayVersion" -Value $AppVersion
+Set-ItemProperty -Path $UninstallRegKey -Name "Publisher" -Value "AppShield Endpoint Security"
+Set-ItemProperty -Path $UninstallRegKey -Name "DisplayIcon" -Value "$InstallDir\AppShield.Service.exe,0"
+Set-ItemProperty -Path $UninstallRegKey -Name "InstallLocation" -Value $InstallDir
+Set-ItemProperty -Path $UninstallRegKey -Name "UninstallString" -Value "powershell.exe -ExecutionPolicy Bypass -NoProfile -File `"$InstallDir\Uninstall-AppShield.ps1`""
+Set-ItemProperty -Path $UninstallRegKey -Name "QuietUninstallString" -Value "powershell.exe -ExecutionPolicy Bypass -NoProfile -File `"$InstallDir\Uninstall-AppShield.ps1`""
+Set-ItemProperty -Path $UninstallRegKey -Name "NoModify" -Value 1 -Type DWord
+Set-ItemProperty -Path $UninstallRegKey -Name "NoRepair" -Value 1 -Type DWord
 
 # 6. Stop and Clean Any Existing Service
 $ServiceName = "AppShieldService"
