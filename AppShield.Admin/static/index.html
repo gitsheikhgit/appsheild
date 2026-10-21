@@ -630,8 +630,18 @@
             </div>
           </div>
           <div>
-            <label class="block text-zinc-400 mb-1">Pre-Shared Key (PSK)</label>
-            <input type="password" x-model="currentNode.psk" class="w-full bg-zinc-900 border border-zinc-700 rounded px-3 py-1.5 text-white font-mono">
+            <div class="flex items-center justify-between mb-1">
+              <label class="block text-zinc-400">Pre-Shared Key (PSK)</label>
+              <div class="flex items-center space-x-2 text-[11px]">
+                <button type="button" @click="showPskInSettings = !showPskInSettings" class="text-indigo-400 hover:text-indigo-300 font-semibold">
+                  <span x-text="showPskInSettings ? '🙈 Hide Key' : '👁️ Reveal Key'"></span>
+                </button>
+                <button type="button" @click="copyCommand(currentNode.psk)" class="text-indigo-400 hover:text-indigo-300 font-semibold">
+                  <span>📋 Copy Key</span>
+                </button>
+              </div>
+            </div>
+            <input :type="showPskInSettings ? 'text' : 'password'" x-model="currentNode.psk" class="w-full bg-zinc-900 border border-zinc-700 rounded px-3 py-1.5 text-white font-mono text-xs">
           </div>
 
           <div class="pt-3 flex justify-between">
@@ -782,8 +792,24 @@
           </div>
         </div>
         <div>
-          <label class="block text-zinc-400 mb-1">Pre-Shared Key (PSK)</label>
-          <input type="password" x-model="newNode.psk" placeholder="Enter 32-char PSK from installer" class="w-full bg-zinc-900 border border-zinc-700 rounded px-3 py-1.5 text-white font-mono">
+          <div class="flex items-center justify-between mb-1">
+            <label class="block text-zinc-400">Pre-Shared Key (PSK)</label>
+            <div class="flex items-center space-x-2 text-[11px]">
+              <button type="button" @click="generateNewPsk()" class="text-amber-400 hover:text-amber-300 font-semibold flex items-center space-x-1">
+                <span>⚡ Generate Key</span>
+              </button>
+              <button type="button" @click="showPskInAdd = !showPskInAdd" class="text-indigo-400 hover:text-indigo-300 font-semibold">
+                <span x-text="showPskInAdd ? '🙈 Hide' : '👁️ Reveal'"></span>
+              </button>
+              <button type="button" x-show="newNode.psk" @click="copyCommand(newNode.psk)" class="text-indigo-400 hover:text-indigo-300 font-semibold">
+                <span>📋 Copy</span>
+              </button>
+            </div>
+          </div>
+          <input :type="showPskInAdd ? 'text' : 'password'" x-model="newNode.psk" placeholder="Enter 32-char PSK from installer or click Generate" class="w-full bg-zinc-900 border border-zinc-700 rounded px-3 py-1.5 text-white font-mono text-xs">
+          <p class="text-[10px] text-zinc-500 mt-1">
+            Tip: You can click "Generate Key", copy it, and install on Windows with <code>.\Install-AppShield.ps1 -Psk "&lt;Key&gt;"</code>, or paste the key printed by the Windows installer.
+          </p>
         </div>
       </div>
 
@@ -1014,6 +1040,21 @@
         },
         overrideForm: { processName: '', userSid: '*', minutes: 60 },
         uninstallPassword: '',
+        showPskInSettings: false,
+        showPskInAdd: false,
+
+        generateNewPsk() {
+          const chars = 'abcdef0123456789';
+          let result = '';
+          const randomValues = new Uint8Array(48);
+          window.crypto.getRandomValues(randomValues);
+          for (let i = 0; i < 48; i++) {
+            result += chars[randomValues[i] % chars.length];
+          }
+          this.newNode.psk = result;
+          this.showPskInAdd = true;
+          this.showToast('Generated 48-char secure Pre-Shared Key!', 'success');
+        },
 
         toast: { visible: false, message: '', type: 'info' },
 

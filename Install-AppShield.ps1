@@ -7,6 +7,11 @@
     sets up the Windows Defender Firewall rule for HTTPS port 54120, and initializes credentials.
 #>
 
+param(
+    [string]$MasterPassword = "",
+    [string]$Psk = ""
+)
+
 # Require Administrator Privileges
 if (!([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
     Write-Error "ERROR: This installation script must be run as an Administrator! Right-click and select 'Run with PowerShell as Administrator'."
@@ -37,29 +42,38 @@ Write-Host "  Tamper-Resistant Application Control for Windows 10/11 " -Foregrou
 Write-Host "==========================================================" -ForegroundColor Cyan
 Write-Host ""
 
-# 1. Prompt for initial Master Password
-Write-Host "Configure the Master Password for emergency offline unlocks and administrative authorization:" -ForegroundColor Yellow
-$MasterPassword = ""
-while ([string]::IsNullOrWhiteSpace($MasterPassword)) {
-    $SecurePass = Read-Host -Prompt "Enter Master Password" -AsSecureString
-    $BSTR = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($SecurePass)
-    $MasterPassword = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($BSTR)
-    [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($BSTR)
 
-    if ($MasterPassword.Length -lt 8) {
-        Write-Warning "Password should be at least 8 characters long for security."
-        $MasterPassword = ""
+# 1. Prompt for initial Master Password if not supplied
+if ([string]::IsNullOrWhiteSpace($MasterPassword)) {
+    Write-Host "Configure the Master Password for emergency offline unlocks and administrative authorization:" -ForegroundColor Yellow
+    while ([string]::IsNullOrWhiteSpace($MasterPassword)) {
+        $SecurePass = Read-Host -Prompt "Enter Master Password" -AsSecureString
+        $BSTR = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($SecurePass)
+        $MasterPassword = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($BSTR)
+        [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($BSTR)
+
+        if ($MasterPassword.Length -lt 8) {
+            Write-Warning "Password should be at least 8 characters long for security."
+            $MasterPassword = ""
+        }
     }
+} else {
+    Write-Host "Configuring Master Password from arguments..." -ForegroundColor Green
 }
 
-# 2. Generate cryptographically random Pre-Shared Key (PSK)
-$Rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
-$PskBytes = New-Object byte[] 24
-$Rng.GetBytes($PskBytes)
-$GeneratedPsk = [System.BitConverter]::ToString($PskBytes).Replace("-", "").ToLowerInvariant()
-
-Write-Host "`nGenerated Secure Pre-Shared Key (PSK):" -ForegroundColor Green
-Write-Host "  $GeneratedPsk" -ForegroundColor Yellow -BackgroundColor Black
+# 2. Configure Pre-Shared Key (PSK)
+if (![string]::IsNullOrWhiteSpace($Psk)) {
+    $GeneratedPsk = $Psk.Trim()
+    Write-Host "`nUsing specified Pre-Shared Key (PSK):" -ForegroundColor Green
+    Write-Host "  $GeneratedPsk" -ForegroundColor Yellow -BackgroundColor Black
+} else {
+    $Rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+    $PskBytes = New-Object byte[] 24
+    $Rng.GetBytes($PskBytes)
+    $GeneratedPsk = [System.BitConverter]::ToString($PskBytes).Replace("-", "").ToLowerInvariant()
+    Write-Host "`nGenerated Secure Pre-Shared Key (PSK):" -ForegroundColor Green
+    Write-Host "  $GeneratedPsk" -ForegroundColor Yellow -BackgroundColor Black
+}
 Write-Host ""
 
 # 3. Create Target Directories
