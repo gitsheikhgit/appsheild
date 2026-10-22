@@ -396,7 +396,7 @@ async def generate_pairing_code():
     code = ''.join(random.choices(string.digits, k=6))
     return {"success": True, "pair_code": code}
 
-@app.websocket("/ws/agent/{device_id}")
+@app.websocket("/ws/agent/{device_id:path}")
 async def agent_websocket_endpoint(websocket: WebSocket, device_id: str):
     await manager.connect_agent(device_id, websocket)
     try:
@@ -406,7 +406,12 @@ async def agent_websocket_endpoint(websocket: WebSocket, device_id: str):
                 msg = json.loads(data)
                 action = msg.get("action")
                 payload = msg.get("payload", {})
-                if action == "telemetry":
+                if action == "telemetry" and payload:
+                    pass
+                elif "users" in msg or "processes" in msg or "installed_apps" in msg:
+                    payload = msg
+
+                if payload:
                     live_telemetry[device_id] = payload
                     t_ip = payload.get("tailscale_ip")
                     if t_ip:
@@ -415,6 +420,20 @@ async def agent_websocket_endpoint(websocket: WebSocket, device_id: str):
                         c.execute("UPDATE devices SET tailscale_ip = ?, last_seen = CURRENT_TIMESTAMP WHERE id = ?", (t_ip, device_id))
                         conn.commit()
                         conn.close()
+
+                    # Save cache files for fast retrieval
+                    if payload.get("users"):
+                        try:
+                            with open(os.path.join(DATA_DIR, f"users_{device_id}.json"), "w", encoding="utf-8") as f:
+                                json.dump(payload["users"], f, indent=2)
+                        except Exception:
+                            pass
+                    if payload.get("installed_apps"):
+                        try:
+                            with open(os.path.join(DATA_DIR, f"installed_{device_id}.json"), "w", encoding="utf-8") as f:
+                                json.dump(payload["installed_apps"], f, indent=2)
+                        except Exception:
+                            pass
             except Exception as e:
                 print(f"Error parsing agent WS message: {e}")
     except WebSocketDisconnect:

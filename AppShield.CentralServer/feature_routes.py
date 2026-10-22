@@ -20,21 +20,31 @@ from core_state import (
 router = APIRouter(prefix="/api", tags=["Parental Features"])
 
 # ===================================================================
+# 0. Discovery & Subnet Scans
+# ===================================================================
+@router.get("/discovery/scan")
+async def scan_local_discovery():
+    return {"success": True, "devices": []}
+
+# ===================================================================
 # 1. Active Applications & Process Control
 # ===================================================================
-@router.get("/nodes/{device_id}/processes")
+@router.get("/nodes/{device_id:path}/processes")
 async def get_node_processes(device_id: str):
     dev_data = live_telemetry.get(device_id, {})
-    return {"success": True, "data": dev_data.get("processes", [])}
+    procs = dev_data.get("processes", [])
+    if not procs and device_id in manager.active_agents:
+        await manager.send_command(device_id, {"action": "refresh_telemetry", "payload": {}})
+    return {"success": True, "data": procs}
 
-@router.delete("/nodes/{device_id}/processes/{pid:int}")
-@router.post("/nodes/{device_id}/kill_process")
+@router.delete("/nodes/{device_id:path}/processes/{pid:int}")
+@router.post("/nodes/{device_id:path}/kill_process")
 async def kill_node_process(device_id: str, pid: Optional[int] = None, payload: Optional[Dict[str, Any]] = None):
     target_pid = pid if pid is not None else (payload.get("pid") if payload else None)
     sent = await manager.send_command(device_id, {"action": "kill_process", "payload": {"pid": target_pid}})
     return {"success": True, "message": f"Kill order sent for PID {target_pid}"}
 
-@router.post("/nodes/{device_id}/override")
+@router.post("/nodes/{device_id:path}/override")
 async def override_node(device_id: str, req: Dict[str, Any]):
     proc = req.get("processName") or req.get("process_name") or "Application"
     minutes = req.get("minutes", 60)
@@ -44,12 +54,12 @@ async def override_node(device_id: str, req: Dict[str, Any]):
     })
     return {"success": True, "message": f"Override granted for {proc} ({minutes}m)"}
 
-@router.post("/nodes/{device_id}/lock")
+@router.post("/nodes/{device_id:path}/lock")
 async def lock_node_screen(device_id: str):
     sent = await manager.send_command(device_id, {"action": "lock_device", "payload": {}})
     return {"success": sent, "message": "Screen lock dispatched"}
 
-@router.post("/nodes/{device_id}/command")
+@router.post("/nodes/{device_id:path}/command")
 async def send_node_command(device_id: str, cmd: CommandDto):
     sent = await manager.send_command(device_id, {"action": cmd.action, "payload": cmd.payload})
     return {"success": sent, "message": "Command dispatched to endpoint" if sent else "Device offline or disconnected"}
@@ -71,7 +81,7 @@ async def ping_node_status(device_id: str):
 # ===================================================================
 # 2. Child User Accounts & Path Jail
 # ===================================================================
-@router.get("/nodes/{device_id}/users")
+@router.get("/nodes/{device_id:path}/users")
 async def get_node_users(device_id: str):
     dev_data = live_telemetry.get(device_id, {})
     users = dev_data.get("users", [])
@@ -81,12 +91,17 @@ async def get_node_users(device_id: str):
             try:
                 with open(cache_file, "r", encoding="utf-8") as f:
                     users = json.load(f)
+                    dev_data["users"] = users
             except Exception:
                 pass
+    
+    if not users and device_id in manager.active_agents:
+        await manager.send_command(device_id, {"action": "refresh_telemetry", "payload": {}})
+
     users = apply_db_user_policies(device_id, users)
     return {"success": True, "data": users}
 
-@router.post("/nodes/{device_id}/users/manage")
+@router.post("/nodes/{device_id:path}/users/manage")
 async def manage_node_user(device_id: str, payload: Dict[str, Any]):
     sid = payload.get("sid")
     is_managed = 1 if payload.get("isManaged") else 0
@@ -116,7 +131,7 @@ async def manage_node_user(device_id: str, payload: Dict[str, Any]):
     sent = await manager.send_command(device_id, {"action": "manage_user", "payload": payload})
     return {"success": True, "message": "User policy saved and dispatched"}
 
-@router.post("/nodes/{device_id}/system/open-account-settings")
+@router.post("/nodes/{device_id:path}/system/open-account-settings")
 async def open_node_account_settings(device_id: str):
     sent = await manager.send_command(device_id, {"action": "open_account_settings", "payload": {}})
     return {"success": True, "message": "Dispatched request to open Account Settings"}
@@ -124,8 +139,8 @@ async def open_node_account_settings(device_id: str):
 # ===================================================================
 # 3. Installed Applications Catalog
 # ===================================================================
-@router.get("/nodes/{device_id}/installed_apps")
-@router.get("/nodes/{device_id}/installed-apps")
+@router.get("/nodes/{device_id:path}/installed_apps")
+@router.get("/nodes/{device_id:path}/installed-apps")
 async def get_node_installed_apps(device_id: str):
     dev_data = live_telemetry.get(device_id, {})
     apps = dev_data.get("installed_apps", [])
@@ -139,7 +154,7 @@ async def get_node_installed_apps(device_id: str):
             except Exception:
                 pass
 
-    if not apps:
+    if not apps and device_id in manager.active_agents:
         await manager.send_command(device_id, {"action": "scan_installed_apps", "payload": {}})
 
     return {"success": True, "data": apps}

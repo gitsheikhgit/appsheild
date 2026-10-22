@@ -847,6 +847,9 @@ class AppShieldMacAgent:
             except Exception as e:
                 print(f"[-] Failed to open settings: {e}")
 
+        elif action in ["refresh_telemetry", "scan_users", "scan_processes", "ping"]:
+            self.report_telemetry_now()
+
         elif action == "scan_installed_apps":
             global _cached_installed_apps, _last_installed_scan_time
             _last_installed_scan_time = 0
@@ -881,6 +884,8 @@ class AppShieldMacAgent:
             try:
                 async with websockets.connect(endpoint, ping_interval=20, ping_timeout=20) as ws:
                     print("[+] WebSocket connected to AppShield Central Relay!")
+                    # Send immediate initial telemetry snapshot
+                    self.report_telemetry_now()
                     while self.running:
                         # 1. Gather live telemetry
                         users = enumerate_macos_users()
@@ -897,9 +902,14 @@ class AppShieldMacAgent:
                             "timestamp": datetime.datetime.utcnow().isoformat(),
                             "users": users,
                             "processes": procs,
-                            "installed_apps": installed
+                            "installed_apps": installed,
+                            "tailscale_ip": get_tailscale_ip() or ""
                         }
-                        await ws.send(json.dumps(telemetry))
+                        ws_msg = {
+                            "action": "telemetry",
+                            "payload": telemetry
+                        }
+                        await ws.send(json.dumps(ws_msg))
 
                         # Sleep 6 seconds between scans to keep CPU usage at 0.0%
                         await asyncio.sleep(6.0)
