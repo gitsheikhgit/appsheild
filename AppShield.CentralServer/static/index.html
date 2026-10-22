@@ -81,6 +81,25 @@
     header button, header a, header input, header select, .no-drag {
       -webkit-app-region: no-drag;
     }
+    /* Mobile Header & Drawer Spacing: guaranteed clearance below iPhone notch, Dynamic Island, and status bar */
+    .app-header {
+      padding-top: max(3.5rem, calc(env(safe-area-inset-top, 0px) + 0.75rem));
+      min-height: calc(5.25rem + env(safe-area-inset-top, 0px));
+    }
+    .mobile-sidebar {
+      padding-top: max(3.5rem, calc(env(safe-area-inset-top, 0px) + 0.5rem));
+      padding-bottom: max(1.5rem, env(safe-area-inset-bottom, 0px));
+    }
+    @media (min-width: 768px) {
+      .app-header {
+        padding-top: 0px !important;
+        min-height: 3.5rem !important;
+      }
+      .mobile-sidebar {
+        padding-top: 0px !important;
+        padding-bottom: 0px !important;
+      }
+    }
     [x-cloak] { display: none !important; }
   </style>
 </head>
@@ -100,8 +119,7 @@
   <!-- LEFT SIDEBAR NAVIGATION -->
   <aside 
     :class="mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'"
-    class="fixed md:static inset-y-0 left-0 w-72 sm:w-64 flex-shrink-0 bg-[#11131c] border-r border-zinc-800/80 flex flex-col h-screen select-none z-50 transition-transform duration-200 ease-in-out shadow-2xl md:shadow-none"
-    style="padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px);">
+    class="fixed md:static inset-y-0 left-0 w-72 sm:w-64 flex-shrink-0 bg-[#11131c] border-r border-zinc-800/80 flex flex-col h-screen select-none z-50 transition-transform duration-200 ease-in-out shadow-2xl md:shadow-none mobile-sidebar">
     <!-- Brand Header -->
     <div class="p-4 border-b border-zinc-800/80 flex items-center justify-between bg-zinc-950/40">
       <div class="flex items-center space-x-3 overflow-hidden">
@@ -282,8 +300,7 @@
   <!-- RIGHT CONTENT CANVAS -->
   <div class="flex-1 flex flex-col h-screen overflow-hidden">
     <!-- Top Header Bar -->
-    <header class="flex-shrink-0 bg-[#11131c]/95 backdrop-blur border-b border-zinc-800/80 px-3 sm:px-6 z-20"
-            style="padding-top: max(0.5rem, env(safe-area-inset-top, 0px)); min-height: calc(3.5rem + env(safe-area-inset-top, 0px));">
+    <header class="flex-shrink-0 bg-[#11131c]/95 backdrop-blur border-b border-zinc-800/80 px-3 sm:px-6 z-20 app-header">
       <div class="h-14 flex items-center justify-between gap-2">
         <div class="flex items-center space-x-2 sm:space-x-3 min-w-0">
           <!-- Mobile Sidebar Toggle -->
@@ -1439,10 +1456,10 @@
   <!-- MODAL: APPLICATION USAGE SCHEDULE & ENFORCEMENT RULES (RESPONSIVE & MOBILE-OPTIMIZED) -->
   <div x-show="showRuleModal" 
        @keydown.escape.window="showRuleModal = false"
-       class="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/85 backdrop-blur-md overflow-hidden" 
+       class="fixed inset-0 z-50 flex items-center justify-center p-2 pt-14 pb-14 sm:p-4 bg-black/85 backdrop-blur-md overflow-hidden" 
        style="display: none;">
     <div class="glass-card w-full max-w-2xl flex flex-col rounded-2xl border border-zinc-700 shadow-2xl overflow-hidden bg-[#121622]"
-         style="max-height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 1.5rem);">
+         style="max-height: min(88dvh, calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 2rem));">
       
       <!-- STICKY TOP BAR: BACK & CLOSE CONTROLS (NEVER TRAPS USER) -->
       <div class="sticky top-0 bg-[#151926] px-4 py-3 border-b border-zinc-800 flex items-center justify-between z-10 flex-shrink-0">
@@ -1987,12 +2004,22 @@
         </button>
       </form>
 
-      <!-- First-time Notice -->
+      <!-- Setup Notice -->
       <div class="pt-2 border-t border-zinc-800/80 text-center">
-        <p class="text-[11px] text-zinc-400 leading-relaxed">
-          Default setup: Username <code class="text-zinc-200 bg-zinc-900 px-1 py-0.5 rounded font-mono font-bold">admin</code>, Password <code class="text-amber-400 bg-zinc-900 px-1 py-0.5 rounded font-mono font-bold">changeme</code>.<br>
-          First login requires setting a secure parental master password.
-        </p>
+        <!-- Displayed ONLY if factory default 'changeme' password has not been replaced yet -->
+        <template x-if="auth.isDefaultSetup">
+          <p class="text-[11px] text-amber-400/90 leading-relaxed bg-amber-500/10 border border-amber-500/20 rounded-lg p-2.5">
+            ⚠️ <strong>Initial Setup Required:</strong> Log in with Default Password <code class="text-amber-300 bg-zinc-900 px-1 py-0.5 rounded font-mono font-bold">changeme</code>.<br>
+            You will be prompted to create your secure master password immediately.
+          </p>
+        </template>
+        <!-- Displayed when permanent master password is configured -->
+        <template x-if="!auth.isDefaultSetup">
+          <p class="text-[11px] text-zinc-400 leading-relaxed flex items-center justify-center space-x-1.5 py-1">
+            <svg class="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+            <span>Parental Management Console — Tamper-Resistant Security</span>
+          </p>
+        </template>
       </div>
     </div>
   </div>
@@ -2137,6 +2164,7 @@
         auth: {
           isAuthenticated: false,
           mustChangePassword: false,
+          isDefaultSetup: false,
           username: 'admin',
           loginUsername: 'admin',
           loginPassword: '',
@@ -2601,6 +2629,7 @@
           try {
             const res = await fetch('/api/auth/status');
             const data = await res.json();
+            this.auth.isDefaultSetup = Boolean(data.is_default_setup);
             if (data.authenticated) {
               this.auth.isAuthenticated = true;
               this.auth.mustChangePassword = Boolean(data.must_change_password);
@@ -2633,6 +2662,7 @@
             if (data.success) {
               this.auth.isAuthenticated = true;
               this.auth.mustChangePassword = Boolean(data.must_change_password);
+              this.auth.isDefaultSetup = Boolean(data.must_change_password);
               this.auth.username = data.username || 'admin';
               this.auth.loginPassword = '';
               this.auth.loginError = '';
@@ -2684,6 +2714,7 @@
             const data = await res.json();
             if (data.success) {
               this.auth.mustChangePassword = false;
+              this.auth.isDefaultSetup = false;
               this.auth.currentPassword = '';
               this.auth.newPassword = '';
               this.auth.confirmPassword = '';
@@ -2713,6 +2744,7 @@
           this.auth.loginPassword = '';
           this.fleet = [];
           this.currentNode = null;
+          await this.checkAuthStatus();
           this.showToast('Signed out from Security Console.', 'info');
         },
 
@@ -3333,9 +3365,17 @@
         },
 
         formatStatus(status) {
-          if (status === 'online-lan') return 'Online (LAN Subnet)';
-          if (status === 'online-tailscale') return 'Online (Tailscale Mesh)';
-          if (status === 'offline') return 'Target Offline';
+          if (!status) return 'Connecting...';
+          const s = String(status).toLowerCase();
+          if (s === 'online' || s === 'online-lan') {
+            if (this.currentNode?.active_ip?.startsWith('100.') || this.currentNode?.lan_ip?.startsWith('100.')) {
+              return 'Online (Tailscale)';
+            }
+            return 'Online (LAN Subnet)';
+          }
+          if (s === 'online-tailscale') return 'Online (Tailscale Mesh)';
+          if (s.startsWith('online')) return 'Online (Active)';
+          if (s === 'offline') return 'Target Offline';
           return 'Connecting...';
         },
 

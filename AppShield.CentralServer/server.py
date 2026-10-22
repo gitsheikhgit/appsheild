@@ -370,18 +370,38 @@ async def login(dto: LoginDto, response: Response):
         "success": True,
         "token": token,
         "username": dto.username,
-        "must_change_password": bool(admin["must_change_password"])
+        "must_change_password": bool(admin["must_change_password"]),
+        "is_default_setup": bool(admin["must_change_password"])
     }
 
 @app.get("/api/auth/status")
 async def auth_status(request: Request):
+    is_default_setup = False
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        c = conn.cursor()
+        c.execute("SELECT must_change_password FROM admin_auth WHERE id = 1")
+        row = c.fetchone()
+        if row and row["must_change_password"] == 1:
+            is_default_setup = True
+        conn.close()
+    except Exception:
+        pass
+
     session = get_session_from_request(request)
     if not session:
-        return {"authenticated": False, "username": None, "must_change_password": False}
+        return {
+            "authenticated": False, 
+            "username": None, 
+            "must_change_password": False,
+            "is_default_setup": is_default_setup
+        }
     return {
         "authenticated": True,
         "username": session["username"],
-        "must_change_password": bool(session["must_change_password"])
+        "must_change_password": bool(session["must_change_password"]),
+        "is_default_setup": is_default_setup
     }
 
 @app.post("/api/auth/change-password")
