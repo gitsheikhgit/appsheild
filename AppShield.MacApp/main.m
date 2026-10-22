@@ -7,7 +7,7 @@
 // Version: 1.2.0
 // ==============================================================================
 
-@interface AppDelegate : NSObject <NSApplicationDelegate, WKNavigationDelegate, WKScriptMessageHandler, NSWindowDelegate>
+@interface AppDelegate : NSObject <NSApplicationDelegate, WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandler, NSWindowDelegate>
 @property (strong, nonatomic) NSWindow *window;
 @property (strong, nonatomic) WKWebView *webView;
 @property (copy, nonatomic) NSString *currentServerUrl;
@@ -116,11 +116,32 @@
     self.webView = [[WKWebView alloc] initWithFrame:[[self.window contentView] bounds] configuration:config];
     [self.webView setAutoresizingMask:(NSViewWidthSizable | NSViewHeightSizable)];
     [self.webView setNavigationDelegate:self];
+    [self.webView setUIDelegate:self];
     [self.webView setValue:@NO forKey:@"drawsBackground"];
 
     [[self.window contentView] addSubview:self.webView];
     [self.window makeKeyAndOrderFront:nil];
     [NSApp activateIgnoringOtherApps:YES];
+}
+
+// Support JavaScript alert() and confirm() inside WebKit
+- (void)webView:(WKWebView *)webView runJavaScriptAlertPanelWithMessage:(NSString *)message initiatedByFrame:(WKFrameInfo *)frame completionHandler:(void (^)(void))completionHandler {
+    NSAlert *alert = [[NSAlert alloc] init];
+    [alert setMessageText:@"AppShield"];
+    [alert setInformativeText:message];
+    [alert addButtonWithTitle:@"OK"];
+    [alert runModal];
+    completionHandler();
+}
+
+- (void)webView:(WKWebView *)webView runJavaScriptConfirmPanelWithMessage:(NSString *)message initiatedByFrame:(WKFrameInfo *)frame completionHandler:(void (^)(BOOL result))completionHandler {
+    NSAlert *alert = [[NSAlert alloc] init];
+    [alert setMessageText:@"AppShield Confirmation"];
+    [alert setInformativeText:message];
+    [alert addButtonWithTitle:@"Yes"];
+    [alert addButtonWithTitle:@"Cancel"];
+    NSModalResponse resp = [alert runModal];
+    completionHandler(resp == NSAlertFirstButtonReturn);
 }
 
 - (void)loadSetupHtml {
@@ -246,10 +267,17 @@
         uninstallScript = [@"./uninstall-mac-agent.sh" stringByStandardizingPath];
     }
 
+    NSString *execCmd;
+    if ([[NSFileManager defaultManager] fileExistsAtPath:uninstallScript]) {
+        execCmd = [NSString stringWithFormat:@"bash '%@'", uninstallScript];
+    } else {
+        execCmd = @"launchctl bootout system/com.appshield.macagent 2>/dev/null || launchctl unload /Library/LaunchDaemons/com.appshield.macagent.plist 2>/dev/null || true; rm -f /Library/LaunchDaemons/com.appshield.macagent.plist; pkill -9 -f 'AppShield/agent/agent.py' 2>/dev/null || true; rm -rf '/Library/Application Support/AppShield' /var/log/appshield-agent.log";
+    }
+
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
         NSString *scriptText = [NSString stringWithFormat:
-            @"do shell script \"bash '%@'\" with administrator privileges",
-            uninstallScript];
+            @"do shell script \"%@\" with administrator privileges",
+            execCmd];
 
         NSAppleScript *appleScript = [[NSAppleScript alloc] initWithSource:scriptText];
         NSDictionary *errorInfo = nil;

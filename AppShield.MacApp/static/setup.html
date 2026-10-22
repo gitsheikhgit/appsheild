@@ -175,21 +175,50 @@
         </div>
       </div>
 
-      <!-- Action Button Area -->
-      <div class="pt-4 border-t border-zinc-800/80 flex items-center space-x-3">
-        <button 
-          id="btnToggleProtection" 
-          onclick="toggleProtection()" 
-          class="flex-1 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-emerald-600/25 transition flex items-center justify-center space-x-2">
-          <span>🚀 Enable Protection on this Mac</span>
-        </button>
-        <button 
-          id="btnSyncRules" 
-          onclick="syncRulesNow()" 
-          title="Sync Rules from Server" 
-          class="p-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 rounded-xl transition">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-        </button>
+      <!-- Action Area: Dynamically changes based on detection of installed app -->
+      <div class="pt-4 border-t border-zinc-800/80">
+        <!-- When Already Installed: Offer Reinstall or Complete Uninstall -->
+        <div id="installedControls" class="space-y-3" style="display: none;">
+          <div class="p-3 bg-emerald-950/30 rounded-xl border border-emerald-500/30 flex items-center justify-between">
+            <div class="flex items-center space-x-2">
+              <span class="text-base">🛡️</span>
+              <span class="text-xs font-bold text-emerald-300">AppShield Detected on this Mac</span>
+            </div>
+            <span class="text-[10px] text-zinc-400 font-mono">LaunchDaemon Active</span>
+          </div>
+
+          <div class="flex items-center space-x-2.5">
+            <button 
+              id="btnReinstall" 
+              onclick="reinstallAgent()" 
+              class="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl shadow-lg transition flex items-center justify-center space-x-1.5">
+              <span>🔄 Reinstall / Update</span>
+            </button>
+            <button 
+              id="btnUninstall" 
+              onclick="uninstallAgent()" 
+              class="flex-1 py-2.5 bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 border border-rose-500/40 text-xs font-bold rounded-xl transition flex items-center justify-center space-x-1.5">
+              <span>🗑️ Uninstall AppShield</span>
+            </button>
+            <button 
+              id="btnSyncRules" 
+              onclick="syncRulesNow()" 
+              title="Sync Rules from Server" 
+              class="p-2.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 rounded-xl transition">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- When Not Installed: Clean 1-Click Install Button -->
+        <div id="uninstalledControls">
+          <button 
+            id="btnInstall" 
+            onclick="installAgent()" 
+            class="w-full py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-emerald-600/25 transition flex items-center justify-center space-x-2">
+            <span>🚀 Install Protection on this Mac</span>
+          </button>
+        </div>
       </div>
     </div>
   </main>
@@ -203,7 +232,7 @@
     <div class="flex items-center space-x-3">
       <span class="text-[11px] text-zinc-400">Tamper-Resistant 24/7 Security</span>
       <button onclick="uninstallAgent()" class="text-rose-400/70 hover:text-rose-400 text-[11px] transition">
-        Uninstall Agent
+        Uninstall
       </button>
     </div>
   </footer>
@@ -231,26 +260,25 @@
 
       isProtected = !!state.isInstalled;
       const badge = document.getElementById("statusBadge");
-      const toggleBtn = document.getElementById("btnToggleProtection");
+      const installedDiv = document.getElementById("installedControls");
+      const uninstalledDiv = document.getElementById("uninstalledControls");
 
       if (isProtected) {
         badge.innerHTML = `
           <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
-          <span class="text-emerald-400 font-bold">Protection Active</span>
+          <span class="text-emerald-400 font-bold">AppShield Installed</span>
         `;
         badge.className = "flex items-center space-x-2 px-3 py-1.5 rounded-full bg-emerald-950/40 border border-emerald-500/40 text-xs shadow-md";
-        
-        toggleBtn.className = "flex-1 py-3 bg-zinc-800 hover:bg-rose-950/50 text-zinc-300 hover:text-rose-300 border border-zinc-700 hover:border-rose-500/40 text-xs font-bold rounded-xl transition flex items-center justify-center space-x-2";
-        toggleBtn.innerHTML = `<span>🛑 Stop & Disable Protection</span>`;
+        installedDiv.style.display = "block";
+        uninstalledDiv.style.display = "none";
       } else {
         badge.innerHTML = `
           <span class="w-2.5 h-2.5 rounded-full bg-zinc-500"></span>
-          <span class="text-zinc-400 font-medium">Protection Inactive</span>
+          <span class="text-zinc-400 font-medium">Not Installed</span>
         `;
         badge.className = "flex items-center space-x-2 px-3 py-1.5 rounded-full bg-zinc-800/80 border border-zinc-700/60 text-xs";
-
-        toggleBtn.className = "flex-1 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-emerald-600/25 transition flex items-center justify-center space-x-2";
-        toggleBtn.innerHTML = `<span>🚀 Enable Protection on this Mac</span>`;
+        installedDiv.style.display = "none";
+        uninstalledDiv.style.display = "block";
       }
     };
 
@@ -282,19 +310,24 @@
       feedback.className = "text-[11px] mt-2 font-mono text-indigo-400 h-4 font-semibold";
     }
 
-    function toggleProtection() {
+    function installAgent() {
       const url = document.getElementById("serverUrl").value.trim().replace(/\/$/, "");
-      const btn = document.getElementById("btnToggleProtection");
+      const btn = document.getElementById("btnInstall");
+      if (btn) btn.innerHTML = `<span>⏳ Authorizing with macOS Admin Prompt...</span>`;
+      callNative("installAgent", { serverUrl: url });
+    }
 
-      if (!isProtected) {
-        btn.innerHTML = `<span>⏳ Approving with macOS Admin Prompt...</span>`;
-        callNative("installAgent", { serverUrl: url });
-      } else {
-        if (confirm("Disable AppShield protection on this Mac? Your child will no longer be restricted by curfews.")) {
-          btn.innerHTML = `<span>⏳ Disabling...</span>`;
-          callNative("uninstallAgent");
-        }
-      }
+    function reinstallAgent() {
+      const url = document.getElementById("serverUrl").value.trim().replace(/\/$/, "");
+      const btn = document.getElementById("btnReinstall");
+      if (btn) btn.innerHTML = `<span>⏳ Reinstalling...</span>`;
+      callNative("installAgent", { serverUrl: url });
+    }
+
+    function uninstallAgent() {
+      const btn = document.getElementById("btnUninstall");
+      if (btn) btn.innerHTML = `<span>⏳ Authorizing Uninstallation...</span>`;
+      callNative("uninstallAgent");
     }
 
     function syncRulesNow() {
@@ -302,12 +335,6 @@
       const feedback = document.getElementById("testFeedback");
       feedback.innerText = "🔄 Rules synced with Central Server.";
       feedback.className = "text-[11px] mt-2 font-mono text-teal-400 h-4 font-semibold";
-    }
-
-    function uninstallAgent() {
-      if (confirm("Completely uninstall the AppShield Mac Agent? This will remove background protection.")) {
-        callNative("uninstallAgent");
-      }
     }
 
     function openFleetDashboard() {

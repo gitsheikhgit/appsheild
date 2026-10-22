@@ -81,13 +81,24 @@ echo "[+] Packaging AppShield-macOS.zip..."
 rm -f "$SCRIPT_DIR/AppShield-macOS.zip"
 (cd "$SCRIPT_DIR" && zip -r -q "AppShield-macOS.zip" "$APP_NAME")
 
-echo "[+] Attempting DMG creation (AppShield-macOS.dmg)..."
+echo "[+] Creating standard macOS Disk Image (AppShield-macOS.dmg)..."
 DMG_OUTPUT="$SCRIPT_DIR/AppShield-macOS.dmg"
-rm -f "$DMG_OUTPUT"
-if hdiutil create -volname "AppShield" -srcfolder "$APP_DIR" -ov -format UDZO "$DMG_OUTPUT" > /dev/null 2>&1; then
+DMG_STAGING="$SCRIPT_DIR/.dmg_staging"
+rm -rf "$DMG_STAGING" "$DMG_OUTPUT"
+mkdir -p "$DMG_STAGING"
+cp -R "$APP_DIR" "$DMG_STAGING/"
+
+if hdiutil create -volname "AppShield" -srcfolder "$DMG_STAGING" -ov -format UDZO "$DMG_OUTPUT"; then
     echo "[+] AppShield-macOS.dmg created successfully."
-else
-    echo "[*] DMG creation skipped (requires elevated kernel disk privileges). ZIP package is ready."
+fi
+rm -rf "$DMG_STAGING"
+
+# Copy into organized Installers/macOS folder
+mkdir -p "$SCRIPT_DIR/Installers/macOS"
+cp -R "$APP_DIR" "$SCRIPT_DIR/Installers/macOS/" 2>/dev/null || true
+cp "$SCRIPT_DIR/AppShield-macOS.zip" "$SCRIPT_DIR/Installers/macOS/" 2>/dev/null || true
+if [ -f "$DMG_OUTPUT" ]; then
+    cp "$DMG_OUTPUT" "$SCRIPT_DIR/Installers/macOS/AppShield-macOS.dmg" 2>/dev/null || true
 fi
 
 # Step 5: Install to /Applications and Desktop
@@ -100,7 +111,6 @@ fi
 if [ -d "$HOME/Desktop" ]; then
     rm -rf "$HOME/Desktop/$APP_NAME" 2>/dev/null || true
     cp -R "$APP_DIR" "$HOME/Desktop/$APP_NAME" 2>/dev/null || true
-    cp "$SCRIPT_DIR/AppShield-macOS.zip" "$HOME/Desktop/AppShield-macOS.zip" 2>/dev/null || true
     if [ -f "$DMG_OUTPUT" ]; then
         cp "$DMG_OUTPUT" "$HOME/Desktop/AppShield-macOS.dmg" 2>/dev/null || true
     fi
