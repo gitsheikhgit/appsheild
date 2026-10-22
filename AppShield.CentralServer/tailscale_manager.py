@@ -8,7 +8,7 @@ from typing import Dict, Any, Optional
 
 class TailscaleManager:
     """
-    Manages Tailscale status detection, 1-click installation on Ubuntu/Debian,
+    Manages Tailscale status detection, 1-click installation on Ubuntu/Debian/LXC,
     and retrieval of browser authorization URLs for remote access.
     """
 
@@ -28,6 +28,50 @@ class TailscaleManager:
             if os.path.exists(p):
                 return p
         return None
+
+    @classmethod
+    async def ensure_daemon_running(cls) -> bool:
+        """
+        Verifies that tailscaled is active. In Proxmox LXC containers or systems
+        without /dev/net/tun, automatically configures userspace networking mode
+        so tailscaled never fails.
+        """
+        # 1. If socket exists and responsive, daemon is running
+        if os.path.exists("/run/tailscale/tailscaled.sock"):
+            return True
+
+        # 2. Check if /dev/net/tun exists. If not, enable userspace networking in /etc/default/tailscaled
+        if not os.path.exists("/dev/net/tun") and os.path.exists("/etc/default/tailscaled"):
+            try:
+                with open("/etc/default/tailscaled", "r") as f:
+                    content = f.read()
+                if "--tun=userspace-networking" not in content:
+                    new_content = re.sub(r'FLAGS=".*?"', 'FLAGS="--tun=userspace-networking"', content)
+                    if new_content == content:
+                        new_content += '\nFLAGS="--tun=userspace-networking"\n'
+                    with open("/etc/default/tailscaled", "w") as f:
+                        f.write(new_content)
+            except Exception:
+                pass
+
+        # 3. Attempt to start/restart tailscaled service
+        try:
+            proc = await asyncio.create_subprocess_shell(
+                "systemctl restart tailscaled || systemctl start tailscaled",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            await proc.communicate()
+        except Exception:
+            pass
+
+        # 4. Wait up to 3 seconds for socket
+        for _ in range(6):
+            if os.path.exists("/run/tailscale/tailscaled.sock"):
+                return True
+            await asyncio.sleep(0.5)
+
+        return os.path.exists("/run/tailscale/tailscaled.sock")
 
     @classmethod
     async def get_status(cls) -> Dict[str, Any]:
@@ -68,6 +112,9 @@ class TailscaleManager:
             return result
 
         result["installed"] = True
+
+        # Ensure daemon is running
+        await cls.ensure_daemon_running()
 
         # Check version
         try:
@@ -128,9 +175,10 @@ class TailscaleManager:
     @classmethod
     async def install(cls) -> Dict[str, Any]:
         """
-        Executes official automated Tailscale installation on Linux/Ubuntu.
+        Executes official automated Tailscale installation on Linux/Ubuntu/Debian.
         """
         if cls.get_binary_path():
+            await cls.ensure_daemon_running()
             return {"success": True, "message": "Tailscale is already installed on this server."}
 
         try:
@@ -141,8 +189,7 @@ class TailscaleManager:
             )
             stdout, stderr = await proc.communicate()
             if proc.returncode == 0:
-                # Enable systemd service
-                os.system("systemctl enable --now tailscaled 2>/dev/null || true")
+                await cls.ensure_daemon_running()
                 return {"success": True, "message": "Tailscale installed successfully!"}
             else:
                 err = stderr.decode().strip() or stdout.decode().strip()
@@ -153,14 +200,17 @@ class TailscaleManager:
     @classmethod
     async def login_or_up(cls) -> Dict[str, Any]:
         """
-        Runs tailscale up and captures the browser authorization URL.
+        Runs tailscale up / login and captures the browser authorization URL.
         """
         bin_path = cls.get_binary_path()
         if not bin_path:
             return {"success": False, "message": "Tailscale is not installed on this server."}
 
+        # Ensure daemon is running and healthy
+        await cls.ensure_daemon_running()
+
         try:
-            # First check if already logged in and has IP
+            # 1. Check if already logged in and active with 100.* IP
             proc = await asyncio.create_subprocess_exec(
                 bin_path, "ip", "-4",
                 stdout=asyncio.subprocess.PIPE,
@@ -171,31 +221,78 @@ class TailscaleManager:
             if ip.startswith("100."):
                 return {
                     "success": True,
+                    "running": True,
                     "tailscale_ip": ip.splitlines()[0],
                     "message": "Tailscale is already authenticated and active!"
                 }
 
-            # Run tailscale up to get auth URL
+            # 2. Check status --json for existing AuthURL
+            try:
+                proc = await asyncio.create_subprocess_exec(
+                    bin_path, "status", "--json",
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE
+                )
+                stdout, _ = await proc.communicate()
+                raw = stdout.decode().strip()
+                if raw.startswith("{"):
+                    st = json.loads(raw)
+                    auth_url = st.get("AuthURL")
+                    if auth_url:
+                        return {
+                            "success": True,
+                            "auth_url": auth_url,
+                            "message": "Authorization URL retrieved. Please sign in with your browser."
+                        }
+            except Exception:
+                pass
+
+            # 3. Run tailscale up to generate or request auth URL
             proc = await asyncio.create_subprocess_exec(
-                bin_path, "up", "--qr=false", "--timeout=15s",
+                bin_path, "up", "--qr=false", "--timeout=10s",
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE
             )
-            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=20.0)
-            output = stdout.decode() + "\n" + stderr.decode()
+            try:
+                stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=12.0)
+                output = stdout.decode() + "\n" + stderr.decode()
+            except asyncio.TimeoutError:
+                try:
+                    proc.kill()
+                except Exception:
+                    pass
+                output = ""
 
-            # Search for https://login.tailscale.com/a/...
+            # 4. Search for https://login.tailscale.com/a/... in output
             match = re.search(r"https://login\.tailscale\.com/a/[a-zA-Z0-9_\-]+", output)
             if match:
                 return {
                     "success": True,
                     "auth_url": match.group(0),
-                    "message": "Authorization URL generated. Please complete signup in your browser."
+                    "message": "Authorization URL generated. Please sign in with your browser."
                 }
+
+            # 5. Fallback check status --json once more
+            try:
+                proc2 = await asyncio.create_subprocess_exec(
+                    bin_path, "status", "--json",
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE
+                )
+                stdout2, _ = await proc2.communicate()
+                st2 = json.loads(stdout2.decode().strip())
+                if st2.get("AuthURL"):
+                    return {
+                        "success": True,
+                        "auth_url": st2["AuthURL"],
+                        "message": "Authorization URL retrieved. Please sign in with your browser."
+                    }
+            except Exception:
+                pass
 
             return {
                 "success": False,
-                "message": f"Could not find authorization URL in Tailscale response: {output[:250]}"
+                "message": f"Could not find authorization URL: {output.strip() or 'No response from Tailscale'}"
             }
         except Exception as e:
             return {"success": False, "message": str(e)}

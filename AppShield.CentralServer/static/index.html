@@ -1256,8 +1256,17 @@
                 <span>⚡ 1-Click Install Tailscale</span>
               </button>
               <button @click="loginTailscaleOnServer()" :disabled="tailscale.isLoggingIn" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-lg transition flex items-center space-x-1.5 shadow-sm">
-                <span>🔗 Authorize & Sign In</span>
+                <span x-show="!tailscale.isLoggingIn">🔗 Authorize & Sign In</span>
+                <span x-show="tailscale.isLoggingIn" class="flex items-center space-x-1">
+                  <svg class="w-3.5 h-3.5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                  <span>Connecting...</span>
+                </span>
               </button>
+            </div>
+            <div x-show="tailscale.authUrl" class="mt-2 p-2.5 bg-indigo-950/60 border border-indigo-500/40 rounded-xl">
+              <a :href="tailscale.authUrl" target="_blank" rel="noopener noreferrer" class="text-xs font-bold text-indigo-300 hover:text-white flex items-center space-x-1.5">
+                <span>🚀 Click here to Open Tailscale Sign-In Page &rarr;</span>
+              </a>
             </div>
           </div>
 
@@ -1357,7 +1366,7 @@
             </div>
           </div>
         </template>
-        <template x-if="!currentNode">
+        <template x-if="currentNode === null">
           <div class="text-zinc-500 text-xs italic py-2">
             No computer selected from the fleet.
           </div>

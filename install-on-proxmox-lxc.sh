@@ -33,19 +33,28 @@ echo "[+] Installing FastAPI, Uvicorn, and WebSocket dependencies..."
 
 # 3b. Copy Application Source Code
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-if [ -f "$SCRIPT_DIR/AppShield.CentralServer/server.py" ]; then
-    cp "$SCRIPT_DIR/AppShield.CentralServer/server.py" "$INSTALL_DIR/server.py"
-    cp -r "$SCRIPT_DIR/AppShield.CentralServer/static/"* "$INSTALL_DIR/static/"
+if [ -d "$SCRIPT_DIR/AppShield.CentralServer" ]; then
+    cp -r "$SCRIPT_DIR/AppShield.CentralServer/"* "$INSTALL_DIR/"
 elif [ -f "$SCRIPT_DIR/server.py" ]; then
-    cp "$SCRIPT_DIR/server.py" "$INSTALL_DIR/server.py"
-    cp -r "$SCRIPT_DIR/static/"* "$INSTALL_DIR/static/"
+    cp "$SCRIPT_DIR/"*.py "$INSTALL_DIR/" 2>/dev/null || true
+    cp -r "$SCRIPT_DIR/static/"* "$INSTALL_DIR/static/" 2>/dev/null || true
 fi
 
 if [ ! -f "$INSTALL_DIR/server.py" ]; then
     echo "[+] Fetching server code from GitHub..."
-    curl -sSL "https://raw.githubusercontent.com/gitsheikhgit/appsheild/main/AppShield.CentralServer/server.py" -o "$INSTALL_DIR/server.py"
-    curl -sSL "https://raw.githubusercontent.com/gitsheikhgit/appsheild/main/AppShield.CentralServer/static/index.html" -o "$INSTALL_DIR/static/index.html"
-    curl -sSL "https://raw.githubusercontent.com/gitsheikhgit/appsheild/main/AppShield.CentralServer/static/manifest.json" -o "$INSTALL_DIR/static/manifest.json"
+    for f in server.py core_state.py feature_routes.py settings_routes.py tailscale_manager.py; do
+        curl -sSL "https://raw.githubusercontent.com/gitsheikhgit/appsheild/main/AppShield.CentralServer/$f" -o "$INSTALL_DIR/$f"
+    done
+    for f in index.html manifest.json features.js settings.js; do
+        curl -sSL "https://raw.githubusercontent.com/gitsheikhgit/appsheild/main/AppShield.CentralServer/static/$f" -o "$INSTALL_DIR/static/$f"
+    done
+fi
+
+# Ensure Tailscale runs in unprivileged LXC containers if tun is missing
+if [ ! -e /dev/net/tun ] && [ -f /etc/default/tailscaled ]; then
+    echo "[+] Configuring Tailscale userspace-networking for Proxmox LXC..."
+    sed -i 's|FLAGS=.*|FLAGS="--tun=userspace-networking"|' /etc/default/tailscaled 2>/dev/null || true
+    systemctl restart tailscaled 2>/dev/null || true
 fi
 
 # 4. Create systemd service

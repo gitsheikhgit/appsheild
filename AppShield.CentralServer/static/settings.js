@@ -78,10 +78,16 @@ window.AppShieldSettings = {
       const json = await res.json();
       if (json.success && json.auth_url) {
         this.tailscale.authUrl = json.auth_url;
-        window.open(json.auth_url, '_blank');
-        this.showToast('Opened Tailscale login in new tab. Sign in to authorize!', 'info');
-      } else if (json.running) {
-        this.showToast(`Tailscale already running at ${json.ip}!`, 'success');
+        // Try opening in new tab
+        const win = window.open(json.auth_url, '_blank');
+        if (!win || win.closed || typeof win.closed === 'undefined') {
+          this.showToast('Popup blocked by browser. Click the "Open Tailscale Login" button below!', 'warning');
+        } else {
+          this.showToast('Opened Tailscale login in new tab. Sign in to authorize!', 'info');
+        }
+        this.startTailscaleAuthPolling();
+      } else if (json.running || (json.success && json.tailscale_ip)) {
+        this.showToast(`Tailscale already running at ${json.tailscale_ip || json.ip}!`, 'success');
         await this.checkTailscaleStatus();
       } else {
         this.showToast(json.message || 'Could not initiate login', 'error');
@@ -91,6 +97,23 @@ window.AppShieldSettings = {
     } finally {
       this.tailscale.isLoggingIn = false;
     }
+  },
+
+  startTailscaleAuthPolling() {
+    if (this._tsPollInterval) clearInterval(this._tsPollInterval);
+    let attempts = 0;
+    this._tsPollInterval = setInterval(async () => {
+      attempts++;
+      if (attempts > 30) {
+        clearInterval(this._tsPollInterval);
+        return;
+      }
+      await this.checkTailscaleStatus();
+      if (this.tailscale.running) {
+        clearInterval(this._tsPollInterval);
+        this.showToast('🎉 Tailscale Connected! Remote IP: ' + this.tailscale.ip, 'success');
+      }
+    }, 3000);
   },
 
   async autoDetectNodeTailscale() {

@@ -54,6 +54,20 @@ async def send_node_command(device_id: str, cmd: CommandDto):
     sent = await manager.send_command(device_id, {"action": cmd.action, "payload": cmd.payload})
     return {"success": sent, "message": "Command dispatched to endpoint" if sent else "Device offline or disconnected"}
 
+@router.post("/fleet/{device_id:path}/ping")
+@router.get("/fleet/{device_id:path}/ping")
+async def ping_node_status(device_id: str):
+    is_live = device_id in manager.active_connections
+    sent = False
+    if is_live:
+        sent = await manager.send_command(device_id, {"action": "ping", "payload": {}})
+    return {
+        "success": True,
+        "device_id": device_id,
+        "is_online": is_live,
+        "ping_sent": sent
+    }
+
 # ===================================================================
 # 2. Child User Accounts & Path Jail
 # ===================================================================
