@@ -132,14 +132,14 @@
         </div>
       </button>
 
-      <!-- Live Processes -->
+      <!-- Active Applications -->
       <button 
         @click="activeTab = 'processes'; mobileSidebarOpen = false" 
         :class="activeTab === 'processes' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30 font-bold' : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60 font-medium'"
         class="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-xs transition group">
         <div class="flex items-center space-x-2.5">
-          <span class="text-base">🚀</span>
-          <span>Live Processes</span>
+          <span class="text-base">📱</span>
+          <span>Active Apps</span>
         </div>
         <span class="text-[10px] px-1.5 py-0.5 rounded-full" 
               :class="activeTab === 'processes' ? 'bg-white/20 text-white' : 'bg-zinc-800 text-zinc-400'"
@@ -181,7 +181,7 @@
         class="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-xs transition group">
         <div class="flex items-center space-x-2.5">
           <span class="text-base">📦</span>
-          <span>Installed Software</span>
+          <span>Installed Apps</span>
         </div>
         <span class="text-[10px] px-1.5 py-0.5 rounded-full" 
               :class="activeTab === 'installed' ? 'bg-white/20 text-white' : 'bg-zinc-800 text-zinc-400'"
@@ -246,10 +246,10 @@
         </button>
         <h2 class="text-xs md:text-sm font-bold text-white tracking-wide flex items-center space-x-2 truncate">
           <span x-show="activeTab === 'overview'">🛡️ Overview & Fleet Command</span>
-          <span x-show="activeTab === 'processes'">🚀 Live Process Monitor</span>
+          <span x-show="activeTab === 'processes'">📱 Active Applications</span>
           <span x-show="activeTab === 'users'">👥 User Accounts & Child Path Jail</span>
           <span x-show="activeTab === 'rules'">📜 Application Rules & Schedules</span>
-          <span x-show="activeTab === 'installed'">📦 Installed Software Registry</span>
+          <span x-show="activeTab === 'installed'">📦 Installed Applications</span>
           <span x-show="activeTab === 'logs'">📋 Intercepted Audit Logs</span>
           <span x-show="activeTab === 'settings'">⚙️ Node Settings & Master Credentials</span>
         </h2>
@@ -437,7 +437,7 @@
       </div>
 
 
-    <!-- TAB 1: LIVE PROCESS MONITOR -->
+    <!-- TAB 1: ACTIVE APPLICATIONS MONITOR -->
     <div x-show="activeTab === 'processes'" class="space-y-4">
       <!-- Search & Filters -->
       <div class="flex flex-col sm:flex-row justify-between items-center gap-3 glass-card p-4 rounded-xl">
@@ -446,7 +446,7 @@
             <input 
               type="text" 
               x-model="processSearch" 
-              placeholder="Search executable, PID, or user..." 
+              placeholder="Search active apps (e.g. Chrome, WhatsApp, Roblox, Safari)..." 
               class="w-full bg-zinc-900 border border-zinc-700/80 rounded-lg pl-9 pr-3 py-1.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-indigo-500">
             <svg class="w-4 h-4 text-zinc-500 absolute left-2.5 top-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
           </div>
@@ -468,23 +468,21 @@
             @click="loadProcesses()" 
             class="bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs px-3 py-1.5 rounded-lg border border-zinc-700 flex items-center space-x-1 transition">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-            <span>Scan Processes</span>
+            <span>Scan Active Apps</span>
           </button>
         </div>
       </div>
 
-      <!-- Process Table -->
+      <!-- Applications Table -->
       <div class="glass-card rounded-xl overflow-hidden border border-zinc-800">
         <div class="overflow-x-auto custom-scroll max-h-[640px]">
           <table class="w-full text-left text-xs">
             <thead class="bg-zinc-950/80 text-zinc-400 uppercase text-[10px] tracking-wider sticky top-0 border-b border-zinc-800">
               <tr>
-                <th class="py-3 px-4">Process / Exe Name</th>
-                <th class="py-3 px-4">PID</th>
-                <th class="py-3 px-4">User Account (Win32 Token)</th>
-                <th class="py-3 px-4">PE OriginalFilename</th>
-                <th class="py-3 px-4">SHA-256 Hash</th>
-                <th class="py-3 px-4">RAM</th>
+                <th class="py-3 px-4">Application</th>
+                <th class="py-3 px-4">User Account</th>
+                <th class="py-3 px-4">Memory Usage</th>
+                <th class="py-3 px-4">Status</th>
                 <th class="py-3 px-4 text-right">Instant Action</th>
               </tr>
             </thead>
@@ -492,38 +490,44 @@
               <template x-for="proc in filteredProcesses" :key="proc.pid">
                 <tr class="hover:bg-zinc-800/30 transition">
                   <td class="py-2.5 px-4">
-                    <div class="font-medium text-white flex items-center space-x-1.5">
-                      <span class="text-indigo-400">⚡</span>
-                      <span x-text="proc.processName"></span>
+                    <div class="font-medium text-white flex items-center space-x-2">
+                      <span class="text-base">📱</span>
+                      <span class="font-semibold text-sm" x-text="proc.processName"></span>
                     </div>
-                    <div class="text-[10px] text-zinc-500 font-mono truncate max-w-xs" :title="proc.executablePath" x-text="proc.executablePath"></div>
+                    <div class="text-[10px] text-zinc-500 font-mono truncate max-w-sm pl-6" :title="proc.executablePath" x-text="proc.executablePath"></div>
                   </td>
-                  <td class="py-2.5 px-4 font-mono text-zinc-300" x-text="proc.pid"></td>
                   <td class="py-2.5 px-4">
                     <div class="flex items-center space-x-1.5">
-                      <span class="font-medium text-zinc-200" x-text="proc.username || 'SYSTEM'"></span>
-                      <span x-show="proc.isManagedUser" class="bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[9px] px-1.5 py-0.2 rounded font-semibold">Managed</span>
+                      <span class="font-medium text-zinc-200" x-text="proc.username || 'Active User'"></span>
+                      <span x-show="proc.isManagedUser" class="bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[9px] px-1.5 py-0.2 rounded font-semibold">Managed Child</span>
                     </div>
-                    <div class="text-[10px] text-zinc-500 font-mono" x-text="proc.domain"></div>
-                  </td>
-                  <td class="py-2.5 px-4 font-mono text-zinc-300" x-text="proc.originalFilename || '—'"></td>
-                  <td class="py-2.5 px-4 font-mono text-zinc-400 text-[11px]">
-                    <span :title="proc.sha256Hash" x-text="proc.sha256Hash ? proc.sha256Hash.substring(0, 10) + '...' : '—'"></span>
                   </td>
                   <td class="py-2.5 px-4 text-zinc-300 font-mono" x-text="proc.memoryMB + ' MB'"></td>
-                  <td class="py-2.5 px-4 text-right">
+                  <td class="py-2.5 px-4">
+                    <span class="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] px-2 py-0.5 rounded-full font-semibold">
+                      Active in Drawer
+                    </span>
+                  </td>
+                  <td class="py-2.5 px-4 text-right space-x-1.5">
                     <!-- 1-Click Block App Button -->
                     <button 
                       @click="openBlockModalForProcess(proc)" 
                       class="bg-rose-600/20 hover:bg-rose-600 text-rose-300 hover:text-white border border-rose-500/40 text-[11px] font-semibold px-2.5 py-1 rounded transition shadow-sm">
                       🛡️ Block App
                     </button>
+                    <!-- Force Close App Button -->
+                    <button 
+                      @click="forceCloseProcess(proc.pid, proc.processName)" 
+                      class="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white border border-zinc-700 text-[11px] font-semibold px-2.5 py-1 rounded transition shadow-sm"
+                      title="Force quit this application">
+                      🛑 Force Close
+                    </button>
                   </td>
                 </tr>
               </template>
               <tr x-show="filteredProcesses.length === 0">
-                <td colspan="7" class="py-8 text-center text-zinc-500">
-                  No running processes match your search filter.
+                <td colspan="5" class="py-8 text-center text-zinc-500">
+                  No active user applications detected. Applications opened from Launchpad or Applications folder will appear here in real-time.
                 </td>
               </tr>
             </tbody>
@@ -807,7 +811,7 @@
           <input 
             type="text" 
             x-model="installedAppFilter" 
-            placeholder="Search installed software (e.g. Roblox, Steam, Chrome, Discord)..." 
+            placeholder="Search installed software (e.g. Chrome, WhatsApp, Roblox, Safari, Steam)..." 
             class="bg-zinc-900 border border-zinc-700 rounded-lg px-3.5 py-1.5 text-xs text-white placeholder-zinc-500 w-full md:w-80 focus:outline-none focus:border-indigo-500">
         </div>
         <div class="flex items-center space-x-3">
@@ -817,7 +821,7 @@
             class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition flex items-center space-x-1.5 shadow-md shadow-indigo-600/20"
             :class="{'animate-pulse': isLoadingApps}">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-            <span x-text="isLoadingApps ? 'Scanning Windows PC...' : 'Scan Windows Apps'"></span>
+            <span x-text="isLoadingApps ? 'Scanning Computer Apps...' : 'Scan Installed Apps'"></span>
           </button>
         </div>
       </div>
@@ -878,7 +882,7 @@
               </template>
               <tr x-show="filteredInstalledApps.length === 0">
                 <td colspan="5" class="py-8 text-center text-zinc-500 font-sans">
-                  No installed applications match your filter or scanner has not run yet. Click "Scan Windows Apps".
+                  No installed applications match your filter or scanner has not run yet. Click "Scan Installed Apps".
                 </td>
               </tr>
             </tbody>
@@ -941,81 +945,89 @@
         </div>
       </div>
 
-      <!-- Windows Endpoint Command Center & Quick Reference -->
-      <div class="glass-card p-6 rounded-xl border border-zinc-800 space-y-4">
-        <div class="flex items-center space-x-2 text-indigo-400">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-          <h3 class="text-sm font-bold text-white">Windows Endpoint Command Center (PowerShell / Admin)</h3>
+      <!-- Direct Client Download & 1-Click Installers (macOS .dmg & Windows .exe) -->
+      <div class="glass-card p-6 rounded-xl border border-zinc-800 space-y-5">
+        <div class="flex items-center space-x-2.5 text-indigo-400">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+          <h3 class="text-sm font-bold text-white">Client App Downloads & Multi-Platform Deployment</h3>
         </div>
-        <p class="text-xs text-zinc-400">
-          Essential PowerShell commands to execute on the Windows PC for deployment, key retrieval, and diagnostic checks. Click any command to copy it directly to your clipboard.
+        <p class="text-xs text-zinc-400 leading-relaxed">
+          Install the AppShield client directly on your children's devices using standard graphical installers (<span class="text-indigo-300 font-mono">.dmg</span> for Mac and <span class="text-indigo-300 font-mono">.exe</span> for Windows). No terminal commands or complex scripts needed.
         </p>
 
-        <div class="space-y-3 pt-1">
-          <!-- Install Command -->
-          <div class="bg-zinc-900/90 border border-zinc-800 rounded-lg p-3 space-y-1.5">
-            <div class="flex items-center justify-between text-xs">
-              <span class="font-semibold text-zinc-300">1. Install Client on Windows (Run as Admin):</span>
-              <button @click="copyCommand('powershell -ExecutionPolicy Bypass -File .\\Install-AppShield.ps1')" class="text-indigo-400 hover:text-indigo-300 text-[11px] font-semibold flex items-center space-x-1">
-                <span>📋 Copy</span>
-              </button>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+          <!-- macOS Installer (.dmg) Card -->
+          <div class="bg-zinc-900/90 border border-zinc-800 rounded-xl p-5 space-y-3.5 flex flex-col justify-between">
+            <div class="space-y-2.5">
+              <div class="flex items-center space-x-2.5">
+                <span class="text-2xl">🍏</span>
+                <div>
+                  <h4 class="text-sm font-bold text-white">macOS Client (.dmg)</h4>
+                  <span class="text-[10px] text-zinc-400">Universal Binary (Apple Silicon M1-M4 & Intel x86_64)</span>
+                </div>
+              </div>
+              <p class="text-xs text-zinc-400 leading-relaxed">
+                Native macOS Parental Shield app. Delivers real-time application drawer monitoring, schedule curfews, and path jail.
+              </p>
+              
+              <div class="bg-zinc-950 p-3 rounded-lg border border-zinc-800/80 space-y-1.5 text-[11px] text-zinc-300">
+                <div class="font-bold text-zinc-200">How to Setup on Mac:</div>
+                <div class="flex items-start space-x-1.5">
+                  <span class="text-indigo-400 font-bold">1.</span>
+                  <span>Download and double-click <strong class="text-white">AppShield-macOS.dmg</strong>.</span>
+                </div>
+                <div class="flex items-start space-x-1.5">
+                  <span class="text-indigo-400 font-bold">2.</span>
+                  <span>Drag <strong class="text-white">AppShield.app</strong> into Applications.</span>
+                </div>
+                <div class="flex items-start space-x-1.5">
+                  <span class="text-indigo-400 font-bold">3.</span>
+                  <span>Open AppShield, confirm Server IP (<code class="text-indigo-300" x-text="location.origin"></code>), and click <strong class="text-emerald-400">Enable Protection</strong>.</span>
+                </div>
+              </div>
             </div>
-            <code class="block text-indigo-300 bg-zinc-950 p-2 rounded text-[11px] font-mono select-all">powershell -ExecutionPolicy Bypass -File .\Install-AppShield.ps1</code>
+
+            <a href="/download/mac" download class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2.5 px-3 rounded-lg text-xs transition shadow-md shadow-indigo-600/20 flex items-center justify-center space-x-2">
+              <span>⬇️</span>
+              <span>Download AppShield-macOS.dmg</span>
+            </a>
           </div>
 
-          <!-- Retrieve PSK -->
-          <div class="bg-zinc-900/90 border border-zinc-800 rounded-lg p-3 space-y-1.5">
-            <div class="flex items-center justify-between text-xs">
-              <span class="font-semibold text-zinc-300">2. Retrieve Pre-Shared Key (PSK) if Lost:</span>
-              <button @click="copyCommand('Get-Content \"C:\\ProgramData\\AppShield\\psk.key\"')" class="text-indigo-400 hover:text-indigo-300 text-[11px] font-semibold flex items-center space-x-1">
-                <span>📋 Copy</span>
-              </button>
+          <!-- Windows Installer (.exe) Card -->
+          <div class="bg-zinc-900/90 border border-zinc-800 rounded-xl p-5 space-y-3.5 flex flex-col justify-between">
+            <div class="space-y-2.5">
+              <div class="flex items-center space-x-2.5">
+                <span class="text-2xl">🪟</span>
+                <div>
+                  <h4 class="text-sm font-bold text-white">Windows Client (.exe)</h4>
+                  <span class="text-[10px] text-zinc-400">Windows 10 / Windows 11 (64-bit)</span>
+                </div>
+              </div>
+              <p class="text-xs text-zinc-400 leading-relaxed">
+                Self-contained graphical installer. Automatically registers the anti-kill Session 0 service and system tray prompt.
+              </p>
+              
+              <div class="bg-zinc-950 p-3 rounded-lg border border-zinc-800/80 space-y-1.5 text-[11px] text-zinc-300">
+                <div class="font-bold text-zinc-200">How to Setup on Windows:</div>
+                <div class="flex items-start space-x-1.5">
+                  <span class="text-indigo-400 font-bold">1.</span>
+                  <span>Download and run <strong class="text-white">AppShield-Setup.exe</strong>.</span>
+                </div>
+                <div class="flex items-start space-x-1.5">
+                  <span class="text-indigo-400 font-bold">2.</span>
+                  <span>Enter Server IP (<code class="text-indigo-300" x-text="location.origin"></code>) and complete the setup wizard.</span>
+                </div>
+                <div class="flex items-start space-x-1.5">
+                  <span class="text-indigo-400 font-bold">3.</span>
+                  <span>Device automatically pairs and appears live in this Central Server dashboard.</span>
+                </div>
+              </div>
             </div>
-            <code class="block text-amber-300 bg-zinc-950 p-2 rounded text-[11px] font-mono select-all">Get-Content "C:\ProgramData\AppShield\psk.key"</code>
-          </div>
 
-          <!-- Check Service Status -->
-          <div class="bg-zinc-900/90 border border-zinc-800 rounded-lg p-3 space-y-1.5">
-            <div class="flex items-center justify-between text-xs">
-              <span class="font-semibold text-zinc-300">3. Verify Background Service Status:</span>
-              <button @click="copyCommand('Get-Service AppShieldService')" class="text-indigo-400 hover:text-indigo-300 text-[11px] font-semibold flex items-center space-x-1">
-                <span>📋 Copy</span>
-              </button>
-            </div>
-            <code class="block text-emerald-300 bg-zinc-950 p-2 rounded text-[11px] font-mono select-all">Get-Service AppShieldService</code>
-          </div>
-
-          <!-- Tail Service Logs -->
-          <div class="bg-zinc-900/90 border border-zinc-800 rounded-lg p-3 space-y-1.5">
-            <div class="flex items-center justify-between text-xs">
-              <span class="font-semibold text-zinc-300">4. Tail Live Service Diagnostic Logs:</span>
-              <button @click="copyCommand('Get-Content \"C:\\ProgramData\\AppShield\\service.log\" -Tail 50 -Wait')" class="text-indigo-400 hover:text-indigo-300 text-[11px] font-semibold flex items-center space-x-1">
-                <span>📋 Copy</span>
-              </button>
-            </div>
-            <code class="block text-zinc-300 bg-zinc-950 p-2 rounded text-[11px] font-mono select-all">Get-Content "C:\ProgramData\AppShield\service.log" -Tail 50 -Wait</code>
-          </div>
-
-          <!-- Check Tailscale IP -->
-          <div class="bg-zinc-900/90 border border-zinc-800 rounded-lg p-3 space-y-1.5">
-            <div class="flex items-center justify-between text-xs">
-              <span class="font-semibold text-zinc-300">5. Check Tailscale Mesh IP Address:</span>
-              <button @click="copyCommand('tailscale ip -4')" class="text-indigo-400 hover:text-indigo-300 text-[11px] font-semibold flex items-center space-x-1">
-                <span>📋 Copy</span>
-              </button>
-            </div>
-            <code class="block text-purple-300 bg-zinc-950 p-2 rounded text-[11px] font-mono select-all">tailscale ip -4</code>
-          </div>
-
-          <!-- Safe Local Uninstaller -->
-          <div class="bg-zinc-900/90 border border-zinc-800 rounded-lg p-3 space-y-1.5">
-            <div class="flex items-center justify-between text-xs">
-              <span class="font-semibold text-zinc-300">6. Safe Local Uninstaller on Windows (Run as Admin):</span>
-              <button @click="copyCommand('powershell -ExecutionPolicy Bypass -File .\\Uninstall-AppShield.ps1')" class="text-indigo-400 hover:text-indigo-300 text-[11px] font-semibold flex items-center space-x-1">
-                <span>📋 Copy</span>
-              </button>
-            </div>
-            <code class="block text-rose-300 bg-zinc-950 p-2 rounded text-[11px] font-mono select-all">powershell -ExecutionPolicy Bypass -File .\Uninstall-AppShield.ps1</code>
+            <a href="/download/windows" download class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-2.5 px-3 rounded-lg text-xs transition shadow-md shadow-blue-600/20 flex items-center justify-center space-x-2">
+              <span>⬇️</span>
+              <span>Download AppShield-Setup.exe</span>
+            </a>
           </div>
         </div>
       </div>
@@ -1626,6 +1638,18 @@
             this.currentNode = this.fleet[0];
             await this.refreshAllNodeData();
           }
+
+          // Seamless Background Auto-Refresh (every 3.5s) - No manual browser refresh needed!
+          setInterval(async () => {
+            await this.loadFleet();
+            if (this.currentNode && this.activeTab === 'processes') {
+              try {
+                const res = await fetch(`/api/nodes/${this.currentNode.id}/processes`);
+                const data = await res.json();
+                if (data.success) this.processes = data.data;
+              } catch (e) {}
+            }
+          }, 3500);
         },
 
         async loadFleet() {
@@ -1635,7 +1659,18 @@
             if (data.success) {
               this.fleet = data.data;
               if (this.selectedNodeId) {
-                this.currentNode = this.fleet.find(n => n.id === this.selectedNodeId) || this.fleet[0];
+                const found = this.fleet.find(n => n.id === this.selectedNodeId);
+                if (found) {
+                  this.currentNode = found;
+                } else if (this.fleet.length > 0) {
+                  this.selectedNodeId = this.fleet[0].id;
+                  this.currentNode = this.fleet[0];
+                } else {
+                  this.currentNode = null;
+                }
+              } else if (this.fleet.length > 0) {
+                this.selectedNodeId = this.fleet[0].id;
+                this.currentNode = this.fleet[0];
               }
             }
           } catch (e) {
@@ -1749,6 +1784,22 @@
             }
           } catch (e) {
             console.error('Error fetching logs:', e);
+          }
+        },
+
+        async forceCloseProcess(pid, name) {
+          if (!this.currentNode) return;
+          try {
+            const res = await fetch(`/api/nodes/${this.currentNode.id}/processes/${pid}`, { method: 'DELETE' });
+            const json = await res.json();
+            if (json.success) {
+              this.showToast(`Terminated ${name} on ${this.currentNode.name}`, 'success');
+              this.processes = this.processes.filter(p => p.pid !== pid);
+            } else {
+              this.showToast(`Failed to close ${name}: ${json.message || 'Error'}`, 'error');
+            }
+          } catch (e) {
+            this.showToast(`Connection error while attempting to terminate ${name}`, 'error');
           }
         },
 

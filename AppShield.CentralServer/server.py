@@ -28,8 +28,10 @@ app.add_middleware(
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 STATIC_DIR = os.path.join(BASE_DIR, "static")
 DATA_DIR = os.path.join(BASE_DIR, "data")
+DOWNLOADS_DIR = os.path.join(BASE_DIR, "downloads")
 os.makedirs(STATIC_DIR, exist_ok=True)
 os.makedirs(DATA_DIR, exist_ok=True)
+os.makedirs(DOWNLOADS_DIR, exist_ok=True)
 DB_PATH = os.path.join(DATA_DIR, "appshield.db")
 
 # -------------------------------------------------------------------
@@ -196,6 +198,12 @@ async def agent_websocket(websocket: WebSocket, device_id: str):
                 payload = json.loads(data)
                 # Store live telemetry (processes, users, stats)
                 live_telemetry[device_id] = payload
+                if payload.get("installed_apps"):
+                    try:
+                        with open(os.path.join(DATA_DIR, f"installed_{device_id}.json"), "w", encoding="utf-8") as f:
+                            json.dump(payload["installed_apps"], f)
+                    except Exception:
+                        pass
             except Exception:
                 pass
     except WebSocketDisconnect:
@@ -209,6 +217,12 @@ async def report_telemetry(report: TelemetryReportDto):
         "installed_apps": report.installed_apps,
         "updated_at": datetime.datetime.utcnow().isoformat()
     }
+    if report.installed_apps:
+        try:
+            with open(os.path.join(DATA_DIR, f"installed_{report.device_id}.json"), "w", encoding="utf-8") as f:
+                json.dump(report.installed_apps, f)
+        except Exception:
+            pass
     return {"success": True}
 
 # -------------------------------------------------------------------
@@ -228,7 +242,23 @@ async def get_node_users(device_id: str):
 @app.get("/api/nodes/{device_id}/installed-apps")
 async def get_node_installed_apps(device_id: str):
     dev_data = live_telemetry.get(device_id, {})
-    return {"success": True, "data": dev_data.get("installed_apps", [])}
+    apps = dev_data.get("installed_apps", [])
+    if not apps:
+        # Check disk cache
+        cache_file = os.path.join(DATA_DIR, f"installed_{device_id}.json")
+        if os.path.exists(cache_file):
+            try:
+                with open(cache_file, "r", encoding="utf-8") as f:
+                    apps = json.load(f)
+                    dev_data["installed_apps"] = apps
+            except Exception:
+                pass
+
+    # Asynchronously nudge agent to scan apps if empty
+    if not apps:
+        await manager.send_command(device_id, {"action": "scan_installed_apps", "payload": {}})
+
+    return {"success": True, "data": apps}
 
 @app.post("/api/nodes/{device_id}/command")
 async def send_node_command(device_id: str, cmd: CommandDto):
@@ -327,9 +357,32 @@ async def post_audit_log(device_id: str, payload: Dict[str, Any]):
     return {"success": True}
 
 # -------------------------------------------------------------------
-# Static Web Dashboard & PWA Serving
+# Static Web Dashboard, Direct Client Installers & PWA Serving
 # -------------------------------------------------------------------
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+app.mount("/downloads", StaticFiles(directory=DOWNLOADS_DIR), name="downloads")
+
+@app.get("/download/mac")
+@app.head("/download/mac")
+async def download_mac_client():
+    dmg_file = os.path.join(DOWNLOADS_DIR, "AppShield-macOS.dmg")
+    if os.path.exists(dmg_file):
+        return FileResponse(dmg_file, filename="AppShield-macOS.dmg", media_type="application/x-apple-diskimage")
+    zip_file = os.path.join(DOWNLOADS_DIR, "AppShield-macOS.zip")
+    if os.path.exists(zip_file):
+        return FileResponse(zip_file, filename="AppShield-macOS.zip", media_type="application/zip")
+    raise HTTPException(status_code=404, detail="macOS installer not found on server")
+
+@app.get("/download/windows")
+@app.head("/download/windows")
+async def download_windows_client():
+    exe_file = os.path.join(DOWNLOADS_DIR, "AppShield-Setup.exe")
+    if os.path.exists(exe_file):
+        return FileResponse(exe_file, filename="AppShield-Setup.exe", media_type="application/vnd.microsoft.portable-executable")
+    zip_file = os.path.join(DOWNLOADS_DIR, "AppShield-Windows-Install.zip")
+    if os.path.exists(zip_file):
+        return FileResponse(zip_file, filename="AppShield-Windows-Install.zip", media_type="application/zip")
+    raise HTTPException(status_code=404, detail="Windows installer not found on server")
 
 @app.get("/")
 async def serve_dashboard():
