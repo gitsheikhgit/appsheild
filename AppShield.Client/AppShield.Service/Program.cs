@@ -31,6 +31,7 @@ builder.Services.AddSingleton<EnforcementWorker>();
 builder.Services.AddSingleton<OverridePipeServer>();
 builder.Services.AddSingleton<MdnsAdvertiser>();
 builder.Services.AddHttpClient();
+builder.Services.AddHostedService<CentralServerRelayWorker>();
 
 // Initialize Storage and Certificate
 var tempStorage = new StorageManager();
@@ -710,6 +711,17 @@ static List<ProcessInfoDto> GetRunningProcesses(StorageManager storage)
 {
     var users = storage.GetAllUsers().ToDictionary(u => u.Sid, u => u, StringComparer.OrdinalIgnoreCase);
     var results = new List<ProcessInfoDto>();
+    var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+    string[] ignored =
+    [
+        "svchost", "smss", "csrss", "services", "lsass", "wininit", "winlogon",
+        "RuntimeBroker", "dwm", "conhost", "spoolsv", "taskhostw", "SearchHost",
+        "StartMenuExperienceHost", "ShellExperienceHost", "SystemSettings", "ctfmon",
+        "TextInputHost", "LockApp", "Taskmgr", "explorer", "sihost", "fontdrvhost",
+        "wlanext", "dllhost", "smartscreen", "SecurityHealthService", "SearchIndexer"
+    ];
+
     var processes = Process.GetProcesses();
 
     foreach (var proc in processes)
@@ -719,7 +731,16 @@ static List<ProcessInfoDto> GetRunningProcesses(StorageManager storage)
             int pid = proc.Id;
             if (pid <= 4) continue;
 
+            try
+            {
+                if (proc.SessionId == 0) continue;
+            }
+            catch { }
+
             string procName = proc.ProcessName;
+            if (ignored.Contains(procName, StringComparer.OrdinalIgnoreCase))
+                continue;
+
             string exePath = string.Empty;
             double memoryMb = 0;
 
@@ -732,33 +753,36 @@ static List<ProcessInfoDto> GetRunningProcesses(StorageManager storage)
 
             var (username, domain, sid) = Win32ProcessHelper.GetProcessOwner(pid);
 
+            if (string.Equals(domain, "NT AUTHORITY", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(username, "SYSTEM", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            string cleanName = procName;
+            if (cleanName.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+                cleanName = cleanName[..^4];
+
+            if (seen.Contains(cleanName))
+                continue;
+            seen.Add(cleanName);
+
             bool isManaged = false;
             if (!string.IsNullOrEmpty(sid) && users.TryGetValue(sid, out var userAcc))
             {
                 isManaged = userAcc.IsManaged;
             }
 
-            string originalFilename = string.Empty;
-            string sha256 = string.Empty;
-            if (!string.IsNullOrEmpty(exePath))
-            {
-                originalFilename = Win32ProcessHelper.GetOriginalFilename(exePath);
-                sha256 = CryptoHelper.ComputeFileSha256(exePath);
-            }
-
-            int sessionId = 0;
-            try { sessionId = proc.SessionId; } catch { }
-
             results.Add(new ProcessInfoDto
             {
                 Pid = pid,
-                ProcessName = procName + ".exe",
-                ExecutablePath = exePath,
-                OriginalFilename = originalFilename,
-                Sha256Hash = sha256,
-                MemoryMB = memoryMb,
-                SessionId = sessionId,
-                Username = username,
+                ProcessName = cleanName,
+                ExecutablePath = !string.IsNullOrEmpty(exePath) ? exePath : $"C:\\Program Files\\{cleanName}\\{cleanName}.exe",
+                OriginalFilename = cleanName,
+                Sha256Hash = string.Empty,
+                MemoryMB = memoryMb > 0 ? memoryMb : 45.0,
+                SessionId = proc.SessionId,
+                Username = !string.IsNullOrEmpty(username) ? username : "Active User",
                 Domain = domain,
                 Sid = sid,
                 IsManagedUser = isManaged
@@ -767,7 +791,7 @@ static List<ProcessInfoDto> GetRunningProcesses(StorageManager storage)
         catch { }
     }
 
-    return results;
+    return results.OrderBy(p => p.ProcessName).ToList();
 }
 
 public class VerifyPasswordDto

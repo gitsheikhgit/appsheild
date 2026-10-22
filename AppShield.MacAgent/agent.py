@@ -563,6 +563,42 @@ class AppShieldMacAgent:
         except Exception:
             pass
 
+    def apply_macos_dns_filter(self, primary_dns: str, secondary_dns: str, is_enabled: bool = True) -> bool:
+        """
+        Applies Family DNS filtering across all active network interfaces (Wi-Fi, Ethernet) on macOS.
+        Flushes system DNS cache with dscacheutil and mDNSResponder.
+        """
+        try:
+            out = subprocess.check_output(["networksetup", "-listallnetworkservices"], text=True)
+            services = []
+            for line in out.splitlines():
+                line = line.strip()
+                if line and not line.startswith("*") and "An asterisk" not in line:
+                    services.append(line)
+
+            dns_args = []
+            if is_enabled and primary_dns:
+                dns_args = [primary_dns]
+                if secondary_dns and secondary_dns != primary_dns:
+                    dns_args.append(secondary_dns)
+
+            for s in services:
+                try:
+                    if dns_args:
+                        subprocess.run(["networksetup", "-setdnsservers", s] + dns_args, check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    else:
+                        subprocess.run(["networksetup", "-setdnsservers", s, "empty"], check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                except Exception:
+                    pass
+
+            subprocess.run(["dscacheutil", "-flushcache"], check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            subprocess.run(["killall", "-HUP", "mDNSResponder"], check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            print(f"[+] Applied macOS DNS Shield: {dns_args if dns_args else 'DHCP Default'}")
+            return True
+        except Exception as e:
+            print(f"[-] Error applying macOS DNS filter: {e}")
+            return False
+
     def execute_inbound_command(self, cmd: Dict[str, Any]):
         """Dispatches commands arriving from Central Server / Parent Mobile App."""
         action = cmd.get("action")
@@ -590,6 +626,24 @@ class AppShieldMacAgent:
             minutes = payload.get("minutes", 60)
             if proc:
                 self.enforcer.add_override(proc, minutes)
+
+        elif action == "set_dns_filter":
+            p_dns = payload.get("primary_dns", "1.1.1.3")
+            s_dns = payload.get("secondary_dns", "1.0.0.3")
+            is_en = payload.get("is_enabled", 1) == 1
+            preset = payload.get("preset", "cloudflare_family")
+            self.apply_macos_dns_filter(p_dns, s_dns, is_en)
+            try:
+                cfg = load_or_create_config()
+                cfg["dns_filter"] = {
+                    "preset": preset,
+                    "primary_dns": p_dns,
+                    "secondary_dns": s_dns,
+                    "is_enabled": is_en
+                }
+                save_config(cfg)
+            except Exception:
+                pass
 
         elif action == "scan_installed_apps":
             global _cached_installed_apps, _last_installed_scan_time

@@ -173,7 +173,8 @@
         bundleAdmin,
         [[bundlePath stringByDeletingLastPathComponent] stringByAppendingPathComponent:@"AppShield.Admin"],
         [[[NSFileManager defaultManager] currentDirectoryPath] stringByAppendingPathComponent:@"AppShield.Admin"],
-        @"/Users/rashidsheikh/Desktop/Parental_Sheild/AppShield.Admin"
+        [NSHomeDirectory() stringByAppendingPathComponent:@"Applications/AppShield.Admin"],
+        [NSHomeDirectory() stringByAppendingPathComponent:@"AppShield.Admin"]
     ];
 
     NSString *adminDir = nil;
@@ -220,7 +221,6 @@
 
     NSArray<NSString *> *pythonCandidates = @[
         venvPython,
-        @"/Users/rashidsheikh/Desktop/Parental_Sheild/AppShield.Admin/.venv/bin/python3",
         @"/opt/homebrew/bin/python3",
         @"/usr/local/bin/python3",
         @"/usr/bin/python3"

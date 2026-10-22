@@ -202,6 +202,20 @@
               x-text="logs.length"></span>
       </button>
 
+      <!-- Web & DNS Shield (Adult & Nudity Protection) -->
+      <button 
+        @click="activeTab = 'dns'; mobileSidebarOpen = false; loadDnsSettings()" 
+        :class="activeTab === 'dns' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30 font-bold' : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60 font-medium'"
+        class="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-xs transition group">
+        <div class="flex items-center space-x-2.5">
+          <span class="text-base">🛡️</span>
+          <span>Web & DNS Shield</span>
+        </div>
+        <span class="text-[9px] px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wider" 
+              :class="dnsSettings.is_enabled ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-zinc-800 text-zinc-500'"
+              x-text="dnsSettings.is_enabled ? 'Active' : 'Off'"></span>
+      </button>
+
       <!-- Settings & Uninstaller -->
       <button 
         @click="activeTab = 'settings'; mobileSidebarOpen = false" 
@@ -251,6 +265,7 @@
           <span x-show="activeTab === 'rules'">📜 Application Rules & Schedules</span>
           <span x-show="activeTab === 'installed'">📦 Installed Applications</span>
           <span x-show="activeTab === 'logs'">📋 Intercepted Audit Logs</span>
+          <span x-show="activeTab === 'dns'">🛡️ Web & Family DNS Shield</span>
           <span x-show="activeTab === 'settings'">⚙️ Node Settings & Master Credentials</span>
         </h2>
         <span x-show="currentNode" class="text-[11px] text-zinc-400 bg-zinc-800/80 px-2 py-0.5 rounded border border-zinc-700/50 font-mono" x-text="currentNode?.name"></span>
@@ -891,6 +906,94 @@
       </div>
     </div>
 
+    <!-- TAB 6: WEB & FAMILY DNS SHIELD -->
+    <div x-show="activeTab === 'dns'" class="space-y-6 max-w-5xl mx-auto">
+      <!-- Header Banner -->
+      <div class="glass-card p-6 rounded-2xl border border-indigo-500/30 bg-gradient-to-r from-indigo-950/40 via-purple-950/20 to-zinc-900/60 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <div class="flex items-center space-x-2.5 mb-1.5">
+            <span class="text-2xl">🛡️</span>
+            <h2 class="text-lg font-bold font-display text-white">Family Web & DNS Shield</h2>
+            <span class="text-[10px] px-2 py-0.5 rounded-full font-mono uppercase font-bold"
+                  :class="dnsSettings.is_enabled ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-zinc-800 text-zinc-400 border border-zinc-700'">
+              <span x-text="dnsSettings.is_enabled ? '● Active Protection' : '○ Disabled'"></span>
+            </span>
+          </div>
+          <p class="text-xs text-zinc-400 max-w-2xl leading-relaxed">
+            Eliminates adult content, explicit search results, and known malicious domains across all web browsers (Chrome, Edge, Safari, Firefox) on child PCs without needing any browser extensions.
+          </p>
+        </div>
+        <div class="flex items-center space-x-3 flex-shrink-0">
+          <button 
+            @click="applyDnsSettings()" 
+            :disabled="isApplyingDns"
+            class="px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold text-xs shadow-lg shadow-indigo-600/30 transition flex items-center space-x-2 disabled:opacity-50 cursor-pointer">
+            <span x-text="isApplyingDns ? 'Enforcing...' : 'Enforce DNS Filter Now'"></span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Fleet Scope & Mode Toggle -->
+      <div class="glass-card p-4 rounded-xl border border-zinc-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs bg-zinc-950/40">
+        <div class="flex items-center space-x-3">
+          <input type="checkbox" id="fleetDnsCheckbox" x-model="dnsSettings.apply_to_all" class="w-4 h-4 rounded text-indigo-600 bg-zinc-900 border-zinc-700 focus:ring-indigo-500 focus:ring-offset-zinc-900 cursor-pointer">
+          <label for="fleetDnsCheckbox" class="text-zinc-200 font-semibold cursor-pointer select-none">
+            Enforce Fleet-Wide on all connected computers (macOS + Windows)
+          </label>
+        </div>
+        <div class="text-[11px] text-zinc-400 flex items-center space-x-2">
+          <span>Target Device:</span>
+          <span class="font-mono text-indigo-300 font-bold" x-text="dnsSettings.apply_to_all ? 'ALL COMPUTERS' : (currentNode?.name || 'None Selected')"></span>
+        </div>
+      </div>
+
+      <!-- Preset Selection Grid -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <template x-for="preset in dnsPresets" :key="preset.id">
+          <div 
+            @click="selectDnsPreset(preset.id)"
+            :class="dnsSettings.preset === preset.id ? 'border-indigo-500 bg-indigo-950/20 ring-2 ring-indigo-500/30' : 'border-zinc-800 bg-[#121622]/60 hover:border-zinc-700 hover:bg-[#161b2a]/80'"
+            class="p-5 rounded-xl border transition cursor-pointer flex flex-col justify-between group">
+            <div>
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-2xl" x-text="preset.icon"></span>
+                <span class="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full"
+                      :class="preset.id === 'cloudflare_family' ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30' : (preset.id === 'cleanbrowsing' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-zinc-800 text-zinc-400')"
+                      x-text="preset.tag"></span>
+              </div>
+              <h3 class="text-sm font-bold text-white mb-1 group-hover:text-indigo-300 transition" x-text="preset.name"></h3>
+              <p class="text-[11px] text-zinc-400 leading-relaxed mb-3" x-text="preset.description"></p>
+            </div>
+
+            <div class="pt-3 border-t border-zinc-800/80 flex items-center justify-between text-[11px]">
+              <span class="font-mono text-zinc-400" x-text="preset.primary ? preset.primary + (preset.secondary ? ' / ' + preset.secondary : '') : 'System Default'"></span>
+              <span x-show="dnsSettings.preset === preset.id" class="text-indigo-400 font-bold flex items-center space-x-1">
+                <span>Selected</span>
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+              </span>
+            </div>
+          </div>
+        </template>
+      </div>
+
+      <!-- Custom DNS IP Inputs (When custom preset selected) -->
+      <div x-show="dnsSettings.preset === 'custom'" class="glass-card p-5 rounded-xl border border-zinc-800 space-y-4">
+        <h4 class="text-xs font-bold text-white uppercase tracking-wider">Custom DNS Resolver Addresses</h4>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-zinc-400 text-xs mb-1 font-semibold">Primary DNS Server IP</label>
+            <input type="text" x-model="dnsSettings.primary_dns" placeholder="e.g. 45.90.28.0 (NextDNS) or 192.168.0.50 (Pi-hole)"
+                   class="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-indigo-500">
+          </div>
+          <div>
+            <label class="block text-zinc-400 text-xs mb-1 font-semibold">Secondary DNS Server IP (Optional)</label>
+            <input type="text" x-model="dnsSettings.secondary_dns" placeholder="e.g. 45.90.30.0"
+                   class="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-indigo-500">
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- TAB 5: NODE SETTINGS, COMMANDS & UNINSTALLER -->
     <div x-show="activeTab === 'settings'" class="max-w-3xl mx-auto space-y-6">
       <!-- Node Configuration Card -->
@@ -1466,6 +1569,72 @@
         installedAppFilter: '',
         isLoadingApps: false,
 
+        // DNS Shield State
+        dnsSettings: {
+          preset: 'cloudflare_family',
+          primary_dns: '1.1.1.3',
+          secondary_dns: '1.0.0.3',
+          is_enabled: true,
+          apply_to_all: false
+        },
+        dnsPresets: [
+          {
+            id: 'cloudflare_family',
+            name: 'Cloudflare 1.1.1.3 Families',
+            tag: 'Recommended',
+            description: 'Blocks adult content, pornography, and malware. Powered by Cloudflare global Anycast.',
+            primary: '1.1.1.3',
+            secondary: '1.0.0.3',
+            icon: '☁️'
+          },
+          {
+            id: 'cleanbrowsing',
+            name: 'CleanBrowsing Family Filter',
+            tag: 'Strict SafeSearch',
+            description: 'Enforces Google, Bing, and YouTube SafeSearch while blocking adult websites and proxy/VPN bypass sites.',
+            primary: '185.228.168.168',
+            secondary: '185.228.169.168',
+            icon: '🛡️'
+          },
+          {
+            id: 'adguard_family',
+            name: 'AdGuard Family Protection',
+            tag: 'Adult + AdBlock',
+            description: 'Blocks adult content and pornography, plus removes intrusive ads, popups, and tracker domains.',
+            primary: '94.140.14.15',
+            secondary: '94.140.15.16',
+            icon: '🚫'
+          },
+          {
+            id: 'opendns_family',
+            name: 'OpenDNS FamilyShield',
+            tag: 'Cisco Shield',
+            description: 'Pre-configured adult content blocking by Cisco OpenDNS. Zero setup required.',
+            primary: '208.67.222.123',
+            secondary: '208.67.220.123',
+            icon: '🌐'
+          },
+          {
+            id: 'custom',
+            name: 'Custom DNS Provider',
+            tag: 'NextDNS / Pi-hole',
+            description: 'Specify your own custom family DNS resolver or upstream private server.',
+            primary: '',
+            secondary: '',
+            icon: '⚙️'
+          },
+          {
+            id: 'disabled',
+            name: 'Disable Filtering (DHCP Default)',
+            tag: 'Unfiltered',
+            description: 'Revert computer to standard home router DNS without adult filtering.',
+            primary: '',
+            secondary: '',
+            icon: '⭕'
+          }
+        ],
+        isApplyingDns: false,
+
         get filteredInstalledApps() {
           if (!this.installedAppFilter.trim()) return this.installedApps;
           const q = this.installedAppFilter.toLowerCase();
@@ -1692,10 +1861,77 @@
               this.loadProcesses(),
               this.loadUsers(),
               this.loadRules(),
-              this.loadLogs()
+              this.loadLogs(),
+              this.loadDnsSettings()
             ]);
           } finally {
             this.isRefreshing = false;
+          }
+        },
+
+        async loadDnsSettings() {
+          if (!this.currentNode) return;
+          try {
+            const res = await fetch(`/api/nodes/${this.currentNode.id}/dns`);
+            const data = await res.json();
+            if (data.success && data.data) {
+              this.dnsSettings.preset = data.data.preset || 'cloudflare_family';
+              this.dnsSettings.primary_dns = data.data.primary_dns || '1.1.1.3';
+              this.dnsSettings.secondary_dns = data.data.secondary_dns || '1.0.0.3';
+              this.dnsSettings.is_enabled = data.data.is_enabled !== 0;
+            }
+          } catch (e) {
+            console.error('Error loading DNS settings:', e);
+          }
+        },
+
+        selectDnsPreset(presetId) {
+          this.dnsSettings.preset = presetId;
+          const p = this.dnsPresets.find(x => x.id === presetId);
+          if (p) {
+            if (presetId === 'disabled') {
+              this.dnsSettings.is_enabled = false;
+              this.dnsSettings.primary_dns = '';
+              this.dnsSettings.secondary_dns = '';
+            } else if (presetId !== 'custom') {
+              this.dnsSettings.is_enabled = true;
+              this.dnsSettings.primary_dns = p.primary;
+              this.dnsSettings.secondary_dns = p.secondary;
+            } else {
+              this.dnsSettings.is_enabled = true;
+            }
+          }
+        },
+
+        async applyDnsSettings() {
+          if (!this.currentNode) {
+            this.showToast('Please select a target computer first.', 'error');
+            return;
+          }
+          this.isApplyingDns = true;
+          try {
+            const res = await fetch(`/api/nodes/${this.currentNode.id}/dns`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                preset: this.dnsSettings.preset,
+                primary_dns: this.dnsSettings.primary_dns,
+                secondary_dns: this.dnsSettings.secondary_dns,
+                is_enabled: this.dnsSettings.is_enabled,
+                apply_to_all: this.dnsSettings.apply_to_all
+              })
+            });
+            const data = await res.json();
+            if (data.success) {
+              const scope = this.dnsSettings.apply_to_all ? 'All Fleet Devices' : this.currentNode.name;
+              this.showToast(`🛡️ Family DNS Filter applied to ${scope}!`, 'success');
+            } else {
+              this.showToast(data.message || 'Failed to apply DNS', 'error');
+            }
+          } catch (e) {
+            this.showToast('Network error while saving DNS settings', 'error');
+          } finally {
+            this.isApplyingDns = false;
           }
         },
 

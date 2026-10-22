@@ -77,6 +77,17 @@ def init_db():
             FOREIGN KEY (device_id) REFERENCES devices(id)
         )
     ''')
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS dns_settings (
+            device_id TEXT PRIMARY KEY,
+            preset TEXT DEFAULT 'cloudflare_family',
+            primary_dns TEXT DEFAULT '1.1.1.3',
+            secondary_dns TEXT DEFAULT '1.0.0.3',
+            is_enabled INTEGER DEFAULT 1,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (device_id) REFERENCES devices(id)
+        )
+    ''')
     conn.commit()
     conn.close()
 
@@ -148,6 +159,13 @@ class RuleCreateDto(BaseModel):
     schedule_start: Optional[str] = "12:00"
     schedule_end: Optional[str] = "20:00"
     is_enabled: bool = True
+
+class DnsSettingsDto(BaseModel):
+    preset: str = "cloudflare_family"  # "cloudflare_family", "cleanbrowsing", "adguard_family", "opendns_family", "quad9", "custom", "disabled"
+    primary_dns: Optional[str] = "1.1.1.3"
+    secondary_dns: Optional[str] = "1.0.0.3"
+    is_enabled: bool = True
+    apply_to_all: Optional[bool] = False
 
 # -------------------------------------------------------------------
 # Device & Pairing Endpoints
@@ -355,6 +373,77 @@ async def post_audit_log(device_id: str, payload: Dict[str, Any]):
     conn.commit()
     conn.close()
     return {"success": True}
+
+# -------------------------------------------------------------------
+# Family DNS & Content Shield (Adult / Nudity Filtering)
+# -------------------------------------------------------------------
+@app.get("/api/nodes/{device_id}/dns")
+async def get_node_dns(device_id: str):
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    c = conn.cursor()
+    c.execute("SELECT * FROM dns_settings WHERE device_id = ?", (device_id,))
+    row = c.fetchone()
+    conn.close()
+    if row:
+        return {"success": True, "data": dict(row)}
+    return {
+        "success": True,
+        "data": {
+            "device_id": device_id,
+            "preset": "cloudflare_family",
+            "primary_dns": "1.1.1.3",
+            "secondary_dns": "1.0.0.3",
+            "is_enabled": 1
+        }
+    }
+
+@app.post("/api/nodes/{device_id}/dns")
+async def set_node_dns(device_id: str, dto: DnsSettingsDto):
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    target_devices = [device_id]
+    if dto.apply_to_all:
+        c.execute("SELECT id FROM devices")
+        target_devices = [r[0] for r in c.fetchall()]
+        if device_id not in target_devices:
+            target_devices.append(device_id)
+
+    for dev_id in target_devices:
+        c.execute('''
+            INSERT INTO dns_settings (device_id, preset, primary_dns, secondary_dns, is_enabled, updated_at)
+            VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            ON CONFLICT(device_id) DO UPDATE SET
+                preset = excluded.preset,
+                primary_dns = excluded.primary_dns,
+                secondary_dns = excluded.secondary_dns,
+                is_enabled = excluded.is_enabled,
+                updated_at = CURRENT_TIMESTAMP
+        ''', (dev_id, dto.preset, dto.primary_dns, dto.secondary_dns, 1 if dto.is_enabled else 0))
+
+        # Push command to connected agent
+        await manager.send_command(dev_id, {
+            "action": "set_dns_filter",
+            "payload": {
+                "preset": dto.preset,
+                "primary_dns": dto.primary_dns,
+                "secondary_dns": dto.secondary_dns,
+                "is_enabled": 1 if dto.is_enabled else 0
+            }
+        })
+
+        # Add audit log
+        c.execute('''
+            INSERT INTO audit_logs (device_id, event_type, executable_path, username, action_taken)
+            VALUES (?, 'DNS_SHIELD', ?, 'ParentAdmin', ?)
+        ''', (dev_id, f"Preset: {dto.preset} ({dto.primary_dns})", "ACTIVE" if dto.is_enabled else "DISABLED"))
+
+    conn.commit()
+    conn.close()
+    return {
+        "success": True,
+        "message": f"DNS filter settings updated for {'all devices' if dto.apply_to_all else device_id}"
+    }
 
 # -------------------------------------------------------------------
 # Static Web Dashboard, Direct Client Installers & PWA Serving
