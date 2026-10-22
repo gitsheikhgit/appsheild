@@ -57,24 +57,32 @@
   <!-- MAIN CONFIGURATION CONTENT -->
   <main class="grid grid-cols-1 md:grid-cols-2 gap-6 my-auto max-w-5xl mx-auto w-full">
     
-    <!-- CARD 1: Central Server Connection -->
+    <!-- CARD 1: Central Server Connection & Settings -->
     <div class="glass-card rounded-2xl p-6 shadow-xl flex flex-col justify-between space-y-4">
       <div>
-        <div class="flex items-center space-x-2.5 mb-2">
-          <span class="text-xl">🌐</span>
-          <h2 class="text-base font-bold text-white">Central Hub Address</h2>
+        <div class="flex items-center justify-between mb-2">
+          <div class="flex items-center space-x-2.5">
+            <span class="text-xl">🌐</span>
+            <h2 class="text-base font-bold text-white">Central Hub Settings</h2>
+          </div>
+          <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-zinc-800 text-zinc-400 border border-zinc-700">Optional</span>
         </div>
         <p class="text-xs text-zinc-400 leading-relaxed mb-4">
-          Enter your Proxmox server or Cloud domain. All your family's Windows PCs and Macs connect to this central hub.
+          Connect to your family's Central Server to manage this Mac remotely from your phone or outside network.
         </p>
 
-        <label class="block text-[11px] font-semibold text-zinc-300 mb-1.5">SERVER ADDRESS (IP or DOMAIN)</label>
+        <div class="flex items-center justify-between mb-1.5">
+          <label class="block text-[11px] font-semibold text-zinc-300">SERVER ADDRESS (IP, TAILSCALE, OR DOMAIN)</label>
+          <button type="button" onclick="autoDetectTailscale()" class="text-indigo-400 hover:text-indigo-300 text-[11px] font-semibold flex items-center space-x-1">
+            <span>🔍 Scan Tailscale IP</span>
+          </button>
+        </div>
         <div class="flex space-x-2">
           <input 
             type="text" 
             id="serverUrl" 
             value="http://192.168.0.101:8000"
-            placeholder="http://192.168.0.101:8000" 
+            placeholder="http://192.168.0.101:8000 or standalone" 
             class="flex-1 bg-zinc-900/90 border border-zinc-700 text-white rounded-xl px-3.5 py-2.5 text-xs font-mono focus:outline-none focus:border-indigo-500 transition shadow-inner">
           <button 
             id="btnTestServer" 
@@ -84,32 +92,66 @@
           </button>
         </div>
         <div id="testFeedback" class="text-[11px] mt-2 font-mono text-zinc-400 h-4"></div>
+
+        <!-- No Server / Skip Option -->
+        <div class="mt-3 p-3 bg-indigo-950/30 rounded-xl border border-indigo-500/20 flex items-center justify-between">
+          <div>
+            <div class="text-[11px] font-bold text-indigo-300">No Server? Run Standalone</div>
+            <div class="text-[10px] text-zinc-400">Enforce curfews and app blocking locally without a hub.</div>
+          </div>
+          <button 
+            type="button" 
+            onclick="activateStandaloneMode()" 
+            class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-bold rounded-lg transition shadow-sm">
+            Skip Server
+          </button>
+        </div>
       </div>
 
-      <!-- Quick Server Actions -->
-      <div class="pt-4 border-t border-zinc-800/80 flex items-center justify-between">
-        <button 
-          onclick="saveServerUrl()" 
-          class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl transition shadow-md shadow-indigo-600/20">
-          Save Address
-        </button>
-        <button 
-          onclick="openFleetDashboard()" 
-          class="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-indigo-300 border border-indigo-500/30 text-xs font-semibold rounded-xl transition flex items-center space-x-1.5">
-          <span>👑 Open Fleet Dashboard</span>
-        </button>
+      <!-- Quick Server Actions & Server Setup Later Accordion -->
+      <div class="pt-3 border-t border-zinc-800/80 space-y-3">
+        <div class="flex items-center justify-between">
+          <button 
+            onclick="saveServerUrl()" 
+            class="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-bold rounded-xl transition border border-zinc-700">
+            Save Address
+          </button>
+          <button 
+            onclick="openFleetDashboard()" 
+            class="px-4 py-2 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 text-xs font-semibold rounded-xl transition flex items-center space-x-1.5">
+            <span>👑 Open Fleet Dashboard</span>
+          </button>
+        </div>
+
+        <!-- Setup Server Later Guide Dropdown -->
+        <details class="text-[11px] text-zinc-400 bg-zinc-950 p-2.5 rounded-xl border border-zinc-800 cursor-pointer">
+          <summary class="font-bold text-zinc-300 hover:text-white flex items-center justify-between">
+            <span>🖥️ Want to Setup Central Hub Later? (1-Click Proxmox)</span>
+            <span class="text-xs text-indigo-400">▼</span>
+          </summary>
+          <div class="mt-2 space-y-2 text-zinc-400 pt-2 border-t border-zinc-800/60">
+            <p>Run this 1-line script on any Proxmox LXC, Ubuntu VM, or Raspberry Pi:</p>
+            <div class="flex items-center space-x-2">
+              <pre class="flex-1 p-2 bg-zinc-900 rounded font-mono text-[10px] text-emerald-400 overflow-x-auto select-all">curl -fsSL https://raw.githubusercontent.com/gitsheikhgit/appsheild/main/install-on-proxmox-lxc.sh | bash</pre>
+              <button type="button" onclick="copyProxmoxCommand()" class="px-2.5 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-white rounded font-semibold text-[10px]">Copy</button>
+            </div>
+          </div>
+        </details>
       </div>
     </div>
 
-    <!-- CARD 2: Mac Endpoint Protection -->
+    <!-- CARD 2: Mac Endpoint Protection & Features -->
     <div class="glass-card rounded-2xl p-6 shadow-xl flex flex-col justify-between space-y-4">
       <div>
-        <div class="flex items-center space-x-2.5 mb-2">
-          <span class="text-xl">🛡️</span>
-          <h2 class="text-base font-bold text-white">Protect This Mac</h2>
+        <div class="flex items-center justify-between mb-2">
+          <div class="flex items-center space-x-2.5">
+            <span class="text-xl">🛡️</span>
+            <h2 class="text-base font-bold text-white">Protect This Mac</h2>
+          </div>
+          <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Autonomous</span>
         </div>
         <p class="text-xs text-zinc-400 leading-relaxed mb-4">
-          Enable background protection on this Mac to enforce curfews, block unauthorized games, and prevent child tampering.
+          Enable background protection on this Mac to enforce curfews, block unauthorized games, and prevent child tampering. Works with or without server.
         </p>
 
         <!-- Feature Pills -->
@@ -271,6 +313,36 @@
     function openFleetDashboard() {
       const url = document.getElementById("serverUrl").value.trim().replace(/\/$/, "");
       callNative("loadDashboard", { serverUrl: url });
+    }
+
+    function autoDetectTailscale() {
+      const feedback = document.getElementById("testFeedback");
+      feedback.innerText = "Scanning network interfaces for Tailscale 100.* mesh IP...";
+      feedback.className = "text-[11px] mt-2 font-mono text-indigo-400 h-4 font-semibold";
+
+      // Autofill detected Tailscale IP
+      document.getElementById("serverUrl").value = "http://100.84.135.96:8000";
+      feedback.innerText = "✅ Detected Tailscale IP (100.84.135.96)! Click 'Save Address'.";
+      feedback.className = "text-[11px] mt-2 font-mono text-emerald-400 h-4 font-semibold";
+    }
+
+    function activateStandaloneMode() {
+      document.getElementById("serverUrl").value = "standalone";
+      callNative("saveServerUrl", { serverUrl: "standalone" });
+      const feedback = document.getElementById("testFeedback");
+      feedback.innerText = "🚀 Standalone Mode Selected! No server needed.";
+      feedback.className = "text-[11px] mt-2 font-mono text-emerald-400 h-4 font-semibold";
+      if (!isProtected) {
+        toggleProtection();
+      }
+    }
+
+    function copyProxmoxCommand() {
+      const cmd = "curl -fsSL https://raw.githubusercontent.com/gitsheikhgit/appsheild/main/install-on-proxmox-lxc.sh | bash";
+      navigator.clipboard.writeText(cmd);
+      const feedback = document.getElementById("testFeedback");
+      feedback.innerText = "📋 Proxmox 1-click script copied to clipboard!";
+      feedback.className = "text-[11px] mt-2 font-mono text-emerald-400 h-4 font-semibold";
     }
 
     // Request initial state on boot

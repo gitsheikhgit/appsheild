@@ -50,14 +50,37 @@ fi
 "$AGENT_DIR/.venv/bin/pip" install --upgrade pip --quiet 2>/dev/null || true
 "$AGENT_DIR/.venv/bin/pip" install websockets --quiet 2>/dev/null || true
 
-# Pre-configure server URL
-CONFIG_FILE="$INSTALL_DIR/agent_config.json"
-if [ ! -f "$CONFIG_FILE" ]; then
-    cat << EOF > "$CONFIG_FILE"
+# Pre-configure separate settings.json and features.json for easy maintenance
+SETTINGS_FILE="$INSTALL_DIR/settings.json"
+FEATURES_FILE="$INSTALL_DIR/features.json"
+LEGACY_CONFIG="$INSTALL_DIR/agent_config.json"
+
+STANDALONE_VAL="false"
+if [ "$SERVER_URL" = "standalone" ] || [ -z "$SERVER_URL" ]; then
+    STANDALONE_VAL="true"
+fi
+
+MAC_DEVICE_ID="mac_$(uuidgen | tr '[:upper:]' '[:lower:]' | cut -d'-' -f1-2)"
+COMPUTER_NAME="$(scutil --get ComputerName 2>/dev/null || hostname)"
+
+if [ -f "$SETTINGS_FILE" ]; then
+    sed -i '' "s|\"server_url\": \".*\"|\"server_url\": \"$SERVER_URL\"|g" "$SETTINGS_FILE" 2>/dev/null || true
+    sed -i '' "s|\"standalone_mode\": .*|\"standalone_mode\": $STANDALONE_VAL|g" "$SETTINGS_FILE" 2>/dev/null || true
+else
+    cat << EOF > "$SETTINGS_FILE"
 {
-  "device_id": "mac_$(uuidgen | tr '[:upper:]' '[:lower:]' | cut -d'-' -f1-2)",
-  "name": "$(scutil --get ComputerName 2>/dev/null || hostname)",
+  "device_id": "$MAC_DEVICE_ID",
+  "name": "$COMPUTER_NAME",
   "server_url": "$SERVER_URL",
+  "standalone_mode": $STANDALONE_VAL
+}
+EOF
+fi
+chmod 644 "$SETTINGS_FILE"
+
+if [ ! -f "$FEATURES_FILE" ]; then
+    cat << EOF > "$FEATURES_FILE"
+{
   "rules": [
     {
       "id": "rule_curfew_games",
@@ -80,11 +103,11 @@ if [ ! -f "$CONFIG_FILE" ]; then
   "path_jail_enabled": true
 }
 EOF
-else
-    # Update server URL in existing config if changed
-    sed -i '' "s|\"server_url\": \".*\"|\"server_url\": \"$SERVER_URL\"|g" "$CONFIG_FILE" 2>/dev/null || true
 fi
-chmod 644 "$CONFIG_FILE"
+chmod 644 "$FEATURES_FILE"
+
+# Maintain legacy symlink for backwards compatibility
+ln -sf "$SETTINGS_FILE" "$LEGACY_CONFIG" 2>/dev/null || true
 
 # Setup LaunchDaemon for persistent 24/7 background protection
 echo "[+] Registering root LaunchDaemon (com.appshield.macagent)..."

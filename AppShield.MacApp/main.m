@@ -188,10 +188,12 @@
         isInstalled = YES;
     }
 
-    // 2. Read config if present
+    // 2. Read config if present (check settings.json first, fallback to agent_config.json)
+    NSString *settingsPath = @"/Library/Application Support/AppShield/settings.json";
     NSString *cfgPath = @"/Library/Application Support/AppShield/agent_config.json";
-    if ([[NSFileManager defaultManager] fileExistsAtPath:cfgPath]) {
-        NSData *data = [NSData dataWithContentsOfFile:cfgPath];
+    NSString *activePath = [[NSFileManager defaultManager] fileExistsAtPath:settingsPath] ? settingsPath : cfgPath;
+    if ([[NSFileManager defaultManager] fileExistsAtPath:activePath]) {
+        NSData *data = [NSData dataWithContentsOfFile:activePath];
         if (data) {
             NSDictionary *json = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
             if (json[@"device_id"]) deviceId = json[@"device_id"];

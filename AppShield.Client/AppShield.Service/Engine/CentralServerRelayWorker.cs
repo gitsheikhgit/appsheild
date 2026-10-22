@@ -43,12 +43,14 @@ public class CentralServerRelayWorker : BackgroundService
 
     private void LoadOrCreateConfig()
     {
+        string settingsPath = Path.Combine(_storage.BaseDirectory, "settings.json");
         string cfgPath = Path.Combine(_storage.BaseDirectory, "agent_config.json");
         try
         {
-            if (File.Exists(cfgPath))
+            string path = File.Exists(settingsPath) ? settingsPath : (File.Exists(cfgPath) ? cfgPath : string.Empty);
+            if (!string.IsNullOrEmpty(path))
             {
-                string json = File.ReadAllText(cfgPath);
+                string json = File.ReadAllText(path);
                 using var doc = JsonDocument.Parse(json);
                 if (doc.RootElement.TryGetProperty("device_id", out var dId))
                     _deviceId = dId.GetString() ?? string.Empty;
@@ -65,11 +67,12 @@ public class CentralServerRelayWorker : BackgroundService
             {
                 ["device_id"] = _deviceId,
                 ["name"] = Environment.MachineName,
-                ["server_url"] = _serverUrl
+                ["server_url"] = _serverUrl,
+                ["tailscale_ip"] = GetTailscaleIpAddress() ?? string.Empty
             };
             try
             {
-                File.WriteAllText(cfgPath, JsonSerializer.Serialize(cfg, new JsonSerializerOptions { WriteIndented = true }));
+                File.WriteAllText(settingsPath, JsonSerializer.Serialize(cfg, new JsonSerializerOptions { WriteIndented = true }));
             }
             catch { }
         }
@@ -89,14 +92,54 @@ public class CentralServerRelayWorker : BackgroundService
         }
     }
 
+    private static string? GetTailscaleIpAddress()
+    {
+        try
+        {
+            var interfaces = System.Net.NetworkInformation.NetworkInterface.GetAllNetworkInterfaces();
+            foreach (var iface in interfaces)
+            {
+                if (iface.OperationalStatus != System.Net.NetworkInformation.OperationalStatus.Up)
+                    continue;
+
+                var ipProps = iface.GetIPProperties();
+                foreach (var unicast in ipProps.UnicastAddresses)
+                {
+                    if (unicast.Address.AddressFamily == AddressFamily.InterNetwork)
+                    {
+                        string ipStr = unicast.Address.ToString();
+                        if (ipStr.StartsWith("100."))
+                            return ipStr;
+                    }
+                }
+            }
+        }
+        catch { }
+        return null;
+    }
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         LoadOrCreateConfig();
 
-        // 1. Register with Central Server
+        // 1. Check for Standalone Mode (Zero Server Needed)
+        if (string.IsNullOrWhiteSpace(_serverUrl) || _serverUrl.Equals("standalone", StringComparison.OrdinalIgnoreCase))
+        {
+            Console.WriteLine("[AppShield] CentralServerRelayWorker: Operating in STANDALONE Protection Mode (No Server Configured).");
+            Console.WriteLine("[AppShield] Local curfews, process blocking, and path jails are fully active.");
+            while (!stoppingToken.IsCancellationRequested)
+            {
+                await Task.Delay(10000, stoppingToken);
+                LoadOrCreateConfig();
+                if (!string.IsNullOrWhiteSpace(_serverUrl) && !_serverUrl.Equals("standalone", StringComparison.OrdinalIgnoreCase))
+                    break;
+            }
+        }
+
+        // 2. Register with Central Server
         await RegisterDeviceAsync(stoppingToken);
 
-        // 2. Reconnecting WebSocket loop
+        // 3. Reconnecting WebSocket loop
         while (!stoppingToken.IsCancellationRequested)
         {
             try
@@ -118,7 +161,7 @@ public class CentralServerRelayWorker : BackgroundService
 
                 await Task.WhenAny(receiveTask, telemetryTask);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 // Fallback to HTTP telemetry polling if websocket fails
                 try
@@ -142,6 +185,7 @@ public class CentralServerRelayWorker : BackgroundService
                 name = Environment.MachineName,
                 os = "Windows 11 (64-bit)",
                 lan_ip = GetLocalIpAddress(),
+                tailscale_ip = GetTailscaleIpAddress() ?? string.Empty,
                 agent_version = "1.2.0"
             };
             await _httpClient.PostAsJsonAsync($"{_serverUrl}/api/devices/register", reg, ct);
@@ -162,6 +206,7 @@ public class CentralServerRelayWorker : BackgroundService
                 var telemetry = new
                 {
                     device_id = _deviceId,
+                    tailscale_ip = GetTailscaleIpAddress() ?? string.Empty,
                     timestamp = DateTime.UtcNow.ToString("o"),
                     users = users.Select(u => new
                     {
@@ -201,6 +246,7 @@ public class CentralServerRelayWorker : BackgroundService
         var telemetry = new
         {
             device_id = _deviceId,
+            tailscale_ip = GetTailscaleIpAddress() ?? string.Empty,
             processes = procs,
             users = users.Select(u => new
             {

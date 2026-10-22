@@ -12,6 +12,9 @@
   <meta name="description" content="Centralized Multi-PC Control & Security Dashboard for AppShield Endpoints">
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
+  <!-- AppShield Modular Features & Settings Modules -->
+  <script src="/static/features.js"></script>
+  <script src="/static/settings.js"></script>
   <!-- Alpine.js CDN -->
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
   <!-- Inter & Outfit Fonts -->
@@ -326,8 +329,8 @@
         <div class="flex items-center space-x-1.5 sm:space-x-3 text-xs flex-shrink-0">
           <!-- Global Telemetry (Desktop) -->
           <div class="hidden lg:flex items-center space-x-3 text-[11px] text-zinc-400 mr-2">
-            <span x-show="currentNode?.agent_version" class="bg-indigo-600/30 text-indigo-300 border border-indigo-500/40 px-2 py-0.5 rounded font-mono text-[10px] font-bold" x-text="'Agent v' + currentNode.agent_version"></span>
-            <span x-show="currentNode?.uptime_seconds" x-text="'Uptime: ' + formatUptime(currentNode.uptime_seconds)"></span>
+            <span x-show="currentNode?.agent_version" class="bg-indigo-600/30 text-indigo-300 border border-indigo-500/40 px-2 py-0.5 rounded font-mono text-[10px] font-bold" x-text="'Agent v' + (currentNode?.agent_version || '')"></span>
+            <span x-show="currentNode?.uptime_seconds" x-text="'Uptime: ' + formatUptime(currentNode?.uptime_seconds)"></span>
           </div>
 
           <button @click="showAddModal = true; runMdnsScan()" class="hidden sm:flex bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700/60 px-2.5 py-1.5 rounded-lg text-xs font-semibold items-center space-x-1.5 transition">
@@ -353,7 +356,7 @@
     <div x-show="currentNode && currentNode.status === 'offline'" class="bg-rose-950/40 border-b border-rose-500/30 px-6 py-2.5 flex flex-wrap items-center justify-between text-xs gap-2 flex-shrink-0">
       <div class="flex items-center space-x-2 text-rose-300">
         <span class="text-sm">🔴</span>
-        <span><strong>Target Computer Offline:</strong> Cannot communicate with <span class="font-bold text-white" x-text="currentNode.name"></span> (<span class="font-mono text-zinc-300" x-text="currentNode.active_ip || currentNode.lan_ip || '127.0.0.1'"></span>).</span>
+        <span><strong>Target Computer Offline:</strong> Cannot communicate with <span class="font-bold text-white" x-text="currentNode?.name"></span> (<span class="font-mono text-zinc-300" x-text="currentNode?.active_ip || currentNode?.lan_ip || '127.0.0.1'"></span>).</span>
       </div>
       <div class="flex items-center space-x-2">
         <button @click="triggerOfflinePopUp('Manage PC', 'Target computer is offline.')" class="bg-rose-600/30 hover:bg-rose-600 text-rose-200 border border-rose-500/40 px-2.5 py-1 rounded text-[11px] font-semibold transition">
@@ -1218,56 +1221,147 @@
         </button>
         <span class="text-xs text-zinc-400 font-mono" x-text="currentNode?.name"></span>
       </div>
-      <!-- Node Configuration Card -->
-      <div class="glass-card p-6 rounded-xl border border-zinc-800 space-y-4">
-        <h2 class="text-base font-bold text-white flex items-center space-x-2">
-          <span>⚙️ Node Configuration: </span>
-          <span class="text-indigo-400" x-text="currentNode?.name"></span>
-        </h2>
 
-        <div class="space-y-3 text-xs">
-          <div>
-            <label class="block text-zinc-400 mb-1">Friendly Computer Name</label>
-            <input type="text" x-model="currentNode.name" class="w-full bg-zinc-900 border border-zinc-700 rounded px-3 py-1.5 text-white">
-          </div>
-          <div class="grid grid-cols-2 gap-3">
+      <!-- 1. TAILSCALE REMOTE MESH MANAGEMENT CARD -->
+      <div class="glass-card p-6 rounded-xl border border-indigo-500/30 space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div class="flex items-center space-x-2.5">
+            <span class="text-2xl">🌐</span>
             <div>
-              <label class="block text-zinc-400 mb-1">LAN IP Address</label>
-              <input type="text" x-model="currentNode.lan_ip" class="w-full bg-zinc-900 border border-zinc-700 rounded px-3 py-1.5 text-white font-mono">
-            </div>
-            <div>
-              <label class="block text-zinc-400 mb-1">Tailscale IP Address</label>
-              <input type="text" x-model="currentNode.tailscale_ip" class="w-full bg-zinc-900 border border-zinc-700 rounded px-3 py-1.5 text-white font-mono">
+              <h3 class="text-sm font-bold text-white">Tailscale Remote Mesh Network</h3>
+              <p class="text-xs text-zinc-400">Access this parental dashboard and control kids' devices from outside the home (via 100.x.y.z).</p>
             </div>
           </div>
-          <div>
-            <div class="flex items-center justify-between mb-1">
-              <label class="block text-zinc-400">Pre-Shared Key (PSK)</label>
-              <div class="flex items-center space-x-2 text-[11px]">
-                <button type="button" @click="showPskInSettings = !showPskInSettings" class="text-indigo-400 hover:text-indigo-300 font-semibold">
-                  <span x-text="showPskInSettings ? '🙈 Hide Key' : '👁️ Reveal Key'"></span>
-                </button>
-                <button type="button" @click="copyCommand(currentNode.psk)" class="text-indigo-400 hover:text-indigo-300 font-semibold">
-                  <span>📋 Copy Key</span>
-                </button>
-              </div>
-            </div>
-            <input :type="showPskInSettings ? 'text' : 'password'" x-model="currentNode.psk" class="w-full bg-zinc-900 border border-zinc-700 rounded px-3 py-1.5 text-white font-mono text-xs">
-          </div>
-
-          <div class="pt-3 flex justify-between">
-            <button 
-              @click="saveCurrentNodeSettings()" 
-              class="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-4 py-2 rounded-lg text-xs transition">
-              Save Settings
-            </button>
-            <button 
-              @click="deleteCurrentNode()" 
-              class="text-rose-400 hover:text-rose-200 text-xs px-3 py-1.5 rounded transition">
-              Remove from Fleet
+          <div class="flex items-center space-x-2">
+            <span class="text-xs font-mono font-bold px-3 py-1 rounded-full border"
+                  :class="tailscale.running ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' : 'bg-zinc-800 text-zinc-400 border-zinc-700'"
+                  x-text="tailscale.statusText"></span>
+            <button @click="checkTailscaleStatus()" :disabled="tailscale.isChecking" class="p-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg text-xs" title="Refresh Tailscale Status">
+              <svg class="w-3.5 h-3.5" :class="tailscale.isChecking ? 'animate-spin' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
             </button>
           </div>
         </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+          <!-- Install / Auth Actions -->
+          <div class="p-3.5 bg-zinc-900/80 rounded-xl border border-zinc-800 space-y-2.5">
+            <span class="text-[11px] font-bold text-zinc-300 uppercase tracking-wider block">Central Server Mesh Status</span>
+            <p class="text-[11px] text-zinc-400">
+              <span x-show="tailscale.running">Server is connected to your private Tailscale mesh at <code class="text-indigo-300 font-mono" x-text="tailscale.ip"></code>.</span>
+              <span x-show="!tailscale.running && tailscale.installed">Tailscale is installed on server but not signed in. Click Authorize to link your account.</span>
+              <span x-show="!tailscale.installed">Tailscale is not installed on this server. Click 1-Click Install below.</span>
+            </p>
+            <div class="flex flex-wrap items-center gap-2 pt-1">
+              <button x-show="!tailscale.installed" @click="installTailscaleOnServer()" :disabled="tailscale.isInstalling" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-lg transition flex items-center space-x-1.5 shadow-sm">
+                <span>⚡ 1-Click Install Tailscale</span>
+              </button>
+              <button @click="loginTailscaleOnServer()" :disabled="tailscale.isLoggingIn" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-lg transition flex items-center space-x-1.5 shadow-sm">
+                <span>🔗 Authorize & Sign In</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Direct Outside Access URL -->
+          <div class="p-3.5 bg-zinc-900/80 rounded-xl border border-zinc-800 space-y-2 flex flex-col justify-between">
+            <div>
+              <span class="text-[11px] font-bold text-zinc-300 uppercase tracking-wider block">Remote Phone / Laptop Access URL</span>
+              <p class="text-[11px] text-zinc-400 mt-1">Open this URL on your phone when away from home:</p>
+              <div class="mt-2 p-2 bg-zinc-950 rounded-lg border border-zinc-800 text-xs font-mono text-indigo-300 select-all truncate" x-text="tailscale.ip ? ('http://' + tailscale.ip + ':8000') : 'Configure Tailscale to generate remote URL'"></div>
+            </div>
+            <button x-show="tailscale.ip" @click="copyCommand('http://' + tailscale.ip + ':8000')" class="w-full py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-semibold rounded-lg transition">
+              📋 Copy Remote URL
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. CENTRAL SERVER SETUP & DEPLOYMENT GUIDE (FOR USERS SETTING UP LATER) -->
+      <div class="glass-card p-6 rounded-xl border border-zinc-800 space-y-4">
+        <div class="flex items-center space-x-2.5">
+          <span class="text-2xl">🖥️</span>
+          <div>
+            <h3 class="text-sm font-bold text-white">Central Hub Setup (Deploy Anywhere)</h3>
+            <p class="text-xs text-zinc-400">Want to run your own server on Proxmox LXC, Ubuntu VM, or mini PC? Run this 1-line script.</p>
+          </div>
+        </div>
+        <div class="p-3.5 bg-zinc-950 rounded-xl border border-zinc-800 space-y-2">
+          <div class="flex items-center justify-between text-xs">
+            <span class="font-bold text-zinc-300">1-Line Proxmox LXC / Ubuntu Installation:</span>
+            <button @click="copyServerCommand()" class="text-indigo-400 hover:text-indigo-300 font-semibold flex items-center space-x-1">
+              <span x-text="serverSetup.copiedCommand ? '✅ Copied!' : '📋 Copy Command'"></span>
+            </button>
+          </div>
+          <pre class="p-2.5 bg-zinc-900 rounded-lg text-emerald-400 font-mono text-[11px] overflow-x-auto select-all" x-text="serverSetup.proxmoxCommand"></pre>
+          <p class="text-[10px] text-zinc-500 leading-relaxed">
+            Requirements: 1 vCPU, 512 MB RAM, 4 GB Disk. Works on Ubuntu 22.04/24.04 or Debian 12 LXC. Creates systemd service, auto-restarts on boot.
+          </p>
+        </div>
+      </div>
+
+      <!-- 3. Node Configuration Card -->
+      <div class="glass-card p-6 rounded-xl border border-zinc-800 space-y-4">
+        <template x-if="currentNode">
+          <div class="space-y-4">
+            <h2 class="text-base font-bold text-white flex items-center space-x-2">
+              <span>⚙️ Node Configuration: </span>
+              <span class="text-indigo-400" x-text="currentNode.name"></span>
+            </h2>
+
+            <div class="space-y-3 text-xs">
+              <div>
+                <label class="block text-zinc-400 mb-1">Friendly Computer Name</label>
+                <input type="text" x-model="currentNode.name" class="w-full bg-zinc-900 border border-zinc-700 rounded px-3 py-1.5 text-white">
+              </div>
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-zinc-400 mb-1">LAN IP Address</label>
+                  <input type="text" x-model="currentNode.lan_ip" class="w-full bg-zinc-900 border border-zinc-700 rounded px-3 py-1.5 text-white font-mono">
+                </div>
+                <div>
+                  <div class="flex items-center justify-between mb-1">
+                    <label class="block text-zinc-400">Tailscale IP Address</label>
+                    <button type="button" @click="autoDetectNodeTailscale()" class="text-indigo-400 hover:text-indigo-300 text-[11px] font-semibold flex items-center space-x-1">
+                      <span>🔍 Auto-Detect IP</span>
+                    </button>
+                  </div>
+                  <input type="text" x-model="currentNode.tailscale_ip" placeholder="100.x.y.z" class="w-full bg-zinc-900 border border-zinc-700 rounded px-3 py-1.5 text-white font-mono">
+                </div>
+              </div>
+              <div>
+                <div class="flex items-center justify-between mb-1">
+                  <label class="block text-zinc-400">Pre-Shared Key (PSK)</label>
+                  <div class="flex items-center space-x-2 text-[11px]">
+                    <button type="button" @click="showPskInSettings = !showPskInSettings" class="text-indigo-400 hover:text-indigo-300 font-semibold">
+                      <span x-text="showPskInSettings ? '🙈 Hide Key' : '👁️ Reveal Key'"></span>
+                    </button>
+                    <button type="button" @click="copyCommand(currentNode.psk)" class="text-indigo-400 hover:text-indigo-300 font-semibold">
+                      <span>📋 Copy Key</span>
+                    </button>
+                  </div>
+                </div>
+                <input :type="showPskInSettings ? 'text' : 'password'" x-model="currentNode.psk" class="w-full bg-zinc-900 border border-zinc-700 rounded px-3 py-1.5 text-white font-mono text-xs">
+              </div>
+
+              <div class="pt-3 flex justify-between">
+                <button 
+                  @click="saveCurrentNodeSettings()" 
+                  class="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-4 py-2 rounded-lg text-xs transition">
+                  Save Settings
+                </button>
+                <button 
+                  @click="deleteCurrentNode()" 
+                  class="text-rose-400 hover:text-rose-200 text-xs px-3 py-1.5 rounded transition">
+                  Remove from Fleet
+                </button>
+              </div>
+            </div>
+          </div>
+        </template>
+        <template x-if="!currentNode">
+          <div class="text-zinc-500 text-xs italic py-2">
+            No computer selected from the fleet.
+          </div>
+        </template>
       </div>
 
       <!-- Direct Client Download & 1-Click Installers (macOS .dmg & Windows .exe) -->
@@ -2158,6 +2252,10 @@
   <script>
     function appShieldApp() {
       return {
+        // Modular Features and Settings Mixins
+        ...(window.AppShieldFeatures || {}),
+        ...(window.AppShieldSettings || {}),
+
         // Authentication & Security State
         auth: {
           isAuthenticated: false,
@@ -2796,7 +2894,8 @@
               this.loadUsers(),
               this.loadRules(),
               this.loadLogs(),
-              this.loadDnsSettings()
+              this.loadDnsSettings(),
+              this.checkTailscaleStatus()
             ]);
           } finally {
             this.isRefreshing = false;

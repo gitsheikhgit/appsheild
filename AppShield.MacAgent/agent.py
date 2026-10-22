@@ -43,24 +43,47 @@ DEFAULT_SERVER_URL = "http://192.168.0.101:8000"
 SYS_CONFIG_DIR = "/Library/Application Support/AppShield"
 LOCAL_CONFIG_DIR = os.path.expanduser("~/.appshield")
 
-def get_config_path() -> str:
-    if os.geteuid() == 0:
-        os.makedirs(SYS_CONFIG_DIR, exist_ok=True)
-        return os.path.join(SYS_CONFIG_DIR, "agent_config.json")
-    else:
-        os.makedirs(LOCAL_CONFIG_DIR, exist_ok=True)
-        return os.path.join(LOCAL_CONFIG_DIR, "agent_config.json")
+def get_base_dir() -> str:
+    d = SYS_CONFIG_DIR if os.geteuid() == 0 else LOCAL_CONFIG_DIR
+    os.makedirs(d, exist_ok=True)
+    return d
 
-def load_or_create_config() -> Dict[str, Any]:
-    path = get_config_path()
-    if os.path.exists(path):
+def get_settings_path() -> str:
+    return os.path.join(get_base_dir(), "settings.json")
+
+def get_features_path() -> str:
+    return os.path.join(get_base_dir(), "features.json")
+
+def load_or_create_settings() -> Dict[str, Any]:
+    """Loads system settings (server URL, device ID, tailscale IP, standalone mode)."""
+    settings_path = get_settings_path()
+    legacy_path = os.path.join(get_base_dir(), "agent_config.json")
+    
+    if os.path.exists(settings_path):
         try:
-            with open(path, "r", encoding="utf-8") as f:
+            with open(settings_path, "r", encoding="utf-8") as f:
                 return json.load(f)
         except Exception:
             pass
 
-    # Create new configuration
+    # Migrate from legacy agent_config.json if present
+    if os.path.exists(legacy_path):
+        try:
+            with open(legacy_path, "r", encoding="utf-8") as f:
+                old = json.load(f)
+                settings = {
+                    "device_id": old.get("device_id"),
+                    "name": old.get("name"),
+                    "server_url": old.get("server_url", DEFAULT_SERVER_URL),
+                    "standalone_mode": old.get("server_url") in ["", "standalone", None],
+                    "tailscale_ip": get_tailscale_ip() or ""
+                }
+                save_settings(settings)
+                return settings
+        except Exception:
+            pass
+
+    # Create new default settings
     import uuid
     mac_id = f"mac_{uuid.uuid4().hex[:12]}"
     try:
@@ -68,10 +91,53 @@ def load_or_create_config() -> Dict[str, Any]:
     except Exception:
         hostname = socket.gethostname()
 
-    cfg = {
+    settings = {
         "device_id": mac_id,
         "name": hostname,
         "server_url": DEFAULT_SERVER_URL,
+        "standalone_mode": False,
+        "tailscale_ip": get_tailscale_ip() or ""
+    }
+    save_settings(settings)
+    return settings
+
+def save_settings(settings: Dict[str, Any]):
+    path = get_settings_path()
+    try:
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(settings, f, indent=2)
+    except Exception as e:
+        print(f"[!] Warning: Failed to save settings to {path}: {e}")
+
+def load_or_create_features() -> Dict[str, Any]:
+    """Loads parental features (curfew schedules, app blocking, path jail, managed users)."""
+    features_path = get_features_path()
+    legacy_path = os.path.join(get_base_dir(), "agent_config.json")
+
+    if os.path.exists(features_path):
+        try:
+            with open(features_path, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            pass
+
+    # Migrate from legacy agent_config.json if present
+    if os.path.exists(legacy_path):
+        try:
+            with open(legacy_path, "r", encoding="utf-8") as f:
+                old = json.load(f)
+                features = {
+                    "rules": old.get("rules", []),
+                    "managed_users": old.get("managed_users", []),
+                    "path_jail_enabled": old.get("path_jail_enabled", True)
+                }
+                save_features(features)
+                return features
+        except Exception:
+            pass
+
+    # Default parental features
+    features = {
         "rules": [
             {
                 "id": "default_window",
@@ -93,16 +159,43 @@ def load_or_create_config() -> Dict[str, Any]:
         "managed_users": [],
         "path_jail_enabled": True
     }
-    save_config(cfg)
-    return cfg
+    save_features(features)
+    return features
 
-def save_config(cfg: Dict[str, Any]):
-    path = get_config_path()
+def save_features(features: Dict[str, Any]):
+    path = get_features_path()
     try:
         with open(path, "w", encoding="utf-8") as f:
-            json.dump(cfg, f, indent=2)
+            json.dump(features, f, indent=2)
     except Exception as e:
-        print(f"[!] Warning: Failed to save config to {path}: {e}")
+        print(f"[!] Warning: Failed to save features to {path}: {e}")
+
+def get_tailscale_ip() -> Optional[str]:
+    """Scans local network interfaces and Tailscale binary for active 100.* mesh IP."""
+    # 1. Try ifconfig output
+    try:
+        out = subprocess.check_output(["ifconfig"], text=True)
+        matches = re.findall(r"inet\s+(100\.\d{1,3}\.\d{1,3}\.\d{1,3})", out)
+        if matches:
+            return matches[0]
+    except Exception:
+        pass
+
+    # 2. Try macOS Tailscale app binary or CLI
+    candidates = [
+        "/Applications/Tailscale.app/Contents/MacOS/Tailscale",
+        "/usr/local/bin/tailscale",
+        "/opt/homebrew/bin/tailscale",
+        "tailscale"
+    ]
+    for p in candidates:
+        try:
+            out = subprocess.check_output([p, "ip", "-4"], text=True, stderr=subprocess.DEVNULL).strip()
+            if out.startswith("100."):
+                return out
+        except Exception:
+            continue
+    return None
 
 # -----------------------------------------------------------------------------
 # System Helpers: macOS User Accounts & Process Inspection
@@ -528,9 +621,13 @@ class EnforcementEngine:
 # -----------------------------------------------------------------------------
 class AppShieldMacAgent:
     def __init__(self):
-        self.config = load_or_create_config()
-        self.device_id = self.config["device_id"]
-        self.server_url = self.config.get("server_url", DEFAULT_SERVER_URL).rstrip("/")
+        self.settings = load_or_create_settings()
+        self.features = load_or_create_features()
+        self.device_id = self.settings["device_id"]
+        self.server_url = (self.settings.get("server_url") or "").rstrip("/")
+        self.standalone_mode = self.settings.get("standalone_mode", False) or not self.server_url or self.server_url.lower() == "standalone"
+        self.tailscale_ip = self.settings.get("tailscale_ip") or get_tailscale_ip() or ""
+        self.config = {**self.settings, **self.features}
         self.enforcer = EnforcementEngine(self)
         self.running = True
         self.managed_usernames = set()
@@ -539,12 +636,16 @@ class AppShieldMacAgent:
         self.managed_usernames = {u["username"] for u in users if u.get("isManaged", False)}
 
     def register_with_server(self):
+        if self.standalone_mode:
+            return
+        t_ip = get_tailscale_ip() or self.tailscale_ip or ""
         url = f"{self.server_url}/api/devices/register"
         payload = {
             "id": self.device_id,
-            "name": self.config.get("name", socket.gethostname()),
+            "name": self.settings.get("name", socket.gethostname()),
             "os": f"macOS {platform.mac_ver()[0]} ({platform.machine()})",
             "lan_ip": get_primary_ip(),
+            "tailscale_ip": t_ip,
             "agent_version": "1.2.0"
         }
         try:
@@ -560,6 +661,8 @@ class AppShieldMacAgent:
             print(f"[-] Could not reach Central Server for registration: {e}")
 
     def fetch_rules(self):
+        if self.standalone_mode:
+            return
         url = f"{self.server_url}/api/nodes/{self.device_id}/rules"
         try:
             req = urllib.request.Request(url, headers={"Content-Type": "application/json"})
@@ -568,11 +671,34 @@ class AppShieldMacAgent:
                 if data.get("success"):
                     rules = data.get("data", [])
                     if rules:
+                        self.features["rules"] = rules
+                        save_features(self.features)
                         self.config["rules"] = rules
-                        save_config(self.config)
                         print(f"[+] Synchronized {len(rules)} rules from Central Server")
         except Exception as e:
             pass
+
+    def standalone_enforcement_loop(self):
+        print("====================================================================")
+        print("   AppShield macOS STANDALONE Protection Active (Zero Server Needed) ")
+        print("====================================================================")
+        print(f" Device:         {self.settings.get('name', socket.gethostname())}")
+        print(f" Status:         100% Autonomous Local Enforcement")
+        print(f" Active Rules:   {len(self.features.get('rules', []))} Curfew & Block Policies")
+        print(f" Path Jail:      {'Enabled' if self.features.get('path_jail_enabled') else 'Disabled'}")
+        print("====================================================================")
+        while self.running:
+            try:
+                # Reload features in case parent edited features.json locally
+                self.features = load_or_create_features()
+                self.config["rules"] = self.features.get("rules", [])
+                users = enumerate_macos_users()
+                self.update_managed_users_cache(users)
+                procs = enumerate_running_processes(self.managed_usernames)
+                self.enforcer.evaluate_and_enforce(procs)
+            except Exception as e:
+                pass
+            time.sleep(4.0)
 
     def report_telemetry_now(self):
         """Immediately transmits full system telemetry to Central Server."""
@@ -828,9 +954,15 @@ class AppShieldMacAgent:
         print("          AppShield macOS Endpoint Protection Agent v1.2.0          ")
         print("====================================================================")
         print(f" Device ID:    {self.device_id}")
-        print(f" Target Hub:   {self.server_url}")
+        print(f" Target Hub:   {self.server_url if not self.standalone_mode else 'STANDALONE (No Server)'}")
+        print(f" Tailscale IP: {get_tailscale_ip() or self.tailscale_ip or 'None detected'}")
         print(f" Running As:   UID {os.geteuid()} ({'Root / Daemon' if os.geteuid() == 0 else 'User Session'})")
         print("====================================================================")
+
+        if self.standalone_mode:
+            print("[+] Standalone mode active: enforcing curfews and app blocks locally.")
+            self.standalone_enforcement_loop()
+            return
 
         self.register_with_server()
         self.fetch_rules()
