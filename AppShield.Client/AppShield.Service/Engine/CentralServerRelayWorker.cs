@@ -292,11 +292,13 @@ public class CentralServerRelayWorker : BackgroundService
                 case "set_dns_filter":
                     if (payload.TryGetProperty("primary_dns", out var dns1Elem))
                     {
-                        string dns1 = dns1Elem.GetString() ?? "1.1.1.3";
-                        string dns2 = payload.TryGetProperty("secondary_dns", out var dns2Elem) ? dns2Elem.GetString() ?? "1.0.0.3" : "1.0.0.3";
+                        string dns1 = dns1Elem.GetString() ?? "1.1.1.1";
+                        string dns2 = payload.TryGetProperty("secondary_dns", out var dns2Elem) ? dns2Elem.GetString() ?? "1.0.0.1" : "1.0.0.1";
+                        string ipv6_1 = payload.TryGetProperty("primary_ipv6", out var ipv61Elem) ? ipv61Elem.GetString() ?? "" : "";
+                        string ipv6_2 = payload.TryGetProperty("secondary_ipv6", out var ipv62Elem) ? ipv62Elem.GetString() ?? "" : "";
                         bool isEnabled = !payload.TryGetProperty("is_enabled", out var enElem) || enElem.GetInt32() == 1;
 
-                        ApplyWindowsDnsFilter(dns1, dns2, isEnabled);
+                        ApplyWindowsDnsFilter(dns1, dns2, ipv6_1, ipv6_2, isEnabled);
                     }
                     break;
 
@@ -311,7 +313,7 @@ public class CentralServerRelayWorker : BackgroundService
         }
     }
 
-    private static void ApplyWindowsDnsFilter(string primaryDns, string secondaryDns, bool isEnabled)
+    private static void ApplyWindowsDnsFilter(string primaryDns, string secondaryDns, string primaryIpv6, string secondaryIpv6, bool isEnabled)
     {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) return;
 
@@ -320,7 +322,14 @@ public class CentralServerRelayWorker : BackgroundService
             string args;
             if (isEnabled && !string.IsNullOrWhiteSpace(primaryDns))
             {
-                args = $"-NoProfile -ExecutionPolicy Bypass -Command \"Set-DnsClientServerAddress -InterfaceAlias '*' -ServerAddresses ('{primaryDns}','{secondaryDns}'); Clear-DnsClientCache\"";
+                var addrs = new List<string>();
+                if (!string.IsNullOrWhiteSpace(primaryDns)) addrs.Add($"'{primaryDns.Trim()}'");
+                if (!string.IsNullOrWhiteSpace(secondaryDns)) addrs.Add($"'{secondaryDns.Trim()}'");
+                if (!string.IsNullOrWhiteSpace(primaryIpv6) && primaryIpv6.Trim().ToUpper() != "N/A") addrs.Add($"'{primaryIpv6.Trim()}'");
+                if (!string.IsNullOrWhiteSpace(secondaryIpv6) && secondaryIpv6.Trim().ToUpper() != "N/A") addrs.Add($"'{secondaryIpv6.Trim()}'");
+
+                string addrList = string.Join(",", addrs);
+                args = $"-NoProfile -ExecutionPolicy Bypass -Command \"Set-DnsClientServerAddress -InterfaceAlias '*' -ServerAddresses ({addrList}); Clear-DnsClientCache\"";
             }
             else
             {

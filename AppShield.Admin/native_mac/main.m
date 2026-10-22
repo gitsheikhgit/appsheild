@@ -107,6 +107,7 @@
 
     [self.window setTitle:@"AppShield Fleet Manager — Tamper-Resistant Windows Security"];
     [self.window setTitlebarAppearsTransparent:YES];
+    [self.window setMovableByWindowBackground:YES];
     [self.window setBackgroundColor:[NSColor colorWithCalibratedRed:17.0/255.0 green:17.0/255.0 blue:27.0/255.0 alpha:1.0]];
     [self.window setMinSize:NSMakeSize(980, 640)];
     [self.window center];

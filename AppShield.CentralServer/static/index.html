@@ -66,6 +66,15 @@
     .custom-scroll::-webkit-scrollbar-thumb:hover {
       background: rgba(255, 255, 255, 0.25);
     }
+    /* Native macOS Window Draggable Header */
+    header {
+      -webkit-app-region: drag;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+    header button, header a, header input, header select, .no-drag {
+      -webkit-app-region: no-drag;
+    }
   </style>
 </head>
 <body class="font-sans antialiased h-screen overflow-hidden flex bg-[#0c0e14] text-gray-100" x-data="appShieldApp()" x-init="init()">
@@ -555,7 +564,7 @@
     <div x-show="activeTab === 'users'" class="space-y-4">
       <div class="flex flex-wrap justify-between items-center glass-card p-4 rounded-xl gap-3">
         <div>
-          <h2 class="text-sm font-bold text-white">Target Machine Windows Accounts</h2>
+          <h2 class="text-sm font-bold text-white">Target Machine User Accounts (<span class="text-indigo-400" x-text="currentNode?.name || 'Local Machine'"></span>)</h2>
           <p class="text-xs text-zinc-400">Toggle "Managed" to enforce blocklists, quotas, and path jails on specific children or standard accounts.</p>
         </div>
         <div class="flex flex-wrap items-center gap-2">
@@ -936,7 +945,7 @@
       <!-- Fleet Scope & Mode Toggle -->
       <div class="glass-card p-4 rounded-xl border border-zinc-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs bg-zinc-950/40">
         <div class="flex items-center space-x-3">
-          <input type="checkbox" id="fleetDnsCheckbox" x-model="dnsSettings.apply_to_all" class="w-4 h-4 rounded text-indigo-600 bg-zinc-900 border-zinc-700 focus:ring-indigo-500 focus:ring-offset-zinc-900 cursor-pointer">
+          <input type="checkbox" id="fleetDnsCheckbox" x-model="dnsSettings.apply_to_all" @change="toggleFleetDnsApplyToAll()" class="w-4 h-4 rounded text-indigo-600 bg-zinc-900 border-zinc-700 focus:ring-indigo-500 focus:ring-offset-zinc-900 cursor-pointer">
           <label for="fleetDnsCheckbox" class="text-zinc-200 font-semibold cursor-pointer select-none">
             Enforce Fleet-Wide on all connected computers (macOS + Windows)
           </label>
@@ -948,47 +957,146 @@
       </div>
 
       <!-- Preset Selection Grid -->
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <template x-for="preset in dnsPresets" :key="preset.id">
           <div 
             @click="selectDnsPreset(preset.id)"
-            :class="dnsSettings.preset === preset.id ? 'border-indigo-500 bg-indigo-950/20 ring-2 ring-indigo-500/30' : 'border-zinc-800 bg-[#121622]/60 hover:border-zinc-700 hover:bg-[#161b2a]/80'"
-            class="p-5 rounded-xl border transition cursor-pointer flex flex-col justify-between group">
-            <div>
-              <div class="flex items-center justify-between mb-2">
-                <span class="text-2xl" x-text="preset.icon"></span>
-                <span class="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full"
-                      :class="preset.id === 'cloudflare_family' ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30' : (preset.id === 'cleanbrowsing' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-zinc-800 text-zinc-400')"
-                      x-text="preset.tag"></span>
-              </div>
-              <h3 class="text-sm font-bold text-white mb-1 group-hover:text-indigo-300 transition" x-text="preset.name"></h3>
-              <p class="text-[11px] text-zinc-400 leading-relaxed mb-3" x-text="preset.description"></p>
+            :class="dnsSettings.preset === preset.id ? 'border-indigo-500 bg-indigo-950/30 ring-2 ring-indigo-500/50 shadow-lg shadow-indigo-500/20' : 'border-zinc-800 bg-[#121622]/80 hover:border-zinc-700 hover:bg-[#161b2a]'"
+            class="p-5 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between group relative overflow-hidden">
+            
+            <!-- Active Indicator Banner -->
+            <div x-show="dnsSettings.preset === preset.id" class="absolute top-0 right-0 bg-indigo-600 text-white text-[10px] font-bold px-2.5 py-0.5 rounded-bl-lg shadow flex items-center space-x-1">
+              <span>✓ Selected</span>
             </div>
 
-            <div class="pt-3 border-t border-zinc-800/80 flex items-center justify-between text-[11px]">
-              <span class="font-mono text-zinc-400" x-text="preset.primary ? preset.primary + (preset.secondary ? ' / ' + preset.secondary : '') : 'System Default'"></span>
-              <span x-show="dnsSettings.preset === preset.id" class="text-indigo-400 font-bold flex items-center space-x-1">
-                <span>Selected</span>
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
-              </span>
+            <div>
+              <!-- Header with Icon & Tag -->
+              <div class="flex items-center justify-between mb-2.5 pr-14">
+                <span class="text-2xl select-none" x-text="preset.icon"></span>
+                <span class="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full inline-block truncate"
+                      :class="preset.id === 'cloudflare_public' ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30' : (preset.id === 'cloudflare_family' ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30' : (preset.id === 'cleanbrowsing' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : (preset.id === 'adguard_family' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30' : (preset.id === 'quad9' ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30' : (preset.id === 'custom' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'bg-zinc-800 text-zinc-400'))))))"
+                      x-text="preset.tag"></span>
+              </div>
+
+              <!-- Provider Name -->
+              <h3 class="text-sm font-bold text-white mb-1 group-hover:text-indigo-300 transition" x-text="preset.name"></h3>
+              <p class="text-[11px] text-zinc-400 leading-relaxed mb-3.5 min-h-[34px]" x-text="preset.description"></p>
+
+              <!-- IPv4 Box (matches screenshot) -->
+              <template x-if="preset.primary">
+                <div class="space-y-2 mb-3.5">
+                  <div>
+                    <div class="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider mb-1">IPv4:</div>
+                    <div class="bg-zinc-950/90 border border-zinc-800 rounded-lg px-2 py-1.5 font-mono text-[11px] text-indigo-300 break-all select-all text-center">
+                      <span x-text="preset.primary"></span>
+                      <span x-show="preset.secondary" x-text="', ' + preset.secondary"></span>
+                    </div>
+                  </div>
+
+                  <!-- IPv6 Box (matches screenshot) -->
+                  <div>
+                    <div class="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider mb-1">IPv6:</div>
+                    <div class="bg-zinc-950/90 border border-zinc-800 rounded-lg px-2 py-1.5 font-mono text-[10px] text-zinc-300 break-all select-all text-center"
+                         x-text="preset.primary_ipv6 ? (preset.primary_ipv6 + (preset.secondary_ipv6 ? ', ' + preset.secondary_ipv6 : '')) : 'N/A'">
+                    </div>
+                  </div>
+                </div>
+              </template>
+
+              <!-- Inline Inputs Directly Inside Custom DNS Card! -->
+              <template x-if="preset.id === 'custom'">
+                <div class="space-y-2.5 mb-3.5 p-3 rounded-xl bg-amber-950/30 border border-amber-500/40" @click.stop>
+                  <div>
+                    <div class="text-[10px] font-bold text-amber-300 uppercase tracking-wider mb-1 flex items-center justify-between">
+                      <span>Primary DNS IPv4 <span class="text-rose-400">*</span></span>
+                      <span class="text-[9px] text-amber-400/80 font-mono">Pi-hole / NextDNS</span>
+                    </div>
+                    <input 
+                      type="text" 
+                      x-model="dnsSettings.primary_dns" 
+                      placeholder="e.g. 192.168.0.50" 
+                      class="w-full bg-zinc-950 border border-amber-500/60 rounded-lg px-2.5 py-1.5 font-mono text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400 text-center font-bold">
+                  </div>
+                  <div>
+                    <div class="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider mb-1">Secondary IPv4 (Optional):</div>
+                    <input 
+                      type="text" 
+                      x-model="dnsSettings.secondary_dns" 
+                      placeholder="e.g. 192.168.0.51" 
+                      class="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-2.5 py-1.5 font-mono text-xs text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-amber-400 text-center">
+                  </div>
+                </div>
+              </template>
+            </div>
+
+            <!-- Card Bottom: Select Button + Visit Website (Green button matching screenshot) -->
+            <div class="pt-3 border-t border-zinc-800/80 flex items-center justify-between gap-2 mt-auto">
+              <button 
+                type="button"
+                @click.stop="selectDnsPreset(preset.id)"
+                class="text-xs font-bold px-3 py-1.5 rounded-lg transition flex items-center space-x-1"
+                :class="dnsSettings.preset === preset.id ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-600/40' : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300'">
+                <span x-text="dnsSettings.preset === preset.id ? '✓ Selected' : 'Select'"></span>
+              </button>
+
+              <template x-if="preset.website">
+                <a 
+                  :href="preset.website" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  @click.stop
+                  class="bg-[#22c55e] hover:bg-[#16a34a] text-zinc-950 font-bold text-xs px-3 py-1.5 rounded-lg transition inline-flex items-center space-x-1 shadow-sm shadow-green-900/30">
+                  <span>Visit Website</span>
+                  <svg class="w-3 h-3 ml-0.5 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                </a>
+              </template>
             </div>
           </div>
         </template>
       </div>
 
       <!-- Custom DNS IP Inputs (When custom preset selected) -->
-      <div x-show="dnsSettings.preset === 'custom'" class="glass-card p-5 rounded-xl border border-zinc-800 space-y-4">
-        <h4 class="text-xs font-bold text-white uppercase tracking-wider">Custom DNS Resolver Addresses</h4>
+      <div id="customDnsPanel" x-show="dnsSettings.preset === 'custom'" class="glass-card p-6 rounded-2xl border border-amber-500/30 bg-amber-950/10 space-y-4">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center space-x-2.5">
+            <span class="text-xl">⚙️</span>
+            <div>
+              <h4 class="text-sm font-bold text-white uppercase tracking-wider">Custom DNS Resolver Addresses</h4>
+              <p class="text-xs text-zinc-400">Configure your personal local Pi-hole, AdGuard Home, or custom NextDNS server.</p>
+            </div>
+          </div>
+          <span class="bg-amber-500/20 text-amber-300 text-[10px] font-mono font-bold px-2.5 py-1 rounded-full border border-amber-500/40">
+            Private LAN / Custom
+          </span>
+        </div>
+
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label class="block text-zinc-400 text-xs mb-1 font-semibold">Primary DNS Server IP</label>
-            <input type="text" x-model="dnsSettings.primary_dns" placeholder="e.g. 45.90.28.0 (NextDNS) or 192.168.0.50 (Pi-hole)"
-                   class="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-indigo-500">
+            <label class="block text-zinc-300 text-xs mb-1 font-semibold">Primary DNS Server IPv4 <span class="text-rose-400">*</span></label>
+            <input type="text" x-model="dnsSettings.primary_dns" placeholder="e.g. 192.168.0.50 (Pi-hole) or 45.90.28.0 (NextDNS)"
+                   class="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-indigo-500 placeholder-zinc-600">
           </div>
           <div>
-            <label class="block text-zinc-400 text-xs mb-1 font-semibold">Secondary DNS Server IP (Optional)</label>
-            <input type="text" x-model="dnsSettings.secondary_dns" placeholder="e.g. 45.90.30.0"
-                   class="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-indigo-500">
+            <label class="block text-zinc-300 text-xs mb-1 font-semibold">Secondary DNS Server IPv4 (Optional)</label>
+            <input type="text" x-model="dnsSettings.secondary_dns" placeholder="e.g. 192.168.0.51 or 45.90.30.0"
+                   class="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-indigo-500 placeholder-zinc-600">
+          </div>
+          <div>
+            <label class="block text-zinc-300 text-xs mb-1 font-semibold">Primary DNS IPv6 (Optional)</label>
+            <input type="text" x-model="dnsSettings.primary_ipv6" placeholder="e.g. 2a07:a8c0::... (Pi-hole / NextDNS IPv6)"
+                   class="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-indigo-500 placeholder-zinc-600">
+          </div>
+          <div>
+            <label class="block text-zinc-300 text-xs mb-1 font-semibold">Secondary DNS IPv6 (Optional)</label>
+            <input type="text" x-model="dnsSettings.secondary_ipv6" placeholder="e.g. 2a07:a8c1::..."
+                   class="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-indigo-500 placeholder-zinc-600">
+          </div>
+        </div>
+
+        <div class="p-3 bg-zinc-900/80 rounded-xl border border-zinc-800 text-[11px] text-zinc-400 flex items-start space-x-2">
+          <span class="text-amber-400">💡</span>
+          <div>
+            <strong>Pi-hole & NextDNS Tip:</strong> If your Pi-hole is running on your local network (e.g., at <code class="text-indigo-300 font-mono">192.168.0.x</code>), enter its static IP address above. AppShield will configure the network adapter on this device so all DNS queries flow through your private filter.
           </div>
         </div>
       </div>
@@ -1569,67 +1677,111 @@
         installedAppFilter: '',
         isLoadingApps: false,
 
-        // DNS Shield State
+        // DNS Shield State (Default: 1.1.1.1 Cloudflare Public)
         dnsSettings: {
-          preset: 'cloudflare_family',
-          primary_dns: '1.1.1.3',
-          secondary_dns: '1.0.0.3',
+          preset: 'cloudflare_public',
+          primary_dns: '1.1.1.1',
+          secondary_dns: '1.0.0.1',
+          primary_ipv6: '2606:4700:4700::1111',
+          secondary_ipv6: '2606:4700:4700::1001',
           is_enabled: true,
           apply_to_all: false
         },
         dnsPresets: [
           {
+            id: 'cloudflare_public',
+            name: 'Cloudflare Public (Default)',
+            tag: 'Default (Fastest)',
+            description: 'Ultra-fast, privacy-first public DNS resolver by Cloudflare. Default global resolver.',
+            primary: '1.1.1.1',
+            secondary: '1.0.0.1',
+            primary_ipv6: '2606:4700:4700::1111',
+            secondary_ipv6: '2606:4700:4700::1001',
+            website: 'https://1.1.1.1',
+            icon: '⚡'
+          },
+          {
             id: 'cloudflare_family',
-            name: 'Cloudflare 1.1.1.3 Families',
-            tag: 'Recommended',
-            description: 'Blocks adult content, pornography, and malware. Powered by Cloudflare global Anycast.',
+            name: 'Cloudflare (Family)',
+            tag: 'Adult + Malware',
+            description: '1.1.1.1 for Families automatically blocks adult domains, pornography, and malware threats.',
             primary: '1.1.1.3',
             secondary: '1.0.0.3',
+            primary_ipv6: '2606:4700:4700::1113',
+            secondary_ipv6: '2606:4700:4700::1003',
+            website: 'https://blog.cloudflare.com/introducing-1-1-1-1-for-families/',
             icon: '☁️'
           },
           {
-            id: 'cleanbrowsing',
-            name: 'CleanBrowsing Family Filter',
-            tag: 'Strict SafeSearch',
-            description: 'Enforces Google, Bing, and YouTube SafeSearch while blocking adult websites and proxy/VPN bypass sites.',
-            primary: '185.228.168.168',
-            secondary: '185.228.169.168',
+            id: 'adguard_family',
+            name: 'AdGuard DNS (Family)',
+            tag: 'Ads + Adult Filter',
+            description: 'Blocks adult websites, enforces SafeSearch, and removes intrusive ads, popups, and tracker domains.',
+            primary: '94.140.14.15',
+            secondary: '94.140.14.16',
+            primary_ipv6: '2a10:50c0::bad1:ff',
+            secondary_ipv6: '2a10:50c0::bad2:ff',
+            website: 'https://adguard-dns.io/',
             icon: '🛡️'
           },
           {
-            id: 'adguard_family',
-            name: 'AdGuard Family Protection',
-            tag: 'Adult + AdBlock',
-            description: 'Blocks adult content and pornography, plus removes intrusive ads, popups, and tracker domains.',
-            primary: '94.140.14.15',
-            secondary: '94.140.15.16',
-            icon: '🚫'
+            id: 'cleanbrowsing',
+            name: 'CleanBrowsing (Family)',
+            tag: 'Strict SafeSearch',
+            description: 'Strict family filter blocking pornography and adult domains while enforcing SafeSearch on Google, Bing, and YouTube.',
+            primary: '185.228.168.168',
+            secondary: '185.228.169.168',
+            primary_ipv6: '2a0d:2a08:2::',
+            secondary_ipv6: '2a0d:2a08:1::',
+            website: 'https://cleanbrowsing.org/',
+            icon: '🔒'
+          },
+          {
+            id: 'quad9',
+            name: 'Quad9 (Filter)',
+            tag: 'Threat Intelligence',
+            description: 'Enterprise-grade security blocking malware, phishing domains, spyware, and botnets in real time.',
+            primary: '9.9.9.10',
+            secondary: '149.112.112.10',
+            primary_ipv6: '2620:fe::10',
+            secondary_ipv6: '2620:fe::9',
+            website: 'https://www.quad9.net/',
+            icon: '🛑'
           },
           {
             id: 'opendns_family',
-            name: 'OpenDNS FamilyShield',
+            name: 'OpenDNS (FamilyShield)',
             tag: 'Cisco Shield',
             description: 'Pre-configured adult content blocking by Cisco OpenDNS. Zero setup required.',
             primary: '208.67.222.123',
             secondary: '208.67.220.123',
+            primary_ipv6: 'N/A',
+            secondary_ipv6: '',
+            website: 'https://www.opendns.com/',
             icon: '🌐'
           },
           {
             id: 'custom',
-            name: 'Custom DNS Provider',
-            tag: 'NextDNS / Pi-hole',
-            description: 'Specify your own custom family DNS resolver or upstream private server.',
+            name: 'Custom DNS (Pi-hole / NextDNS)',
+            tag: 'User Own / LAN',
+            description: 'Route traffic through your own local Pi-hole server (e.g. 192.168.0.x), AdGuard Home, or private NextDNS endpoint.',
             primary: '',
             secondary: '',
+            primary_ipv6: '',
+            secondary_ipv6: '',
+            website: '',
             icon: '⚙️'
           },
           {
             id: 'disabled',
-            name: 'Disable Filtering (DHCP Default)',
-            tag: 'Unfiltered',
-            description: 'Revert computer to standard home router DNS without adult filtering.',
+            name: 'DHCP Default (Unfiltered)',
+            tag: 'Router Automatic',
+            description: 'Disable DNS filtering override and allow the computer to use default home router DHCP assigned DNS.',
             primary: '',
             secondary: '',
+            primary_ipv6: '',
+            secondary_ipv6: '',
+            website: '',
             icon: '⭕'
           }
         ],
@@ -1731,7 +1883,7 @@
             });
             const data = await res.json();
             if (data.success) {
-              this.showToast('Opened Windows Account Settings on target PC.', 'success');
+              this.showToast('Opened System Account Settings on target computer.', 'success');
             } else {
               if (res.status === 502) {
                 this.triggerOfflinePopUp('Open Account Settings', data.error?.message || data.error);
@@ -1875,14 +2027,34 @@
             const res = await fetch(`/api/nodes/${this.currentNode.id}/dns`);
             const data = await res.json();
             if (data.success && data.data) {
-              this.dnsSettings.preset = data.data.preset || 'cloudflare_family';
-              this.dnsSettings.primary_dns = data.data.primary_dns || '1.1.1.3';
-              this.dnsSettings.secondary_dns = data.data.secondary_dns || '1.0.0.3';
+              this.dnsSettings.preset = data.data.preset || 'cloudflare_public';
+              this.dnsSettings.primary_dns = data.data.primary_dns || '1.1.1.1';
+              this.dnsSettings.secondary_dns = data.data.secondary_dns || '1.0.0.1';
+              this.dnsSettings.primary_ipv6 = data.data.primary_ipv6 || '2606:4700:4700::1111';
+              this.dnsSettings.secondary_ipv6 = data.data.secondary_ipv6 || '2606:4700:4700::1001';
               this.dnsSettings.is_enabled = data.data.is_enabled !== 0;
+              if (data.data.apply_to_all !== undefined) {
+                this.dnsSettings.apply_to_all = (data.data.apply_to_all === 1 || data.data.apply_to_all === true);
+                localStorage.setItem('appshield_dns_apply_to_all', this.dnsSettings.apply_to_all ? '1' : '0');
+              } else {
+                const cached = localStorage.getItem('appshield_dns_apply_to_all');
+                if (cached !== null) {
+                  this.dnsSettings.apply_to_all = (cached === '1');
+                }
+              }
             }
           } catch (e) {
             console.error('Error loading DNS settings:', e);
           }
+        },
+
+        toggleFleetDnsApplyToAll() {
+          localStorage.setItem('appshield_dns_apply_to_all', this.dnsSettings.apply_to_all ? '1' : '0');
+          fetch('/api/settings/fleet-dns-toggle', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ apply_to_all: this.dnsSettings.apply_to_all })
+          }).catch(e => console.error(e));
         },
 
         selectDnsPreset(presetId) {
@@ -1893,12 +2065,19 @@
               this.dnsSettings.is_enabled = false;
               this.dnsSettings.primary_dns = '';
               this.dnsSettings.secondary_dns = '';
+              this.dnsSettings.primary_ipv6 = '';
+              this.dnsSettings.secondary_ipv6 = '';
             } else if (presetId !== 'custom') {
               this.dnsSettings.is_enabled = true;
               this.dnsSettings.primary_dns = p.primary;
               this.dnsSettings.secondary_dns = p.secondary;
+              this.dnsSettings.primary_ipv6 = p.primary_ipv6 || '';
+              this.dnsSettings.secondary_ipv6 = p.secondary_ipv6 || '';
             } else {
               this.dnsSettings.is_enabled = true;
+              this.$nextTick(() => {
+                document.getElementById('customDnsPanel')?.scrollIntoView({ behavior: 'smooth' });
+              });
             }
           }
         },
@@ -1917,6 +2096,8 @@
                 preset: this.dnsSettings.preset,
                 primary_dns: this.dnsSettings.primary_dns,
                 secondary_dns: this.dnsSettings.secondary_dns,
+                primary_ipv6: this.dnsSettings.primary_ipv6,
+                secondary_ipv6: this.dnsSettings.secondary_ipv6,
                 is_enabled: this.dnsSettings.is_enabled,
                 apply_to_all: this.dnsSettings.apply_to_all
               })

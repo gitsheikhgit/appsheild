@@ -102,6 +102,7 @@
 
     [self.window setTitle:@"AppShield for macOS — Parental Control & Endpoint Shield"];
     [self.window setTitlebarAppearsTransparent:YES];
+    [self.window setMovableByWindowBackground:YES];
     [self.window setBackgroundColor:[NSColor colorWithCalibratedRed:12.0/255.0 green:14.0/255.0 blue:20.0/255.0 alpha:1.0]];
     [self.window setMinSize:NSMakeSize(900, 600)];
     [self.window center];

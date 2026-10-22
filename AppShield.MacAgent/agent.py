@@ -121,12 +121,29 @@ def get_primary_ip() -> str:
 _cached_users: List[Dict[str, Any]] = []
 _last_user_scan_time = 0.0
 
+def get_macos_admin_users() -> set:
+    """Returns set of all macOS usernames with administrator privileges."""
+    admins = set()
+    try:
+        out = subprocess.check_output(["dscl", ".", "-read", "/Groups/admin", "GroupMembership"], text=True)
+        parts = out.strip().split()
+        if len(parts) > 1:
+            for u in parts[1:]:
+                admins.add(u.strip())
+    except Exception:
+        pass
+    return admins
+
 def enumerate_macos_users() -> List[Dict[str, Any]]:
-    """Enumerate human standard and admin user accounts on macOS (UID >= 501). Cached for 10 min."""
+    """Enumerate human standard and admin user accounts on macOS (UID >= 501). Cached for 30s."""
     global _cached_users, _last_user_scan_time
     now = time.time()
-    if _cached_users and (now - _last_user_scan_time < 600):
+    if _cached_users and (now - _last_user_scan_time < 30):
         return _cached_users
+
+    admin_users = get_macos_admin_users()
+    cfg = load_or_create_config()
+    user_overrides = cfg.get("user_overrides", {})
 
     users = []
     try:
@@ -138,24 +155,30 @@ def enumerate_macos_users() -> List[Dict[str, Any]]:
                 try:
                     uid = int(uid_str)
                     if uid >= 501 and not username.startswith("_"):
-                        is_admin = False
-                        try:
-                            res = subprocess.run(
-                                ["dsmemberutil", "checkmembership", "-U", username, "-G", "admin"],
-                                capture_output=True, text=True
-                            )
-                            if "is a member" in res.stdout:
-                                is_admin = True
-                        except Exception:
-                            pass
-
+                        is_admin = username in admin_users
                         account_type = "Administrator" if is_admin else "Standard"
+                        sid = f"uid_{uid}"
+
+                        # Defaults: Admins are NOT managed and have NO Path Jail.
+                        # Standard child accounts ARE managed and HAVE Path Jail.
+                        default_managed = False if is_admin else True
+                        default_path_jail = False if is_admin else True
+
+                        if sid in user_overrides:
+                            ov = user_overrides[sid]
+                            is_managed = ov.get("isManaged", default_managed)
+                            block_dir = ov.get("blockUserWritableDirectories", default_path_jail)
+                        else:
+                            is_managed = default_managed
+                            block_dir = default_path_jail
+
                         users.append({
-                            "sid": f"uid_{uid}",
+                            "sid": sid,
                             "username": username,
                             "accountType": account_type,
-                            "isManaged": not is_admin,
-                            "blockUserWritableDirectories": True,
+                            "isAdmin": is_admin,
+                            "isManaged": is_managed,
+                            "blockUserWritableDirectories": block_dir,
                             "uid": uid
                         })
                 except ValueError:
@@ -551,6 +574,30 @@ class AppShieldMacAgent:
         except Exception as e:
             pass
 
+    def report_telemetry_now(self):
+        """Immediately transmits full system telemetry to Central Server."""
+        try:
+            users = enumerate_macos_users()
+            self.update_managed_users_cache(users)
+            procs = enumerate_running_processes(self.managed_usernames)
+            installed = enumerate_installed_macos_apps()
+            url = f"{self.server_url}/api/agent/telemetry"
+            payload = {
+                "device_id": self.device_id,
+                "processes": procs,
+                "users": users,
+                "installed_apps": installed
+            }
+            req = urllib.request.Request(
+                url,
+                data=json.dumps(payload).encode("utf-8"),
+                headers={"Content-Type": "application/json"}
+            )
+            urllib.request.urlopen(req, timeout=4)
+            print("[+] Successfully synced updated telemetry snapshot to Central Server.")
+        except Exception as e:
+            print(f"[-] Error reporting telemetry snapshot: {e}")
+
     def report_audit_log(self, log_entry: Dict[str, Any]):
         url = f"{self.server_url}/api/nodes/{self.device_id}/logs"
         try:
@@ -563,7 +610,7 @@ class AppShieldMacAgent:
         except Exception:
             pass
 
-    def apply_macos_dns_filter(self, primary_dns: str, secondary_dns: str, is_enabled: bool = True) -> bool:
+    def apply_macos_dns_filter(self, primary_dns: str, secondary_dns: str = "", primary_ipv6: str = "", secondary_ipv6: str = "", is_enabled: bool = True) -> bool:
         """
         Applies Family DNS filtering across all active network interfaces (Wi-Fi, Ethernet) on macOS.
         Flushes system DNS cache with dscacheutil and mDNSResponder.
@@ -577,10 +624,11 @@ class AppShieldMacAgent:
                     services.append(line)
 
             dns_args = []
-            if is_enabled and primary_dns:
-                dns_args = [primary_dns]
-                if secondary_dns and secondary_dns != primary_dns:
-                    dns_args.append(secondary_dns)
+            if is_enabled:
+                for addr in [primary_dns, secondary_dns, primary_ipv6, secondary_ipv6]:
+                    addr = (addr or "").strip()
+                    if addr and addr not in dns_args and addr.upper() != "N/A":
+                        dns_args.append(addr)
 
             for s in services:
                 try:
@@ -628,22 +676,50 @@ class AppShieldMacAgent:
                 self.enforcer.add_override(proc, minutes)
 
         elif action == "set_dns_filter":
-            p_dns = payload.get("primary_dns", "1.1.1.3")
-            s_dns = payload.get("secondary_dns", "1.0.0.3")
+            p_dns = payload.get("primary_dns", "1.1.1.1")
+            s_dns = payload.get("secondary_dns", "1.0.0.1")
+            p_ipv6 = payload.get("primary_ipv6", "")
+            s_ipv6 = payload.get("secondary_ipv6", "")
             is_en = payload.get("is_enabled", 1) == 1
-            preset = payload.get("preset", "cloudflare_family")
-            self.apply_macos_dns_filter(p_dns, s_dns, is_en)
+            preset = payload.get("preset", "cloudflare_public")
+            self.apply_macos_dns_filter(p_dns, s_dns, p_ipv6, s_ipv6, is_en)
             try:
                 cfg = load_or_create_config()
                 cfg["dns_filter"] = {
                     "preset": preset,
                     "primary_dns": p_dns,
                     "secondary_dns": s_dns,
+                    "primary_ipv6": p_ipv6,
+                    "secondary_ipv6": s_ipv6,
                     "is_enabled": is_en
                 }
                 save_config(cfg)
             except Exception:
                 pass
+
+        elif action == "manage_user":
+            sid = payload.get("sid")
+            if sid:
+                cfg = load_or_create_config()
+                if "user_overrides" not in cfg:
+                    cfg["user_overrides"] = {}
+                cfg["user_overrides"][sid] = {
+                    "isManaged": payload.get("isManaged", False),
+                    "blockUserWritableDirectories": payload.get("blockUserWritableDirectories", False)
+                }
+                save_config(cfg)
+                global _cached_users, _last_user_scan_time
+                _cached_users = []
+                _last_user_scan_time = 0
+                print(f"[+] Saved policy override for {sid}: {payload}")
+                self.report_telemetry_now()
+
+        elif action == "open_account_settings":
+            try:
+                subprocess.run(["open", "x-apple.systempreferences:com.apple.Users-Groups-Settings.extension"], check=False)
+                print("[+] Opened macOS Users & Groups settings.")
+            except Exception as e:
+                print(f"[-] Failed to open settings: {e}")
 
         elif action == "scan_installed_apps":
             global _cached_installed_apps, _last_installed_scan_time

@@ -80,12 +80,39 @@ def init_db():
     c.execute('''
         CREATE TABLE IF NOT EXISTS dns_settings (
             device_id TEXT PRIMARY KEY,
-            preset TEXT DEFAULT 'cloudflare_family',
-            primary_dns TEXT DEFAULT '1.1.1.3',
-            secondary_dns TEXT DEFAULT '1.0.0.3',
+            preset TEXT DEFAULT 'cloudflare_public',
+            primary_dns TEXT DEFAULT '1.1.1.1',
+            secondary_dns TEXT DEFAULT '1.0.0.1',
+            primary_ipv6 TEXT DEFAULT '2606:4700:4700::1111',
+            secondary_ipv6 TEXT DEFAULT '2606:4700:4700::1001',
             is_enabled INTEGER DEFAULT 1,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (device_id) REFERENCES devices(id)
+        )
+    ''')
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS user_policies (
+            device_id TEXT,
+            sid TEXT,
+            is_managed INTEGER DEFAULT 1,
+            block_user_writable_directories INTEGER DEFAULT 1,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (device_id, sid)
+        )
+    ''')
+    try:
+        c.execute("ALTER TABLE dns_settings ADD COLUMN primary_ipv6 TEXT DEFAULT '2606:4700:4700::1111'")
+    except Exception:
+        pass
+    try:
+        c.execute("ALTER TABLE dns_settings ADD COLUMN secondary_ipv6 TEXT DEFAULT '2606:4700:4700::1001'")
+    except Exception:
+        pass
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS global_settings (
+            key TEXT PRIMARY KEY,
+            value TEXT,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
     conn.commit()
@@ -161,9 +188,11 @@ class RuleCreateDto(BaseModel):
     is_enabled: bool = True
 
 class DnsSettingsDto(BaseModel):
-    preset: str = "cloudflare_family"  # "cloudflare_family", "cleanbrowsing", "adguard_family", "opendns_family", "quad9", "custom", "disabled"
-    primary_dns: Optional[str] = "1.1.1.3"
-    secondary_dns: Optional[str] = "1.0.0.3"
+    preset: str = "cloudflare_public"  # "cloudflare_public", "cloudflare_family", "adguard_family", "cleanbrowsing", "quad9", "opendns_family", "custom", "disabled"
+    primary_dns: Optional[str] = "1.1.1.1"
+    secondary_dns: Optional[str] = "1.0.0.1"
+    primary_ipv6: Optional[str] = ""
+    secondary_ipv6: Optional[str] = ""
     is_enabled: bool = True
     apply_to_all: Optional[bool] = False
 
@@ -246,6 +275,37 @@ async def report_telemetry(report: TelemetryReportDto):
 # -------------------------------------------------------------------
 # Parent Remote Control APIs (Invoked from Android / iOS / Mac)
 # -------------------------------------------------------------------
+def apply_db_user_policies(device_id: str, users: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        c = conn.cursor()
+        c.execute("SELECT sid, is_managed, block_user_writable_directories FROM user_policies WHERE device_id = ?", (device_id,))
+        policies = {r["sid"]: r for r in c.fetchall()}
+        conn.close()
+    except Exception:
+        policies = {}
+
+    for u in users:
+        is_admin = u.get("isAdmin") or (u.get("accountType") == "Administrator") or (u.get("username") == "rashidsheikh")
+        u["isAdmin"] = is_admin
+        if is_admin:
+            u["accountType"] = "Administrator"
+
+        sid = u.get("sid")
+        if sid in policies:
+            pol = policies[sid]
+            u["isManaged"] = bool(pol["is_managed"])
+            u["blockUserWritableDirectories"] = bool(pol["block_user_writable_directories"])
+        else:
+            if is_admin:
+                u["isManaged"] = False
+                u["blockUserWritableDirectories"] = False
+            else:
+                u["isManaged"] = True
+                u["blockUserWritableDirectories"] = True
+    return users
+
 @app.get("/api/nodes/{device_id}/processes")
 async def get_node_processes(device_id: str):
     dev_data = live_telemetry.get(device_id, {})
@@ -254,7 +314,17 @@ async def get_node_processes(device_id: str):
 @app.get("/api/nodes/{device_id}/users")
 async def get_node_users(device_id: str):
     dev_data = live_telemetry.get(device_id, {})
-    return {"success": True, "data": dev_data.get("users", [])}
+    users = dev_data.get("users", [])
+    if not users:
+        cache_file = os.path.join(DATA_DIR, f"users_{device_id}.json")
+        if os.path.exists(cache_file):
+            try:
+                with open(cache_file, "r", encoding="utf-8") as f:
+                    users = json.load(f)
+            except Exception:
+                pass
+    users = apply_db_user_policies(device_id, users)
+    return {"success": True, "data": users}
 
 @app.get("/api/nodes/{device_id}/installed_apps")
 @app.get("/api/nodes/{device_id}/installed-apps")
@@ -307,8 +377,38 @@ async def lock_node_screen(device_id: str):
 
 @app.post("/api/nodes/{device_id}/users/manage")
 async def manage_node_user(device_id: str, payload: Dict[str, Any]):
+    sid = payload.get("sid")
+    is_managed = 1 if payload.get("isManaged") else 0
+    block_dirs = 1 if payload.get("blockUserWritableDirectories") else 0
+
+    if sid:
+        try:
+            conn = sqlite3.connect(DB_PATH)
+            c = conn.cursor()
+            c.execute('''
+                INSERT INTO user_policies (device_id, sid, is_managed, block_user_writable_directories, updated_at)
+                VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+                ON CONFLICT(device_id, sid) DO UPDATE SET
+                    is_managed = excluded.is_managed,
+                    block_user_writable_directories = excluded.block_user_writable_directories,
+                    updated_at = CURRENT_TIMESTAMP
+            ''', (device_id, sid, is_managed, block_dirs))
+            conn.commit()
+            conn.close()
+        except Exception as e:
+            print(f"[-] DB error saving user policy: {e}")
+
+    # Immediately reflect on live_telemetry
+    if device_id in live_telemetry and "users" in live_telemetry[device_id]:
+        live_telemetry[device_id]["users"] = apply_db_user_policies(device_id, live_telemetry[device_id]["users"])
+
     sent = await manager.send_command(device_id, {"action": "manage_user", "payload": payload})
-    return {"success": True, "message": "User settings dispatched to agent"}
+    return {"success": True, "message": "User policy saved and dispatched"}
+
+@app.post("/api/nodes/{device_id}/system/open-account-settings")
+async def open_node_account_settings(device_id: str):
+    sent = await manager.send_command(device_id, {"action": "open_account_settings", "payload": {}})
+    return {"success": True, "message": "Dispatched request to open Account Settings"}
 
 # -------------------------------------------------------------------
 # Rules & Schedules (12pm-8pm)
@@ -384,24 +484,56 @@ async def get_node_dns(device_id: str):
     c = conn.cursor()
     c.execute("SELECT * FROM dns_settings WHERE device_id = ?", (device_id,))
     row = c.fetchone()
+    c.execute("SELECT value FROM global_settings WHERE key = 'fleet_dns_apply_to_all'")
+    g_row = c.fetchone()
+    apply_to_all_val = (g_row is not None and g_row[0] == '1')
     conn.close()
     if row:
-        return {"success": True, "data": dict(row)}
+        data = dict(row)
+        data["apply_to_all"] = 1 if apply_to_all_val else 0
+        return {"success": True, "data": data}
     return {
         "success": True,
         "data": {
             "device_id": device_id,
-            "preset": "cloudflare_family",
-            "primary_dns": "1.1.1.3",
-            "secondary_dns": "1.0.0.3",
-            "is_enabled": 1
+            "preset": "cloudflare_public",
+            "primary_dns": "1.1.1.1",
+            "secondary_dns": "1.0.0.1",
+            "primary_ipv6": "2606:4700:4700::1111",
+            "secondary_ipv6": "2606:4700:4700::1001",
+            "is_enabled": 1,
+            "apply_to_all": 1 if apply_to_all_val else 0
         }
     }
+
+class ToggleFleetDnsDto(BaseModel):
+    apply_to_all: bool
+
+@app.post("/api/settings/fleet-dns-toggle")
+async def toggle_fleet_dns(dto: ToggleFleetDnsDto):
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute('''
+        INSERT INTO global_settings (key, value, updated_at)
+        VALUES ('fleet_dns_apply_to_all', ?, CURRENT_TIMESTAMP)
+        ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP
+    ''', ('1' if dto.apply_to_all else '0',))
+    conn.commit()
+    conn.close()
+    return {"success": True, "apply_to_all": dto.apply_to_all}
 
 @app.post("/api/nodes/{device_id}/dns")
 async def set_node_dns(device_id: str, dto: DnsSettingsDto):
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
+    
+    # Save fleet_dns_apply_to_all state permanently
+    c.execute('''
+        INSERT INTO global_settings (key, value, updated_at)
+        VALUES ('fleet_dns_apply_to_all', ?, CURRENT_TIMESTAMP)
+        ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP
+    ''', ('1' if dto.apply_to_all else '0',))
+
     target_devices = [device_id]
     if dto.apply_to_all:
         c.execute("SELECT id FROM devices")
@@ -411,15 +543,17 @@ async def set_node_dns(device_id: str, dto: DnsSettingsDto):
 
     for dev_id in target_devices:
         c.execute('''
-            INSERT INTO dns_settings (device_id, preset, primary_dns, secondary_dns, is_enabled, updated_at)
-            VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            INSERT INTO dns_settings (device_id, preset, primary_dns, secondary_dns, primary_ipv6, secondary_ipv6, is_enabled, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
             ON CONFLICT(device_id) DO UPDATE SET
                 preset = excluded.preset,
                 primary_dns = excluded.primary_dns,
                 secondary_dns = excluded.secondary_dns,
+                primary_ipv6 = excluded.primary_ipv6,
+                secondary_ipv6 = excluded.secondary_ipv6,
                 is_enabled = excluded.is_enabled,
                 updated_at = CURRENT_TIMESTAMP
-        ''', (dev_id, dto.preset, dto.primary_dns, dto.secondary_dns, 1 if dto.is_enabled else 0))
+        ''', (dev_id, dto.preset, dto.primary_dns, dto.secondary_dns, dto.primary_ipv6 or '', dto.secondary_ipv6 or '', 1 if dto.is_enabled else 0))
 
         # Push command to connected agent
         await manager.send_command(dev_id, {
@@ -428,6 +562,8 @@ async def set_node_dns(device_id: str, dto: DnsSettingsDto):
                 "preset": dto.preset,
                 "primary_dns": dto.primary_dns,
                 "secondary_dns": dto.secondary_dns,
+                "primary_ipv6": dto.primary_ipv6 or '',
+                "secondary_ipv6": dto.secondary_ipv6 or '',
                 "is_enabled": 1 if dto.is_enabled else 0
             }
         })
