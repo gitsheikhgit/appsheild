@@ -22,12 +22,17 @@ if [ -f "$PLIST_PATH" ]; then
     rm -f "$PLIST_PATH"
 fi
 
-# Kill any remaining agent processes
+# Kill any remaining agent and GUI processes
 pkill -f "AppShield/agent/agent.py" 2>/dev/null || true
+pkill -f "AppShield.app" 2>/dev/null || true
+pkill -f "AppShield Admin.app" 2>/dev/null || true
 
-echo "[+] Removing AppShield files..."
+echo "[+] Removing AppShield system files..."
 rm -rf "/Library/Application Support/AppShield"
 rm -f "/var/log/appshield-agent.log"
+rm -rf "/Applications/AppShield.app" 2>/dev/null || true
+rm -rf "/Applications/AppShield Admin.app" 2>/dev/null || true
+rm -rf "$HOME/.appshield" 2>/dev/null || true
 
 echo "[+] AppShield macOS agent uninstalled cleanly."
 echo "===================================================================="
