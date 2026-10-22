@@ -298,13 +298,21 @@ class CommandDto(BaseModel):
     payload: Dict[str, Any]
 
 class RuleCreateDto(BaseModel):
-    device_id: str
-    rule_type: str  # "AllowedWindow", "BlockPath"
+    device_id: Optional[str] = ""
+    rule_type: str = "AllowedWindow"  # "AllowedWindow", "BlockPath", "ScheduleBlock", "AlwaysBlock"
     target_process: Optional[str] = ""
     target_path: Optional[str] = ""
     schedule_start: Optional[str] = "12:00"
     schedule_end: Optional[str] = "20:00"
     is_enabled: bool = True
+
+class BatchRuleCreateDto(BaseModel):
+    apps: List[str]  # List of target executable names or display names
+    rule_type: str = "AllowedWindow"
+    schedule_start: Optional[str] = "12:00"
+    schedule_end: Optional[str] = "20:00"
+    is_enabled: bool = True
+    target_path: Optional[str] = ""
 
 class DnsSettingsDto(BaseModel):
     preset: str = "cloudflare_public"  # "cloudflare_public", "cloudflare_family", "adguard_family", "cleanbrowsing", "quad9", "opendns_family", "custom", "disabled"
@@ -675,6 +683,28 @@ async def add_node_rule(device_id: str, rule: RuleCreateDto):
     # Immediately push rule update to connected agent
     await manager.send_command(device_id, {"action": "sync_rules", "payload": {"rule_id": rule_id}})
     return {"success": True, "rule_id": rule_id}
+
+@app.post("/api/nodes/{device_id}/rules/batch")
+async def add_batch_rules(device_id: str, dto: BatchRuleCreateDto):
+    created_ids = []
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    for app in dto.apps:
+        clean_app = app.strip()
+        if not clean_app:
+            continue
+        c.execute("DELETE FROM rules WHERE device_id = ? AND target_process = ?", (device_id, clean_app))
+        rule_id = f"rule_{random.randint(10000, 99999)}"
+        c.execute('''
+            INSERT INTO rules (id, device_id, rule_type, target_process, target_path, schedule_start, schedule_end, is_enabled)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (rule_id, device_id, dto.rule_type, clean_app, dto.target_path or '', dto.schedule_start, dto.schedule_end, 1 if dto.is_enabled else 0))
+        created_ids.append(rule_id)
+    conn.commit()
+    conn.close()
+
+    await manager.send_command(device_id, {"action": "sync_rules", "payload": {"rule_ids": created_ids}})
+    return {"success": True, "created_count": len(created_ids), "rule_ids": created_ids}
 
 @app.delete("/api/nodes/{device_id}/rules/{rule_id}")
 async def delete_node_rule(device_id: str, rule_id: str):

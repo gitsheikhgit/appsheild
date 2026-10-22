@@ -2,7 +2,7 @@
 <html lang="en" class="dark">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <meta name="theme-color" content="#11131c">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -43,6 +43,12 @@
     }
   </script>
   <style>
+    :root {
+      --sat: env(safe-area-inset-top, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
+      --sar: env(safe-area-inset-right, 0px);
+    }
     body {
       background-color: #0c0e14;
       color: #f3f4f6;
@@ -94,21 +100,28 @@
   <!-- LEFT SIDEBAR NAVIGATION -->
   <aside 
     :class="mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'"
-    class="fixed md:static inset-y-0 left-0 w-64 flex-shrink-0 bg-[#11131c] border-r border-zinc-800/80 flex flex-col h-screen select-none z-50 transition-transform duration-200 ease-in-out shadow-2xl md:shadow-none">
+    class="fixed md:static inset-y-0 left-0 w-72 sm:w-64 flex-shrink-0 bg-[#11131c] border-r border-zinc-800/80 flex flex-col h-screen select-none z-50 transition-transform duration-200 ease-in-out shadow-2xl md:shadow-none"
+    style="padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px);">
     <!-- Brand Header -->
-    <div class="p-4 border-b border-zinc-800/80 flex items-center space-x-3 bg-zinc-950/40">
-      <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/20 flex-shrink-0">
-        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
-        </svg>
-      </div>
-      <div class="overflow-hidden">
-        <div class="flex items-center space-x-1.5">
-          <h1 class="text-base font-display font-bold text-white tracking-wide truncate">AppShield</h1>
-          <span class="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">v1.2.0</span>
+    <div class="p-4 border-b border-zinc-800/80 flex items-center justify-between bg-zinc-950/40">
+      <div class="flex items-center space-x-3 overflow-hidden">
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/20 flex-shrink-0">
+          <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+          </svg>
         </div>
-        <p class="text-[11px] text-zinc-400 truncate">Fleet Control Center</p>
+        <div class="overflow-hidden">
+          <div class="flex items-center space-x-1.5">
+            <h1 class="text-base font-display font-bold text-white tracking-wide truncate">AppShield</h1>
+            <span class="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">v1.2.0</span>
+          </div>
+          <p class="text-[11px] text-zinc-400 truncate">Fleet Control Center</p>
+        </div>
       </div>
+      <!-- Close drawer button for mobile -->
+      <button @click="mobileSidebarOpen = false" class="md:hidden p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 transition" aria-label="Close menu">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
     </div>
 
     <!-- Target PC / Node Selector -->
@@ -269,47 +282,55 @@
   <!-- RIGHT CONTENT CANVAS -->
   <div class="flex-1 flex flex-col h-screen overflow-hidden">
     <!-- Top Header Bar -->
-    <header class="h-14 flex-shrink-0 bg-[#11131c]/90 backdrop-blur border-b border-zinc-800/80 px-4 md:px-6 flex items-center justify-between z-20">
-      <div class="flex items-center space-x-2 md:space-x-3">
-        <!-- Mobile Sidebar Toggle -->
-        <button @click="mobileSidebarOpen = !mobileSidebarOpen" class="md:hidden p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 focus:outline-none flex items-center justify-center">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
-        </button>
-        <h2 class="text-xs md:text-sm font-bold text-white tracking-wide flex items-center space-x-2 truncate">
-          <span x-show="activeTab === 'overview'">🛡️ Overview & Fleet Command</span>
-          <span x-show="activeTab === 'processes'">📱 Active Applications</span>
-          <span x-show="activeTab === 'users'">👥 User Accounts & Child Path Jail</span>
-          <span x-show="activeTab === 'rules'">📜 Application Rules & Schedules</span>
-          <span x-show="activeTab === 'installed'">📦 Installed Applications</span>
-          <span x-show="activeTab === 'logs'">📋 Intercepted Audit Logs</span>
-          <span x-show="activeTab === 'dns'">🛡️ Web & Family DNS Shield</span>
-          <span x-show="activeTab === 'settings'">⚙️ Node Settings & Master Credentials</span>
-        </h2>
-        <span x-show="currentNode" class="text-[11px] text-zinc-400 bg-zinc-800/80 px-2 py-0.5 rounded border border-zinc-700/50 font-mono" x-text="currentNode?.name"></span>
-      </div>
-
-      <div class="flex items-center space-x-3 text-xs">
-        <!-- Global Telemetry -->
-        <div class="hidden lg:flex items-center space-x-3 text-[11px] text-zinc-400 mr-2">
-          <span x-show="currentNode?.agent_version" class="bg-indigo-600/30 text-indigo-300 border border-indigo-500/40 px-2 py-0.5 rounded font-mono text-[10px] font-bold" x-text="'Agent v' + currentNode.agent_version"></span>
-          <span x-show="currentNode?.uptime_seconds" x-text="'Uptime: ' + formatUptime(currentNode.uptime_seconds)"></span>
+    <header class="flex-shrink-0 bg-[#11131c]/95 backdrop-blur border-b border-zinc-800/80 px-3 sm:px-6 z-20"
+            style="padding-top: max(0.5rem, env(safe-area-inset-top, 0px)); min-height: calc(3.5rem + env(safe-area-inset-top, 0px));">
+      <div class="h-14 flex items-center justify-between gap-2">
+        <div class="flex items-center space-x-2 sm:space-x-3 min-w-0">
+          <!-- Mobile Sidebar Toggle -->
+          <button @click="mobileSidebarOpen = !mobileSidebarOpen" class="md:hidden w-10 h-10 rounded-lg bg-zinc-800/90 border border-zinc-700/60 text-zinc-300 hover:text-white hover:bg-zinc-700 focus:outline-none flex items-center justify-center flex-shrink-0 transition" aria-label="Open Navigation Menu">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+          </button>
+          <div class="min-w-0">
+            <h2 class="text-xs sm:text-sm font-bold text-white tracking-wide flex items-center space-x-1.5 truncate">
+              <span x-show="activeTab === 'overview'" class="truncate">🛡️ Overview & Fleet</span>
+              <span x-show="activeTab === 'processes'" class="truncate">📱 Active Apps</span>
+              <span x-show="activeTab === 'users'" class="truncate">👥 Child Path Jail</span>
+              <span x-show="activeTab === 'rules'" class="truncate">⏱️ Schedules & Rules</span>
+              <span x-show="activeTab === 'installed'" class="truncate">📦 Installed Apps</span>
+              <span x-show="activeTab === 'logs'" class="truncate">📋 Audit Logs</span>
+              <span x-show="activeTab === 'dns'" class="truncate">🛡️ Family DNS</span>
+              <span x-show="activeTab === 'settings'" class="truncate">⚙️ Settings</span>
+            </h2>
+            <div class="flex items-center space-x-1.5 text-[10px] text-zinc-400 font-mono truncate">
+              <span class="inline-block w-2 h-2 rounded-full flex-shrink-0" :class="currentNode?.status?.startsWith('online') ? 'bg-emerald-400 shadow-sm shadow-emerald-400/50' : 'bg-rose-400'"></span>
+              <span x-text="currentNode ? currentNode.name : 'No Target Selected'" class="truncate font-semibold text-zinc-300"></span>
+            </div>
+          </div>
         </div>
 
-        <button @click="showAddModal = true; runMdnsScan()" class="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700/60 px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition">
-          <span>🔍</span>
-          <span>Scan Subnet</span>
-        </button>
-        <button @click="showAddModal = true" class="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition shadow-md shadow-indigo-600/20">
-          <span>➕</span>
-          <span>Add PC</span>
-        </button>
-        <button 
-          @click="logout()" 
-          title="Lock Console / Sign Out" 
-          class="bg-zinc-800/90 hover:bg-rose-950/50 hover:text-rose-300 hover:border-rose-500/40 text-zinc-300 border border-zinc-700/60 px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition">
-          <svg class="w-3.5 h-3.5 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
-          <span class="hidden sm:inline">Lock</span>
-        </button>
+        <div class="flex items-center space-x-1.5 sm:space-x-3 text-xs flex-shrink-0">
+          <!-- Global Telemetry (Desktop) -->
+          <div class="hidden lg:flex items-center space-x-3 text-[11px] text-zinc-400 mr-2">
+            <span x-show="currentNode?.agent_version" class="bg-indigo-600/30 text-indigo-300 border border-indigo-500/40 px-2 py-0.5 rounded font-mono text-[10px] font-bold" x-text="'Agent v' + currentNode.agent_version"></span>
+            <span x-show="currentNode?.uptime_seconds" x-text="'Uptime: ' + formatUptime(currentNode.uptime_seconds)"></span>
+          </div>
+
+          <button @click="showAddModal = true; runMdnsScan()" class="hidden sm:flex bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700/60 px-2.5 py-1.5 rounded-lg text-xs font-semibold items-center space-x-1.5 transition">
+            <span>🔍</span>
+            <span>Scan Subnet</span>
+          </button>
+          <button @click="showAddModal = true" class="hidden sm:flex bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg text-xs font-semibold items-center space-x-1.5 transition shadow-md shadow-indigo-600/20">
+            <span>➕</span>
+            <span>Add PC</span>
+          </button>
+          <button 
+            @click="logout()" 
+            title="Lock Console / Sign Out" 
+            class="bg-zinc-800/90 hover:bg-rose-950/50 hover:text-rose-300 hover:border-rose-500/40 text-zinc-300 border border-zinc-700/60 px-2 sm:px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-1 transition">
+            <svg class="w-3.5 h-3.5 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+            <span class="hidden sm:inline">Lock</span>
+          </button>
+        </div>
       </div>
     </header>
 
@@ -330,7 +351,7 @@
     </div>
 
     <!-- Scrollable Main Content Canvas -->
-    <main class="flex-1 overflow-y-auto p-6 custom-scroll space-y-6">
+    <main class="flex-1 overflow-y-auto p-4 sm:p-6 pb-28 md:pb-6 custom-scroll space-y-6">
 
       <!-- Empty Fleet Prompt -->
       <div x-show="fleet.length === 0" class="p-8 glass-card border border-indigo-500/30 rounded-2xl text-center space-y-4 max-w-xl mx-auto shadow-2xl">
@@ -426,7 +447,7 @@
             <p class="text-xs text-zinc-400 leading-relaxed">
               Quickly restrict games or applications to afternoon and evening hours only. Outside of 12pm-8pm, the app terminates automatically.
             </p>
-            <button @click="activeTab = 'rules'; newRule.ruleType = 'AllowedWindow'; newRule.scheduleStart = '12:00'; newRule.scheduleEnd = '20:00'" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-lg transition shadow flex items-center space-x-1.5">
+            <button @click="openScheduleModalWithPreset('12:00', '20:00')" class="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-lg transition shadow flex items-center space-x-1.5">
               <span>⚡ Configure 12pm–8pm Schedule</span>
             </button>
           </div>
@@ -478,6 +499,14 @@
 
     <!-- TAB 1: ACTIVE APPLICATIONS MONITOR -->
     <div x-show="activeTab === 'processes'" class="space-y-4">
+      <!-- Breadcrumb to return to Main Overview -->
+      <div class="flex items-center justify-between pb-2 border-b border-zinc-800/60">
+        <button @click="activeTab = 'overview'" class="inline-flex items-center space-x-1.5 text-xs font-semibold text-indigo-400 hover:text-indigo-300 py-1.5 px-3 rounded-lg bg-indigo-950/40 border border-indigo-800/50 transition">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+          <span>← Back to Main Screen</span>
+        </button>
+        <span class="text-xs text-zinc-400 font-mono" x-text="currentNode?.name"></span>
+      </div>
       <!-- Search & Filters -->
       <div class="flex flex-col sm:flex-row justify-between items-center gap-3 glass-card p-4 rounded-xl">
         <div class="flex items-center space-x-2 w-full sm:w-80">
@@ -577,6 +606,14 @@
 
     <!-- TAB 2: USER ACCOUNTS & PATH JAIL -->
     <div x-show="activeTab === 'users'" class="space-y-4">
+      <!-- Breadcrumb to return to Main Overview -->
+      <div class="flex items-center justify-between pb-2 border-b border-zinc-800/60">
+        <button @click="activeTab = 'overview'" class="inline-flex items-center space-x-1.5 text-xs font-semibold text-indigo-400 hover:text-indigo-300 py-1.5 px-3 rounded-lg bg-indigo-950/40 border border-indigo-800/50 transition">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+          <span>← Back to Main Screen</span>
+        </button>
+        <span class="text-xs text-zinc-400 font-mono" x-text="currentNode?.name"></span>
+      </div>
       <div class="flex flex-wrap justify-between items-center glass-card p-4 rounded-xl gap-3">
         <div>
           <h2 class="text-sm font-bold text-white">Target Machine User Accounts (<span class="text-indigo-400" x-text="currentNode?.name || 'Local Machine'"></span>)</h2>
@@ -682,10 +719,25 @@
 
     <!-- TAB 3: RULES, SCHEDULES & QUOTAS -->
     <div x-show="activeTab === 'rules'" class="space-y-6">
+      <!-- Breadcrumb to return to Main Overview -->
+      <div class="flex items-center justify-between pb-2 border-b border-zinc-800/60">
+        <button @click="activeTab = 'overview'" class="inline-flex items-center space-x-1.5 text-xs font-semibold text-indigo-400 hover:text-indigo-300 py-1.5 px-3 rounded-lg bg-indigo-950/40 border border-indigo-800/50 transition">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+          <span>← Back to Main Screen</span>
+        </button>
+        <div class="flex items-center space-x-2">
+          <span class="text-xs text-zinc-400 font-mono hidden sm:inline" x-text="currentNode?.name"></span>
+          <button @click="openScheduleModalWithPreset('12:00', '20:00')" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold transition flex items-center space-x-1 shadow-md shadow-indigo-600/20">
+            <span>➕</span>
+            <span>Schedule Apps</span>
+          </button>
+        </div>
+      </div>
+
       <div class="flex flex-col sm:flex-row justify-between items-center gap-3 glass-card p-4 rounded-xl">
         <div>
           <h2 class="text-sm font-bold text-white">Active Application Rules & Overrides</h2>
-          <p class="text-xs text-zinc-400">Manage 3-layer anti-rename rules, daily runtime limits, and schedule blocks.</p>
+          <p class="text-xs text-zinc-400">Manage scheduled allowed windows, 3-layer anti-rename protections, and app limits.</p>
         </div>
         <div class="flex items-center space-x-2">
           <button 
@@ -694,9 +746,9 @@
             ⏳ Grant Remote Override
           </button>
           <button 
-            @click="openCreateRuleModal()" 
+            @click="openScheduleModalWithPreset('12:00', '20:00')" 
             class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold px-3 py-2 rounded-lg transition shadow-md shadow-indigo-600/20">
-            + Create New Rule
+            + Schedule Applications
           </button>
         </div>
       </div>
@@ -721,7 +773,7 @@
       </div>
 
       <!-- Rules Table -->
-      <div class="glass-card rounded-xl overflow-hidden border border-zinc-800">
+      <div class="glass-card rounded-xl overflow-x-auto border border-zinc-800 custom-scroll">
         <table class="w-full text-left text-xs">
           <thead class="bg-zinc-950/80 text-zinc-400 uppercase text-[10px] tracking-wider border-b border-zinc-800">
             <tr>
@@ -783,6 +835,14 @@
 
     <!-- TAB 4: AUDIT LOGS -->
     <div x-show="activeTab === 'logs'" class="space-y-4">
+      <!-- Breadcrumb to return to Main Overview -->
+      <div class="flex items-center justify-between pb-2 border-b border-zinc-800/60">
+        <button @click="activeTab = 'overview'" class="inline-flex items-center space-x-1.5 text-xs font-semibold text-indigo-400 hover:text-indigo-300 py-1.5 px-3 rounded-lg bg-indigo-950/40 border border-indigo-800/50 transition">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+          <span>← Back to Main Screen</span>
+        </button>
+        <span class="text-xs text-zinc-400 font-mono" x-text="currentNode?.name"></span>
+      </div>
       <div class="flex justify-between items-center glass-card p-4 rounded-xl">
         <div>
           <h2 class="text-sm font-bold text-white">Application Block & Enforcement Audit Log</h2>
@@ -845,6 +905,14 @@
 
     <!-- TAB 4: INSTALLED APPLICATIONS SCANNER -->
     <div x-show="activeTab === 'installed'" class="space-y-4">
+      <!-- Breadcrumb to return to Main Overview -->
+      <div class="flex items-center justify-between pb-2 border-b border-zinc-800/60">
+        <button @click="activeTab = 'overview'" class="inline-flex items-center space-x-1.5 text-xs font-semibold text-indigo-400 hover:text-indigo-300 py-1.5 px-3 rounded-lg bg-indigo-950/40 border border-indigo-800/50 transition">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+          <span>← Back to Main Screen</span>
+        </button>
+        <span class="text-xs text-zinc-400 font-mono" x-text="currentNode?.name"></span>
+      </div>
       <div class="glass-card p-4 rounded-xl border border-zinc-800 flex flex-col md:flex-row items-center justify-between gap-4">
         <div class="flex items-center space-x-3 w-full md:w-auto">
           <input 
@@ -932,6 +1000,14 @@
 
     <!-- TAB 6: WEB & FAMILY DNS SHIELD -->
     <div x-show="activeTab === 'dns'" class="space-y-6 max-w-5xl mx-auto">
+      <!-- Breadcrumb to return to Main Overview -->
+      <div class="flex items-center justify-between pb-2 border-b border-zinc-800/60">
+        <button @click="activeTab = 'overview'" class="inline-flex items-center space-x-1.5 text-xs font-semibold text-indigo-400 hover:text-indigo-300 py-1.5 px-3 rounded-lg bg-indigo-950/40 border border-indigo-800/50 transition">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+          <span>← Back to Main Screen</span>
+        </button>
+        <span class="text-xs text-zinc-400 font-mono" x-text="currentNode?.name"></span>
+      </div>
       <!-- Header Banner -->
       <div class="glass-card p-6 rounded-2xl border border-indigo-500/30 bg-gradient-to-r from-indigo-950/40 via-purple-950/20 to-zinc-900/60 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
@@ -1119,6 +1195,14 @@
 
     <!-- TAB 5: NODE SETTINGS, COMMANDS & UNINSTALLER -->
     <div x-show="activeTab === 'settings'" class="max-w-3xl mx-auto space-y-6">
+      <!-- Breadcrumb to return to Main Overview -->
+      <div class="flex items-center justify-between pb-2 border-b border-zinc-800/60">
+        <button @click="activeTab = 'overview'" class="inline-flex items-center space-x-1.5 text-xs font-semibold text-indigo-400 hover:text-indigo-300 py-1.5 px-3 rounded-lg bg-indigo-950/40 border border-indigo-800/50 transition">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+          <span>← Back to Main Screen</span>
+        </button>
+        <span class="text-xs text-zinc-400 font-mono" x-text="currentNode?.name"></span>
+      </div>
       <!-- Node Configuration Card -->
       <div class="glass-card p-6 rounded-xl border border-zinc-800 space-y-4">
         <h2 class="text-base font-bold text-white flex items-center space-x-2">
@@ -1283,7 +1367,7 @@
 
   <!-- MODAL: ADD PC TO FLEET -->
   <div x-show="showAddModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
-    <div class="glass-card max-w-md w-full p-6 rounded-2xl border border-zinc-700 space-y-4">
+    <div class="glass-card max-w-md w-full p-6 rounded-2xl border border-zinc-700 space-y-4 max-h-[calc(100dvh-2rem)] overflow-y-auto custom-scroll">
       <div class="flex justify-between items-center">
         <h3 class="text-base font-bold text-white">Add Windows Machine to Fleet</h3>
         <button @click="showAddModal = false" class="text-zinc-400 hover:text-white">&times;</button>
@@ -1352,59 +1436,79 @@
     </div>
   </div>
 
-  <!-- MODAL: CREATE / BLOCK RULE -->
-  <div x-show="showRuleModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
-    <div class="glass-card max-w-lg w-full p-6 rounded-2xl border border-zinc-700 space-y-4">
-      <div class="flex justify-between items-center">
-        <h3 class="text-base font-bold text-white">Create Application Enforcement Rule</h3>
-        <button @click="showRuleModal = false" class="text-zinc-400 hover:text-white">&times;</button>
+  <!-- MODAL: APPLICATION USAGE SCHEDULE & ENFORCEMENT RULES (RESPONSIVE & MOBILE-OPTIMIZED) -->
+  <div x-show="showRuleModal" 
+       @keydown.escape.window="showRuleModal = false"
+       class="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/85 backdrop-blur-md overflow-hidden" 
+       style="display: none;">
+    <div class="glass-card w-full max-w-2xl flex flex-col rounded-2xl border border-zinc-700 shadow-2xl overflow-hidden bg-[#121622]"
+         style="max-height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 1.5rem);">
+      
+      <!-- STICKY TOP BAR: BACK & CLOSE CONTROLS (NEVER TRAPS USER) -->
+      <div class="sticky top-0 bg-[#151926] px-4 py-3 border-b border-zinc-800 flex items-center justify-between z-10 flex-shrink-0">
+        <button type="button" @click="showRuleModal = false" class="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 hover:text-white text-xs font-semibold border border-zinc-700/80 transition shadow-sm">
+          <svg class="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"/></svg>
+          <span>← Back to Main Screen</span>
+        </button>
+        <div class="hidden sm:flex items-center space-x-1.5 text-xs font-bold text-white">
+          <span class="text-base">⏱️</span>
+          <span>Set App Usage Schedule</span>
+        </div>
+        <button type="button" @click="showRuleModal = false" class="w-8 h-8 flex items-center justify-center rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white text-xl font-bold transition" aria-label="Close modal">
+          &times;
+        </button>
       </div>
 
-      <div class="space-y-3 text-xs">
-        <div>
-          <label class="block text-zinc-400 mb-1">Target Account</label>
-          <select x-model="newRule.targetUserSid" class="w-full bg-zinc-900 border border-zinc-700 rounded px-3 py-1.5 text-white">
-            <option value="*">All Managed Accounts (*)</option>
-            <template x-for="u in users" :key="u.sid">
-              <option :value="u.sid" x-text="u.username + ' (' + u.sid + ')'"></option>
-            </template>
-          </select>
-        </div>
-
-        <div>
-          <label class="block text-zinc-400 mb-1">Enforcement Mode</label>
-          <select x-model="newRule.ruleType" class="w-full bg-zinc-900 border border-zinc-700 rounded px-3 py-1.5 text-white">
-            <option value="AllowedWindow">🟢 Allowed Hours Window (Kid can ONLY use between specific times, e.g. 12:00 PM – 8:00 PM)</option>
-            <option value="AlwaysBlock">🔴 Always Block (24/7 immediate termination)</option>
-            <option value="ScheduleBlock">⛔ Bedtime / Downtime Block (Block ONLY during specific hours, e.g. 9:00 PM – 7:00 AM)</option>
-            <option value="DailyQuota">⏱️ Daily Quota (Cumulative daily runtime limit, e.g. 60 min/day)</option>
-          </select>
-        </div>
-
-        <!-- Schedule / Allowed Time Configuration Box -->
-        <div x-show="newRule.ruleType === 'AllowedWindow' || newRule.ruleType === 'ScheduleBlock'" class="p-3 bg-zinc-900/80 rounded-lg border border-zinc-700/80 space-y-3">
+      <!-- SCROLLABLE MODAL BODY -->
+      <div class="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5 custom-scroll overscroll-contain">
+        
+        <!-- STEP 1: SCHEDULE WINDOW & TIME PRESETS -->
+        <div class="p-3.5 sm:p-4 bg-zinc-900/90 rounded-xl border border-zinc-800 space-y-3">
           <div class="flex items-center justify-between">
-            <span class="text-[11px] font-bold text-indigo-400 uppercase tracking-wider">
-              <span x-show="newRule.ruleType === 'AllowedWindow'">Allowed Usage Schedule</span>
-              <span x-show="newRule.ruleType === 'ScheduleBlock'">Restricted / Downtime Schedule</span>
+            <span class="text-[11px] font-bold text-indigo-400 uppercase tracking-wider flex items-center space-x-1.5">
+              <span>⏱️ Step 1: Set Allowed Usage Window</span>
             </span>
           </div>
 
           <!-- Quick Presets -->
           <div>
             <label class="block text-[11px] text-zinc-400 mb-1.5">Quick Time Presets:</label>
-            <div class="grid grid-cols-2 gap-1.5">
-              <button type="button" @click="setTimePreset('12:00', '20:00')" class="px-2 py-1 text-[11px] rounded bg-zinc-800 hover:bg-indigo-600/30 hover:border-indigo-500 text-zinc-200 border border-zinc-700 text-left transition">
-                🕒 12:00 PM – 8:00 PM (Afternoon/Evening)
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <button type="button" @click="setTimePreset('12:00', '20:00')" 
+                      :class="(newRule.scheduleStart === '12:00' && newRule.scheduleEnd === '20:00') ? 'border-indigo-500 bg-indigo-950/60 text-white font-bold ring-1 ring-indigo-500/50' : 'bg-zinc-800/90 text-zinc-300 border-zinc-700 hover:bg-zinc-700/60'"
+                      class="px-2.5 py-2 text-xs rounded-lg border text-left transition flex items-center space-x-2">
+                <span class="text-base">🕒</span>
+                <div>
+                  <div class="font-semibold">12:00 PM – 8:00 PM</div>
+                  <div class="text-[10px] text-zinc-400">Afternoon & Evening (Default)</div>
+                </div>
               </button>
-              <button type="button" @click="setTimePreset('15:00', '20:00')" class="px-2 py-1 text-[11px] rounded bg-zinc-800 hover:bg-indigo-600/30 hover:border-indigo-500 text-zinc-200 border border-zinc-700 text-left transition">
-                🎒 3:00 PM – 8:00 PM (After School)
+              <button type="button" @click="setTimePreset('15:00', '20:00')" 
+                      :class="(newRule.scheduleStart === '15:00' && newRule.scheduleEnd === '20:00') ? 'border-indigo-500 bg-indigo-950/60 text-white font-bold ring-1 ring-indigo-500/50' : 'bg-zinc-800/90 text-zinc-300 border-zinc-700 hover:bg-zinc-700/60'"
+                      class="px-2.5 py-2 text-xs rounded-lg border text-left transition flex items-center space-x-2">
+                <span class="text-base">🎒</span>
+                <div>
+                  <div class="font-semibold">3:00 PM – 8:00 PM</div>
+                  <div class="text-[10px] text-zinc-400">After School Homework Window</div>
+                </div>
               </button>
-              <button type="button" @click="setTimePreset('09:00', '17:00')" class="px-2 py-1 text-[11px] rounded bg-zinc-800 hover:bg-indigo-600/30 hover:border-indigo-500 text-zinc-200 border border-zinc-700 text-left transition">
-                ☀️ 9:00 AM – 5:00 PM (Daytime)
+              <button type="button" @click="setTimePreset('09:00', '17:00')" 
+                      :class="(newRule.scheduleStart === '09:00' && newRule.scheduleEnd === '17:00') ? 'border-indigo-500 bg-indigo-950/60 text-white font-bold ring-1 ring-indigo-500/50' : 'bg-zinc-800/90 text-zinc-300 border-zinc-700 hover:bg-zinc-700/60'"
+                      class="px-2.5 py-2 text-xs rounded-lg border text-left transition flex items-center space-x-2">
+                <span class="text-base">☀️</span>
+                <div>
+                  <div class="font-semibold">9:00 AM – 5:00 PM</div>
+                  <div class="text-[10px] text-zinc-400">Daytime Weekend Schedule</div>
+                </div>
               </button>
-              <button type="button" @click="setTimePreset('21:00', '07:00')" class="px-2 py-1 text-[11px] rounded bg-zinc-800 hover:bg-indigo-600/30 hover:border-indigo-500 text-zinc-200 border border-zinc-700 text-left transition">
-                🌙 9:00 PM – 7:00 AM (Bedtime Downtime)
+              <button type="button" @click="setTimePreset('21:00', '07:00'); newRule.ruleType = 'ScheduleBlock'" 
+                      :class="(newRule.scheduleStart === '21:00' && newRule.scheduleEnd === '07:00') ? 'border-amber-500 bg-amber-950/40 text-white font-bold ring-1 ring-amber-500/50' : 'bg-zinc-800/90 text-zinc-300 border-zinc-700 hover:bg-zinc-700/60'"
+                      class="px-2.5 py-2 text-xs rounded-lg border text-left transition flex items-center space-x-2">
+                <span class="text-base">🌙</span>
+                <div>
+                  <div class="font-semibold">9:00 PM – 7:00 AM</div>
+                  <div class="text-[10px] text-amber-400">Bedtime Downtime Block</div>
+                </div>
               </button>
             </div>
           </div>
@@ -1412,64 +1516,194 @@
           <!-- Custom Time Pickers -->
           <div class="grid grid-cols-2 gap-3 pt-1">
             <div>
-              <label class="block text-zinc-400 mb-1">Start Time (HH:mm)</label>
-              <input type="time" x-model="newRule.scheduleStart" class="w-full bg-zinc-950 border border-zinc-700 rounded px-2.5 py-1.5 text-white font-mono">
-              <div class="text-[10px] text-zinc-500 mt-0.5" x-text="formatTime12(newRule.scheduleStart)"></div>
+              <label class="block text-[11px] text-zinc-400 mb-1">Start Time</label>
+              <input type="time" x-model="newRule.scheduleStart" class="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-2.5 py-1.5 text-white font-mono text-xs focus:border-indigo-500">
+              <div class="text-[10px] text-zinc-400 mt-1 font-semibold" x-text="'Preview: ' + formatTime12(newRule.scheduleStart)"></div>
             </div>
             <div>
-              <label class="block text-zinc-400 mb-1">End Time (HH:mm)</label>
-              <input type="time" x-model="newRule.scheduleEnd" class="w-full bg-zinc-950 border border-zinc-700 rounded px-2.5 py-1.5 text-white font-mono">
-              <div class="text-[10px] text-zinc-500 mt-0.5" x-text="formatTime12(newRule.scheduleEnd)"></div>
+              <label class="block text-[11px] text-zinc-400 mb-1">End Time</label>
+              <input type="time" x-model="newRule.scheduleEnd" class="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-2.5 py-1.5 text-white font-mono text-xs focus:border-indigo-500">
+              <div class="text-[10px] text-zinc-400 mt-1 font-semibold" x-text="'Preview: ' + formatTime12(newRule.scheduleEnd)"></div>
             </div>
           </div>
 
           <!-- Dynamic Behavior Summary Notice -->
-          <div x-show="newRule.ruleType === 'AllowedWindow'" class="p-2.5 rounded bg-emerald-500/10 border border-emerald-500/30 text-[11px] text-emerald-300">
-            <span class="font-bold">🟢 Active Policy:</span> Kid can <strong class="underline">ONLY</strong> launch and use this app between <span class="font-bold text-white" x-text="formatTime12(newRule.scheduleStart)"></span> and <span class="font-bold text-white" x-text="formatTime12(newRule.scheduleEnd)"></span>. It will be automatically blocked at all other times.
+          <div x-show="newRule.ruleType === 'AllowedWindow'" class="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-[11px] text-emerald-300 flex items-start space-x-2">
+            <span class="text-base flex-shrink-0">🟢</span>
+            <div>
+              <span class="font-bold">Active Policy:</span> Kid can <strong class="underline">ONLY</strong> launch and use selected apps between <span class="font-bold text-white" x-text="formatTime12(newRule.scheduleStart)"></span> and <span class="font-bold text-white" x-text="formatTime12(newRule.scheduleEnd)"></span>. Outside this window, apps will be blocked automatically.
+            </div>
           </div>
-          <div x-show="newRule.ruleType === 'ScheduleBlock'" class="p-2.5 rounded bg-amber-500/10 border border-amber-500/30 text-[11px] text-amber-300">
-            <span class="font-bold">⛔ Active Policy:</span> App is <strong class="underline">BLOCKED</strong> between <span class="font-bold text-white" x-text="formatTime12(newRule.scheduleStart)"></span> and <span class="font-bold text-white" x-text="formatTime12(newRule.scheduleEnd)"></span>. Kid can run it freely outside this window.
-          </div>
-        </div>
-
-        <div x-show="newRule.ruleType === 'DailyQuota'" class="p-3 bg-zinc-900/60 rounded-lg border border-zinc-800">
-          <label class="block text-zinc-400 mb-1">Daily Quota (Minutes allowed per calendar day)</label>
-          <input type="number" min="1" max="1440" x-model.number="newRule.quotaMinutes" class="w-full bg-zinc-900 border border-zinc-700 rounded px-3 py-1.5 text-white font-mono">
-        </div>
-
-        <!-- 3-Layer Anti-Rename Identification Fields -->
-        <div class="p-3 bg-zinc-900/90 rounded-lg border border-zinc-800 space-y-2">
-          <div class="text-[11px] font-bold text-indigo-400 uppercase tracking-wider">3-Layer Anti-Rename Identification</div>
-          <div>
-            <label class="block text-zinc-400 mb-1">1. Executable Name (e.g. discord.exe)</label>
-            <input type="text" x-model="newRule.processName" class="w-full bg-zinc-950 border border-zinc-700 rounded px-2.5 py-1.5 text-white font-mono text-xs">
-          </div>
-          <div>
-            <label class="block text-zinc-400 mb-1">2. PE Header OriginalFilename (anti-rename)</label>
-            <input type="text" x-model="newRule.originalFilename" class="w-full bg-zinc-950 border border-zinc-700 rounded px-2.5 py-1.5 text-white font-mono text-xs">
-          </div>
-          <div>
-            <label class="block text-zinc-400 mb-1">3. SHA-256 File Hash (tamper-proof binary signature)</label>
-            <input type="text" x-model="newRule.sha256Hash" class="w-full bg-zinc-950 border border-zinc-700 rounded px-2.5 py-1.5 text-white font-mono text-xs">
+          <div x-show="newRule.ruleType === 'ScheduleBlock'" class="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-[11px] text-amber-300 flex items-start space-x-2">
+            <span class="text-base flex-shrink-0">⛔</span>
+            <div>
+              <span class="font-bold">Active Policy:</span> Selected apps are <strong class="underline">BLOCKED</strong> during downtime between <span class="font-bold text-white" x-text="formatTime12(newRule.scheduleStart)"></span> and <span class="font-bold text-white" x-text="formatTime12(newRule.scheduleEnd)"></span>.
+            </div>
           </div>
         </div>
 
-        <div>
-          <label class="block text-zinc-400 mb-1">Rule Description / Notes</label>
-          <input type="text" x-model="newRule.description" placeholder="e.g. Bedtime gaming restriction" class="w-full bg-zinc-900 border border-zinc-700 rounded px-3 py-1.5 text-white">
+        <!-- STEP 2: SELECT APPLICATIONS (INDIVIDUAL OR BUNCH) -->
+        <div class="p-3.5 sm:p-4 bg-zinc-900/90 rounded-xl border border-zinc-800 space-y-3">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <span class="text-[11px] font-bold text-indigo-400 uppercase tracking-wider flex items-center space-x-1.5">
+                <span>📱 Step 2: Select Apps to Schedule</span>
+              </span>
+              <p class="text-[11px] text-zinc-400 mt-0.5">Pick apps individually or select a bunch at once.</p>
+            </div>
+            <div class="flex items-center space-x-2">
+              <span class="px-2.5 py-1 rounded-full text-xs font-bold border transition"
+                    :class="scheduleSelectedApps.length > 0 ? 'bg-indigo-600/30 text-indigo-300 border-indigo-500/50' : 'bg-zinc-800 text-zinc-400 border-zinc-700'"
+                    x-text="scheduleSelectedApps.length + ' apps selected'">
+              </span>
+              <button type="button" x-show="scheduleSelectedApps.length > 0" @click="clearScheduleAppSelection()" class="text-xs text-rose-400 hover:text-rose-300 font-semibold underline">
+                Clear
+              </button>
+            </div>
+          </div>
+
+          <!-- Quick Batch Selection Chips -->
+          <div class="flex flex-wrap items-center gap-1.5 pt-1">
+            <button type="button" @click="selectAllCategory('games')" class="px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-indigo-600/30 text-zinc-300 hover:text-indigo-200 border border-zinc-700 text-xs font-semibold transition flex items-center space-x-1">
+              <span>🎮</span>
+              <span>Select All Games</span>
+            </button>
+            <button type="button" @click="selectAllCategory('chat')" class="px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-indigo-600/30 text-zinc-300 hover:text-indigo-200 border border-zinc-700 text-xs font-semibold transition flex items-center space-x-1">
+              <span>💬</span>
+              <span>Select All Chat</span>
+            </button>
+            <button type="button" @click="selectAllCategory('browsers')" class="px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-indigo-600/30 text-zinc-300 hover:text-indigo-200 border border-zinc-700 text-xs font-semibold transition flex items-center space-x-1">
+              <span>🌐</span>
+              <span>Select Browsers</span>
+            </button>
+            <button type="button" @click="selectAllVisibleApps()" class="px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-indigo-600/30 text-zinc-300 hover:text-indigo-200 border border-zinc-700 text-xs font-semibold transition flex items-center space-x-1">
+              <span>✓</span>
+              <span>Select All Shown</span>
+            </button>
+          </div>
+
+          <!-- Filter & Search Controls -->
+          <div class="space-y-2 pt-1">
+            <div class="relative">
+              <input type="text" x-model="scheduleAppFilter" placeholder="🔍 Search apps (e.g. Roblox, Discord, Minecraft, Chrome)..." 
+                     class="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-3 py-2 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-indigo-500">
+              <button x-show="scheduleAppFilter" @click="scheduleAppFilter = ''" class="absolute right-2.5 top-2 text-zinc-400 hover:text-white text-xs">&times;</button>
+            </div>
+
+            <!-- Category Pills -->
+            <div class="flex items-center space-x-1.5 overflow-x-auto custom-scroll pb-1">
+              <button type="button" @click="scheduleCategory = 'all'" 
+                      :class="scheduleCategory === 'all' ? 'bg-indigo-600 text-white font-bold' : 'bg-zinc-800/80 text-zinc-400 hover:text-zinc-200'"
+                      class="px-2.5 py-1 rounded text-[11px] whitespace-nowrap transition">
+                All Apps
+              </button>
+              <button type="button" @click="scheduleCategory = 'games'" 
+                      :class="scheduleCategory === 'games' ? 'bg-indigo-600 text-white font-bold' : 'bg-zinc-800/80 text-zinc-400 hover:text-zinc-200'"
+                      class="px-2.5 py-1 rounded text-[11px] whitespace-nowrap transition flex items-center space-x-1">
+                <span>🎮 Games</span>
+              </button>
+              <button type="button" @click="scheduleCategory = 'chat'" 
+                      :class="scheduleCategory === 'chat' ? 'bg-indigo-600 text-white font-bold' : 'bg-zinc-800/80 text-zinc-400 hover:text-zinc-200'"
+                      class="px-2.5 py-1 rounded text-[11px] whitespace-nowrap transition flex items-center space-x-1">
+                <span>💬 Chat / Social</span>
+              </button>
+              <button type="button" @click="scheduleCategory = 'browsers'" 
+                      :class="scheduleCategory === 'browsers' ? 'bg-indigo-600 text-white font-bold' : 'bg-zinc-800/80 text-zinc-400 hover:text-zinc-200'"
+                      class="px-2.5 py-1 rounded text-[11px] whitespace-nowrap transition flex items-center space-x-1">
+                <span>🌐 Browsers</span>
+              </button>
+              <button type="button" @click="scheduleCategory = 'running'" 
+                      :class="scheduleCategory === 'running' ? 'bg-indigo-600 text-white font-bold' : 'bg-zinc-800/80 text-zinc-400 hover:text-zinc-200'"
+                      class="px-2.5 py-1 rounded text-[11px] whitespace-nowrap transition flex items-center space-x-1">
+                <span>⚡ Running Now</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Selectable App List Cards -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-56 overflow-y-auto custom-scroll pr-1">
+            <template x-for="app in filteredAvailableApps" :key="app.exe">
+              <div @click="toggleScheduleApp(app.exe)" 
+                   :class="isScheduleAppSelected(app.exe) ? 'border-indigo-500 bg-indigo-950/40 ring-1 ring-indigo-500/50' : 'border-zinc-800 bg-zinc-900/60 hover:bg-zinc-800/60'"
+                   class="p-2.5 rounded-xl border flex items-center justify-between cursor-pointer transition select-none">
+                <div class="flex items-center space-x-2.5 min-w-0">
+                  <input type="checkbox" :checked="isScheduleAppSelected(app.exe)" @click.stop="toggleScheduleApp(app.exe)" 
+                         class="w-4 h-4 rounded text-indigo-600 bg-zinc-800 border-zinc-700 focus:ring-indigo-500 cursor-pointer flex-shrink-0">
+                  <span class="text-xl flex-shrink-0" x-text="app.icon"></span>
+                  <div class="truncate">
+                    <div class="text-xs font-bold text-white truncate" x-text="app.name"></div>
+                    <div class="text-[10px] text-zinc-400 font-mono truncate" x-text="app.exe"></div>
+                  </div>
+                </div>
+                <span x-show="app.isRunning" class="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-semibold flex-shrink-0">Active</span>
+              </div>
+            </template>
+            <div x-show="filteredAvailableApps.length === 0" class="col-span-full p-4 text-center text-xs text-zinc-500">
+              No matching applications found. Use the custom input below to add any executable.
+            </div>
+          </div>
         </div>
+
+        <!-- STEP 3: ADVANCED / CUSTOM APP ENTRY (OPTIONAL) -->
+        <div class="p-3 bg-zinc-900/60 rounded-xl border border-zinc-800/80 space-y-2">
+          <button type="button" @click="showCustomAppInput = !showCustomAppInput" class="w-full flex items-center justify-between text-left text-xs font-semibold text-zinc-300 hover:text-white">
+            <span class="flex items-center space-x-1.5">
+              <span>➕</span>
+              <span>Advanced: Add Custom Executable Name (Optional)</span>
+            </span>
+            <span x-text="showCustomAppInput ? '▲ Hide' : '▼ Expand'"></span>
+          </button>
+          
+          <div x-show="showCustomAppInput" class="space-y-2 pt-2 border-t border-zinc-800" style="display: none;">
+            <div>
+              <label class="block text-[11px] text-zinc-400 mb-1">Executable Name (e.g. fortnite.exe, game.exe)</label>
+              <div class="flex space-x-2">
+                <input type="text" x-model="newRule.processName" placeholder="e.g. customgame.exe" class="flex-1 bg-zinc-950 border border-zinc-700 rounded-lg px-2.5 py-1.5 text-white font-mono text-xs">
+                <button type="button" @click="if (newRule.processName.trim()) { toggleScheduleApp(newRule.processName.trim()); newRule.processName = ''; }" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold transition">
+                  + Add to List
+                </button>
+              </div>
+            </div>
+            <div>
+              <label class="block text-[11px] text-zinc-400 mb-1">Optional Notes</label>
+              <input type="text" x-model="newRule.description" placeholder="e.g. Weekend gaming schedule" class="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-2.5 py-1.5 text-white text-xs">
+            </div>
+          </div>
+        </div>
+
+        <!-- Target Account Selection -->
+        <div class="px-1">
+          <label class="block text-zinc-400 text-xs mb-1">Target Account on Computer</label>
+          <select x-model="newRule.targetUserSid" class="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-1.5 text-xs text-white">
+            <option value="*">All Managed Accounts (*)</option>
+            <template x-for="u in users" :key="u.sid">
+              <option :value="u.sid" x-text="u.username + ' (' + u.sid + ')'"></option>
+            </template>
+          </select>
+        </div>
+
       </div>
 
-      <div class="pt-3 flex justify-end space-x-2">
-        <button @click="showRuleModal = false" class="px-4 py-2 text-xs text-zinc-400 hover:text-white">Cancel</button>
-        <button @click="submitRule()" class="px-4 py-2 text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg">Save Rule</button>
+      <!-- STICKY BOTTOM FOOTER (NEVER TRAPS USER) -->
+      <div class="sticky bottom-0 bg-[#151926] px-4 py-3 border-t border-zinc-800 flex items-center justify-between z-10 flex-shrink-0"
+           style="padding-bottom: max(0.75rem, env(safe-area-inset-bottom, 0px));">
+        <button type="button" @click="showRuleModal = false" class="px-3.5 py-2 text-xs font-semibold text-zinc-400 hover:text-white rounded-lg bg-zinc-800 hover:bg-zinc-700 transition">
+          Cancel
+        </button>
+        <button type="button" @click="submitBatchOrSingleRule()" 
+                :disabled="isSubmittingRule || (scheduleSelectedApps.length === 0 && !newRule.processName.trim())"
+                class="px-4 py-2 text-xs font-bold bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-lg shadow-lg shadow-indigo-600/30 flex items-center space-x-2 transition">
+          <span x-show="isSubmittingRule" class="inline-block animate-spin">⏳</span>
+          <span x-text="scheduleSelectedApps.length > 1 ? `⚡ Apply Schedule to ${scheduleSelectedApps.length} Apps` : (scheduleSelectedApps.length === 1 ? `⚡ Apply Schedule to ${scheduleSelectedApps[0]}` : 'Save Schedule Rule')"></span>
+        </button>
       </div>
+
     </div>
   </div>
 
   <!-- MODAL: REMOTE OVERRIDE -->
   <div x-show="showOverrideModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
-    <div class="glass-card max-w-sm w-full p-6 rounded-2xl border border-zinc-700 space-y-4">
+    <div class="glass-card max-w-sm w-full p-6 rounded-2xl border border-zinc-700 space-y-4 max-h-[calc(100dvh-2rem)] overflow-y-auto custom-scroll">
       <div class="flex justify-between items-center">
         <h3 class="text-base font-bold text-white">Grant Remote Whitelist Override</h3>
         <button @click="showOverrideModal = false" class="text-zinc-400 hover:text-white">&times;</button>
@@ -1509,7 +1743,7 @@
 
   <!-- MODAL: REMOTE SELF-DESTRUCT UNINSTALLER -->
   <div x-show="showUninstallModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4">
-    <div class="glass-card max-w-md w-full p-6 rounded-2xl border border-rose-500/80 bg-zinc-900 space-y-4">
+    <div class="glass-card max-w-md w-full p-6 rounded-2xl border border-rose-500/80 bg-zinc-900 space-y-4 max-h-[calc(100dvh-2rem)] overflow-y-auto custom-scroll">
       <div class="flex items-center space-x-3 text-rose-500">
         <div class="p-2 bg-rose-500/20 rounded-xl">
           <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
@@ -1546,7 +1780,7 @@
 
   <!-- MODAL: TARGET COMPUTER OFFLINE / ADD CLIENT TO CONTINUE -->
   <div x-show="showOfflineModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
-    <div class="glass-card max-w-lg w-full p-6 rounded-2xl border border-rose-500/40 space-y-4 shadow-2xl">
+    <div class="glass-card max-w-lg w-full p-6 rounded-2xl border border-rose-500/40 space-y-4 shadow-2xl max-h-[calc(100dvh-2rem)] overflow-y-auto custom-scroll">
       <div class="flex justify-between items-start">
         <div class="flex items-center space-x-3">
           <div class="w-10 h-10 rounded-xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-xl">
@@ -1596,7 +1830,7 @@
 
   <!-- MODAL: CREATE STANDARD CHILD ACCOUNT -->
   <div x-show="showCreateUserModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
-    <div class="glass-card max-w-md w-full p-6 rounded-2xl border border-amber-500/40 space-y-4 shadow-2xl">
+    <div class="glass-card max-w-md w-full p-6 rounded-2xl border border-amber-500/40 space-y-4 shadow-2xl max-h-[calc(100dvh-2rem)] overflow-y-auto custom-scroll">
       <div class="flex justify-between items-center">
         <div class="flex items-center space-x-2">
           <span class="text-xl">👤</span>
@@ -1861,6 +2095,41 @@
     </div>
   </div>
 
+  <!-- MOBILE BOTTOM DOCK NAVIGATION (1-Thumb Navigation, Safe Area Inset) -->
+  <nav class="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#11131c]/95 backdrop-blur-xl border-t border-zinc-800/90 px-2 flex items-center justify-around shadow-2xl"
+       style="padding-bottom: max(0.35rem, env(safe-area-inset-bottom, 0px)); height: calc(3.8rem + env(safe-area-inset-bottom, 0px));">
+    <button type="button" @click="activeTab = 'overview'" 
+            :class="activeTab === 'overview' ? 'text-indigo-400 font-bold' : 'text-zinc-400 hover:text-zinc-200'" 
+            class="flex-1 py-1 flex flex-col items-center justify-center transition">
+      <span class="text-xl">🛡️</span>
+      <span class="text-[10px] mt-0.5">Overview</span>
+    </button>
+    <button type="button" @click="activeTab = 'processes'" 
+            :class="activeTab === 'processes' ? 'text-indigo-400 font-bold' : 'text-zinc-400 hover:text-zinc-200'" 
+            class="flex-1 py-1 flex flex-col items-center justify-center transition">
+      <span class="text-xl">📱</span>
+      <span class="text-[10px] mt-0.5">Apps</span>
+    </button>
+    <button type="button" @click="openScheduleModalWithPreset('12:00', '20:00')" 
+            class="flex-1 py-0.5 flex flex-col items-center justify-center group">
+      <div class="w-11 h-11 -mt-5 rounded-full bg-gradient-to-tr from-indigo-600 to-purple-600 text-white flex items-center justify-center shadow-lg shadow-indigo-600/50 border-2 border-[#11131c] group-active:scale-95 transition">
+        <span class="text-xl">⏱️</span>
+      </div>
+      <span class="text-[10px] text-indigo-300 font-bold mt-0.5">Schedule</span>
+    </button>
+    <button type="button" @click="activeTab = 'dns'" 
+            :class="activeTab === 'dns' ? 'text-indigo-400 font-bold' : 'text-zinc-400 hover:text-zinc-200'" 
+            class="flex-1 py-1 flex flex-col items-center justify-center transition">
+      <span class="text-xl">🌐</span>
+      <span class="text-[10px] mt-0.5">DNS Shield</span>
+    </button>
+    <button type="button" @click="mobileSidebarOpen = true" 
+            class="flex-1 py-1 flex flex-col items-center justify-center text-zinc-400 hover:text-zinc-200 transition">
+      <span class="text-xl">☰</span>
+      <span class="text-[10px] mt-0.5">Menu</span>
+    </button>
+  </nav>
+
   <script>
     function appShieldApp() {
       return {
@@ -2023,6 +2292,133 @@
 
         get hasStandardAccount() {
           return this.users.length > 0 && this.users.some(u => !u.isAdmin);
+        },
+
+        // Interactive Batch App Scheduling State
+        scheduleSelectedApps: [],
+        scheduleAppFilter: '',
+        scheduleCategory: 'all',
+        showCustomAppInput: false,
+        isSubmittingRule: false,
+
+        defaultAppsForScheduling: [
+          { name: 'Roblox Player', exe: 'RobloxPlayerBeta.exe', category: 'games', icon: '🎮' },
+          { name: 'Discord', exe: 'Discord.exe', category: 'chat', icon: '💬' },
+          { name: 'Minecraft', exe: 'javaw.exe', category: 'games', icon: '⛏️' },
+          { name: 'Steam Client', exe: 'steam.exe', category: 'games', icon: '🎮' },
+          { name: 'Fortnite / Epic Games', exe: 'FortniteClient-Win64-Shipping.exe', category: 'games', icon: '🎯' },
+          { name: 'Google Chrome', exe: 'chrome.exe', category: 'browsers', icon: '🌐' },
+          { name: 'Microsoft Edge', exe: 'msedge.exe', category: 'browsers', icon: '🌐' },
+          { name: 'Spotify Music', exe: 'Spotify.exe', category: 'chat', icon: '🎵' },
+          { name: 'YouTube / Media Player', exe: 'vlc.exe', category: 'chat', icon: '📺' },
+          { name: 'Valorant', exe: 'VALORANT.exe', category: 'games', icon: '🔫' },
+          { name: 'Roblox Studio', exe: 'RobloxStudioBeta.exe', category: 'games', icon: '🛠️' },
+          { name: 'Battle.net Client', exe: 'Battle.net.exe', category: 'games', icon: '⚔️' },
+          { name: 'EA Desktop', exe: 'EADesktop.exe', category: 'games', icon: '🎲' },
+          { name: 'League of Legends', exe: 'LeagueClient.exe', category: 'games', icon: '🛡️' },
+          { name: 'Telegram Messenger', exe: 'Telegram.exe', category: 'chat', icon: '💬' },
+          { name: 'WhatsApp', exe: 'WhatsApp.exe', category: 'chat', icon: '💬' }
+        ],
+
+        get availableAppsForSchedule() {
+          const map = new Map();
+          for (const a of this.defaultAppsForScheduling) {
+            map.set(a.exe.toLowerCase(), { ...a, isRunning: false });
+          }
+          if (Array.isArray(this.processes)) {
+            for (const p of this.processes) {
+              if (!p.processName) continue;
+              const key = p.processName.toLowerCase();
+              if (map.has(key)) {
+                map.get(key).isRunning = true;
+              } else {
+                const cleanName = p.processName.replace(/\.exe$/i, '');
+                map.set(key, {
+                  name: cleanName,
+                  exe: p.processName,
+                  category: 'running',
+                  icon: '⚡',
+                  isRunning: true
+                });
+              }
+            }
+          }
+          if (Array.isArray(this.installedApps)) {
+            for (const app of this.installedApps) {
+              const name = app.DisplayName || app.name;
+              if (!name) continue;
+              const exe = app.ExeName || (name + '.exe');
+              const key = exe.toLowerCase();
+              if (!map.has(key)) {
+                map.set(key, {
+                  name: name,
+                  exe: exe,
+                  category: 'installed',
+                  icon: '📦',
+                  isRunning: false
+                });
+              }
+            }
+          }
+          return Array.from(map.values());
+        },
+
+        get filteredAvailableApps() {
+          const query = (this.scheduleAppFilter || '').trim().toLowerCase();
+          const cat = this.scheduleCategory;
+          return this.availableAppsForSchedule.filter(a => {
+            if (cat === 'games' && a.category !== 'games') return false;
+            if (cat === 'chat' && a.category !== 'chat') return false;
+            if (cat === 'browsers' && a.category !== 'browsers') return false;
+            if (cat === 'running' && !a.isRunning) return false;
+            if (query) {
+              const matchName = a.name && a.name.toLowerCase().includes(query);
+              const matchExe = a.exe && a.exe.toLowerCase().includes(query);
+              return matchName || matchExe;
+            }
+            return true;
+          });
+        },
+
+        isScheduleAppSelected(exe) {
+          if (!exe) return false;
+          return this.scheduleSelectedApps.map(e => e.toLowerCase()).includes(exe.toLowerCase());
+        },
+
+        toggleScheduleApp(exe) {
+          if (!exe) return;
+          const lower = exe.toLowerCase();
+          const idx = this.scheduleSelectedApps.findIndex(e => e.toLowerCase() === lower);
+          if (idx >= 0) {
+            this.scheduleSelectedApps.splice(idx, 1);
+          } else {
+            this.scheduleSelectedApps.push(exe);
+          }
+        },
+
+        selectAllCategory(category) {
+          const apps = this.availableAppsForSchedule.filter(a => a.category === category);
+          for (const a of apps) {
+            if (!this.isScheduleAppSelected(a.exe)) {
+              this.scheduleSelectedApps.push(a.exe);
+            }
+          }
+          this.showToast(`Selected all ${category} apps (${apps.length})`, 'info');
+        },
+
+        selectAllVisibleApps() {
+          const visible = this.filteredAvailableApps;
+          for (const a of visible) {
+            if (!this.isScheduleAppSelected(a.exe)) {
+              this.scheduleSelectedApps.push(a.exe);
+            }
+          }
+          this.showToast(`Selected ${visible.length} apps`, 'info');
+        },
+
+        clearScheduleAppSelection() {
+          this.scheduleSelectedApps = [];
+          this.newRule.processName = '';
         },
 
         // Filters
@@ -2539,7 +2935,18 @@
             const res = await fetch(`/api/nodes/${this.currentNode.id}/rules`);
             const json = await res.json();
             if (json.success && json.data) {
-              this.rules = json.data.rules || [];
+              const rawRules = Array.isArray(json.data) ? json.data : (json.data.rules || []);
+              this.rules = rawRules.map(r => ({
+                id: r.id,
+                ruleType: r.ruleType || r.rule_type || 'AllowedWindow',
+                processName: r.processName || r.target_process || '',
+                target_process: r.target_process || r.processName || '',
+                targetUserSid: r.targetUserSid || r.user_sid || '*',
+                scheduleStart: r.scheduleStart || r.schedule_start || '12:00',
+                scheduleEnd: r.scheduleEnd || r.schedule_end || '20:00',
+                quotaMinutes: r.quotaMinutes || 60,
+                description: r.description || `Schedule for ${r.target_process || r.processName || 'App'}`
+              }));
               this.overrides = json.data.overrides || [];
             }
           } catch (e) {
@@ -2576,54 +2983,100 @@
           }
         },
 
-        openBlockModalForProcess(proc) {
-          this.newRule = {
-            targetUserSid: proc.sid || '*',
-            ruleType: 'AllowedWindow',
-            processName: proc.processName,
-            originalFilename: proc.originalFilename || '',
-            sha256Hash: proc.sha256Hash || '',
-            scheduleStart: '12:00',
-            scheduleEnd: '20:00',
-            quotaMinutes: 60,
-            description: `Schedule for ${proc.processName}`
-          };
-          this.showRuleModal = true;
-        },
-
-        openCreateRuleModal() {
+        openScheduleModalWithPreset(start = '12:00', end = '20:00', processName = '') {
           this.newRule = {
             targetUserSid: '*',
             ruleType: 'AllowedWindow',
-            processName: '',
+            processName: processName,
             originalFilename: '',
             sha256Hash: '',
-            scheduleStart: '12:00',
-            scheduleEnd: '20:00',
+            scheduleStart: start,
+            scheduleEnd: end,
             quotaMinutes: 60,
             description: ''
           };
+          this.scheduleSelectedApps = processName ? [processName] : [];
+          this.scheduleAppFilter = '';
+          this.scheduleCategory = 'all';
+          this.showCustomAppInput = false;
           this.showRuleModal = true;
         },
 
-        async submitRule() {
+        openBlockModalForProcess(proc) {
+          this.openScheduleModalWithPreset('12:00', '20:00', proc.processName);
+        },
+
+        openCreateRuleModal() {
+          this.openScheduleModalWithPreset('12:00', '20:00', '');
+        },
+
+        async submitBatchOrSingleRule() {
+          if (!this.currentNode) {
+            this.triggerOfflinePopUp('Schedule Rule', 'No active computer selected.');
+            return;
+          }
+          
+          let targets = [...this.scheduleSelectedApps];
+          if (this.newRule.processName && this.newRule.processName.trim()) {
+            const custom = this.newRule.processName.trim();
+            if (!targets.some(t => t.toLowerCase() === custom.toLowerCase())) {
+              targets.push(custom);
+            }
+          }
+
+          if (targets.length === 0) {
+            this.showToast('Please select at least one application to schedule', 'error');
+            return;
+          }
+
+          this.isSubmittingRule = true;
           try {
-            const res = await fetch(`/api/nodes/${this.currentNode.id}/rules`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(this.newRule)
-            });
-            const json = await res.json();
-            if (json.success) {
-              this.showToast('Enforcement rule created successfully!', 'success');
-              this.showRuleModal = false;
-              await this.loadRules();
+            if (targets.length > 1) {
+              const res = await fetch(`/api/nodes/${this.currentNode.id}/rules/batch`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  apps: targets,
+                  rule_type: this.newRule.ruleType,
+                  schedule_start: this.newRule.scheduleStart,
+                  schedule_end: this.newRule.scheduleEnd,
+                  is_enabled: true,
+                  target_path: ''
+                })
+              });
+              const data = await res.json();
+              if (data.success) {
+                this.showToast(`Applied schedule to ${targets.length} applications!`, 'success');
+                this.showRuleModal = false;
+                await this.loadRules();
+              } else {
+                this.showToast(data.message || 'Failed to apply batch schedule', 'error');
+              }
             } else {
-              this.showToast(json.message || 'Failed to create rule', 'error');
+              this.newRule.processName = targets[0];
+              const res = await fetch(`/api/nodes/${this.currentNode.id}/rules`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(this.newRule)
+              });
+              const json = await res.json();
+              if (json.success) {
+                this.showToast(`Schedule rule for ${targets[0]} saved!`, 'success');
+                this.showRuleModal = false;
+                await this.loadRules();
+              } else {
+                this.showToast(json.message || 'Failed to save rule', 'error');
+              }
             }
           } catch (e) {
-            this.showToast('Network error creating rule', 'error');
+            this.showToast('Network error saving rule', 'error');
+          } finally {
+            this.isSubmittingRule = false;
           }
+        },
+
+        async submitRule() {
+          return this.submitBatchOrSingleRule();
         },
 
         async deleteRule(ruleId) {
