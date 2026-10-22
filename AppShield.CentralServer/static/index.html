@@ -75,9 +75,10 @@
     header button, header a, header input, header select, .no-drag {
       -webkit-app-region: no-drag;
     }
+    [x-cloak] { display: none !important; }
   </style>
 </head>
-<body class="font-sans antialiased h-screen overflow-hidden flex bg-[#0c0e14] text-gray-100" x-data="appShieldApp()" x-init="init()">
+<body class="font-sans antialiased h-screen overflow-hidden flex bg-[#0c0e14] text-gray-100" x-data="appShieldApp()" x-init="init()" x-cloak>
 
   <!-- Backdrop for Mobile Sidebar -->
   <div x-show="mobileSidebarOpen" 
@@ -255,6 +256,13 @@
         <span class="truncate" x-text="currentNode?.active_ip || currentNode?.lan_ip || 'Offline'"></span>
         <span x-text="currentNode?.status?.startsWith('online') ? 'Online' : 'Offline'"></span>
       </div>
+      <!-- Lock Console Button -->
+      <button 
+        @click="logout()" 
+        class="w-full mt-2.5 py-1.5 px-2.5 rounded-lg bg-zinc-900/90 hover:bg-rose-950/40 border border-zinc-800 hover:border-rose-500/30 text-[11px] text-zinc-400 hover:text-rose-300 transition flex items-center justify-center space-x-1.5">
+        <svg class="w-3.5 h-3.5 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+        <span>Lock Console</span>
+      </button>
     </div>
   </aside>
 
@@ -294,6 +302,13 @@
         <button @click="showAddModal = true" class="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition shadow-md shadow-indigo-600/20">
           <span>➕</span>
           <span>Add PC</span>
+        </button>
+        <button 
+          @click="logout()" 
+          title="Lock Console / Sign Out" 
+          class="bg-zinc-800/90 hover:bg-rose-950/50 hover:text-rose-300 hover:border-rose-500/40 text-zinc-300 border border-zinc-700/60 px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition">
+          <svg class="w-3.5 h-3.5 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+          <span class="hidden sm:inline">Lock</span>
         </button>
       </div>
     </header>
@@ -1656,9 +1671,218 @@
     <span x-text="toast.message"></span>
   </div>
 
+  <!-- AUTH OVERLAY: LOGIN PORTAL -->
+  <div 
+    x-show="!auth.isAuthenticated" 
+    x-transition:enter="transition ease-out duration-300"
+    x-transition:enter-start="opacity-0"
+    x-transition:enter-end="opacity-100"
+    class="fixed inset-0 z-[100] flex items-center justify-center bg-[#0c0e14]/95 backdrop-blur-2xl p-4 select-none"
+    style="display: none;">
+    <div class="relative w-full max-w-md p-8 glass-card rounded-3xl border border-indigo-500/30 shadow-2xl shadow-indigo-950/50 space-y-6 overflow-hidden">
+      <!-- Glow background accent -->
+      <div class="absolute -top-24 -left-24 w-48 h-48 bg-indigo-600/20 rounded-full blur-3xl pointer-events-none"></div>
+      <div class="absolute -bottom-24 -right-24 w-48 h-48 bg-purple-600/20 rounded-full blur-3xl pointer-events-none"></div>
+
+      <!-- Header Icon & Branding -->
+      <div class="text-center space-y-3 relative">
+        <div class="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-tr from-indigo-600 to-purple-600 flex items-center justify-center shadow-xl shadow-indigo-500/30 ring-4 ring-indigo-500/20">
+          <svg class="w-9 h-9 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+          </svg>
+        </div>
+        <div>
+          <h2 class="text-2xl font-display font-bold text-white tracking-tight">AppShield Security Console</h2>
+          <p class="text-xs text-zinc-400 mt-1">Parental Control & Fleet Management Protection</p>
+        </div>
+      </div>
+
+      <!-- Error Message Banner -->
+      <div x-show="auth.loginError" x-transition class="p-3 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs flex items-center space-x-2">
+        <span>⚠️</span>
+        <span x-text="auth.loginError"></span>
+      </div>
+
+      <!-- Login Form -->
+      <form @submit.prevent="login()" class="space-y-4 relative">
+        <div>
+          <label class="block text-xs font-semibold text-zinc-300 uppercase tracking-wider mb-1.5">Admin Username</label>
+          <div class="relative">
+            <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-zinc-500">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+            </span>
+            <input 
+              type="text" 
+              x-model="auth.loginUsername" 
+              required 
+              placeholder="admin" 
+              class="w-full bg-zinc-950/80 border border-zinc-700/80 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded-xl pl-9 pr-3 py-2.5 text-sm text-white placeholder-zinc-600 outline-none transition">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-zinc-300 uppercase tracking-wider mb-1.5">Master Password</label>
+          <div class="relative">
+            <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-zinc-500">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+            </span>
+            <input 
+              :type="auth.showLoginPassword ? 'text' : 'password'" 
+              x-model="auth.loginPassword" 
+              required 
+              placeholder="••••••••" 
+              class="w-full bg-zinc-950/80 border border-zinc-700/80 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded-xl pl-9 pr-10 py-2.5 text-sm text-white placeholder-zinc-600 outline-none transition font-mono">
+            <button 
+              type="button" 
+              @click="auth.showLoginPassword = !auth.showLoginPassword" 
+              class="absolute inset-y-0 right-0 flex items-center pr-3 text-zinc-400 hover:text-zinc-200">
+              <span x-text="auth.showLoginPassword ? '🙈' : '👁️'"></span>
+            </button>
+          </div>
+        </div>
+
+        <button 
+          type="submit" 
+          :disabled="auth.loginLoading || !auth.loginUsername || !auth.loginPassword" 
+          class="w-full py-3 px-4 rounded-xl font-bold text-sm bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white shadow-lg shadow-indigo-600/30 transition-all transform active:scale-[0.99] disabled:opacity-50 disabled:pointer-events-none flex items-center justify-center space-x-2">
+          <svg x-show="auth.loginLoading" class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+          </svg>
+          <span x-text="auth.loginLoading ? 'Authenticating...' : 'Sign In to Console'"></span>
+        </button>
+      </form>
+
+      <!-- First-time Notice -->
+      <div class="pt-2 border-t border-zinc-800/80 text-center">
+        <p class="text-[11px] text-zinc-400 leading-relaxed">
+          Default setup: Username <code class="text-zinc-200 bg-zinc-900 px-1 py-0.5 rounded font-mono font-bold">admin</code>, Password <code class="text-amber-400 bg-zinc-900 px-1 py-0.5 rounded font-mono font-bold">changeme</code>.<br>
+          First login requires setting a secure parental master password.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- AUTH OVERLAY: FORCED PASSWORD CHANGE (FIRST-TIME SETUP) -->
+  <div 
+    x-show="auth.isAuthenticated && auth.mustChangePassword" 
+    x-transition:enter="transition ease-out duration-300"
+    x-transition:enter-start="opacity-0 scale-95"
+    x-transition:enter-end="opacity-100 scale-100"
+    class="fixed inset-0 z-[110] flex items-center justify-center bg-black/95 backdrop-blur-2xl p-4 select-none"
+    style="display: none;">
+    <div class="relative w-full max-w-lg p-8 glass-card rounded-3xl border border-amber-500/40 shadow-2xl shadow-amber-950/40 space-y-6 overflow-hidden">
+      <!-- Glow background accent -->
+      <div class="absolute -top-24 -left-24 w-48 h-48 bg-amber-500/20 rounded-full blur-3xl pointer-events-none"></div>
+
+      <!-- Header Icon & Security Warning -->
+      <div class="space-y-3 relative">
+        <div class="flex items-center space-x-3">
+          <div class="w-12 h-12 rounded-xl bg-gradient-to-tr from-amber-500 to-orange-600 flex items-center justify-center shadow-lg shadow-amber-500/20 text-2xl flex-shrink-0">
+            🔐
+          </div>
+          <div>
+            <div class="flex items-center space-x-2">
+              <span class="text-[10px] font-bold font-mono uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2 py-0.5 rounded-full">First-Time Setup</span>
+            </div>
+            <h2 class="text-xl font-display font-bold text-white tracking-tight mt-0.5">Set New Master Password</h2>
+          </div>
+        </div>
+        <p class="text-xs text-zinc-300 leading-relaxed bg-zinc-900/80 p-3.5 rounded-xl border border-zinc-800">
+          The default password <code class="text-amber-400 font-mono font-bold">changeme</code> is active. To prevent kids or unauthorized network users from accessing this portal and disabling protection, <strong>you must create a new master password before continuing</strong>.
+        </p>
+      </div>
+
+      <!-- Error Message Banner -->
+      <div x-show="auth.changePasswordError" x-transition class="p-3 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs flex items-center space-x-2">
+        <span>⚠️</span>
+        <span x-text="auth.changePasswordError"></span>
+      </div>
+
+      <!-- Password Change Form -->
+      <form @submit.prevent="changePassword()" class="space-y-4 relative">
+        <div>
+          <label class="block text-xs font-semibold text-zinc-300 uppercase tracking-wider mb-1.5">Current Default Password</label>
+          <input 
+            type="password" 
+            x-model="auth.currentPassword" 
+            required 
+            placeholder="changeme" 
+            class="w-full bg-zinc-950/80 border border-zinc-700/80 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-zinc-600 outline-none transition font-mono">
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-semibold text-zinc-300 uppercase tracking-wider mb-1.5">New Master Password</label>
+            <input 
+              :type="auth.showNewPassword ? 'text' : 'password'" 
+              x-model="auth.newPassword" 
+              required 
+              minlength="6"
+              placeholder="Min 6 characters" 
+              class="w-full bg-zinc-950/80 border border-zinc-700/80 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-zinc-600 outline-none transition font-mono">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-zinc-300 uppercase tracking-wider mb-1.5">Confirm New Password</label>
+            <input 
+              :type="auth.showNewPassword ? 'text' : 'password'" 
+              x-model="auth.confirmPassword" 
+              required 
+              minlength="6"
+              placeholder="Repeat password" 
+              class="w-full bg-zinc-950/80 border border-zinc-700/80 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-zinc-600 outline-none transition font-mono">
+          </div>
+        </div>
+
+        <!-- Toggle Visibility & Password Strength Info -->
+        <div class="flex items-center justify-between text-xs text-zinc-400 pt-1">
+          <label class="flex items-center space-x-2 cursor-pointer">
+            <input type="checkbox" x-model="auth.showNewPassword" class="rounded bg-zinc-900 border-zinc-700 text-amber-500 focus:ring-amber-500">
+            <span>Show passwords</span>
+          </label>
+          <span 
+            x-show="auth.newPassword && auth.confirmPassword" 
+            :class="auth.newPassword === auth.confirmPassword ? 'text-emerald-400 font-semibold' : 'text-rose-400 font-semibold'" 
+            x-text="auth.newPassword === auth.confirmPassword ? '✓ Passwords match' : '✕ Passwords do not match'">
+          </span>
+        </div>
+
+        <button 
+          type="submit" 
+          :disabled="auth.changePasswordLoading || !auth.currentPassword || !auth.newPassword || auth.newPassword.length < 6 || auth.newPassword !== auth.confirmPassword || auth.newPassword.toLowerCase() === 'changeme'" 
+          class="w-full py-3.5 px-4 rounded-xl font-bold text-sm bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-black shadow-lg shadow-amber-500/20 transition-all transform active:scale-[0.99] disabled:opacity-50 disabled:pointer-events-none flex items-center justify-center space-x-2">
+          <svg x-show="auth.changePasswordLoading" class="animate-spin -ml-1 mr-2 h-4 w-4 text-black" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+          </svg>
+          <span x-text="auth.changePasswordLoading ? 'Securing Portal...' : '🔒 Save Master Password & Enter Portal'"></span>
+        </button>
+      </form>
+    </div>
+  </div>
+
   <script>
     function appShieldApp() {
       return {
+        // Authentication & Security State
+        auth: {
+          isAuthenticated: false,
+          mustChangePassword: false,
+          username: 'admin',
+          loginUsername: 'admin',
+          loginPassword: '',
+          showLoginPassword: false,
+          loginError: '',
+          loginLoading: false,
+
+          currentPassword: '',
+          newPassword: '',
+          confirmPassword: '',
+          showNewPassword: false,
+          changePasswordError: '',
+          changePasswordLoading: false
+        },
+
         fleet: [],
         selectedNodeId: '',
         currentNode: null,
@@ -1953,15 +2177,19 @@
         },
 
         async init() {
-          await this.loadFleet();
-          if (this.fleet.length > 0) {
-            this.selectedNodeId = this.fleet[0].id;
-            this.currentNode = this.fleet[0];
-            await this.refreshAllNodeData();
+          const authed = await this.checkAuthStatus();
+          if (authed && !this.auth.mustChangePassword) {
+            await this.loadFleet();
+            if (this.fleet.length > 0) {
+              this.selectedNodeId = this.fleet[0].id;
+              this.currentNode = this.fleet[0];
+              await this.refreshAllNodeData();
+            }
           }
 
-          // Seamless Background Auto-Refresh (every 3.5s) - No manual browser refresh needed!
+          // Seamless Background Auto-Refresh (every 3.5s) - Active only when authenticated
           setInterval(async () => {
+            if (!this.auth.isAuthenticated || this.auth.mustChangePassword) return;
             await this.loadFleet();
             if (this.currentNode && this.activeTab === 'processes') {
               try {
@@ -1973,10 +2201,138 @@
           }, 3500);
         },
 
+        async checkAuthStatus() {
+          try {
+            const res = await fetch('/api/auth/status');
+            const data = await res.json();
+            if (data.authenticated) {
+              this.auth.isAuthenticated = true;
+              this.auth.mustChangePassword = Boolean(data.must_change_password);
+              this.auth.username = data.username || 'admin';
+              return true;
+            } else {
+              this.auth.isAuthenticated = false;
+              this.auth.mustChangePassword = false;
+              return false;
+            }
+          } catch (e) {
+            this.auth.isAuthenticated = false;
+            return false;
+          }
+        },
+
+        async login() {
+          this.auth.loginLoading = true;
+          this.auth.loginError = '';
+          try {
+            const res = await fetch('/api/auth/login', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                username: this.auth.loginUsername.trim(),
+                password: this.auth.loginPassword
+              })
+            });
+            const data = await res.json();
+            if (data.success) {
+              this.auth.isAuthenticated = true;
+              this.auth.mustChangePassword = Boolean(data.must_change_password);
+              this.auth.username = data.username || 'admin';
+              this.auth.loginPassword = '';
+              this.auth.loginError = '';
+              if (this.auth.mustChangePassword) {
+                this.auth.currentPassword = 'changeme';
+              } else {
+                await this.loadFleet();
+                if (this.fleet.length > 0) {
+                  this.selectedNodeId = this.fleet[0].id;
+                  this.currentNode = this.fleet[0];
+                  await this.refreshAllNodeData();
+                }
+              }
+            } else {
+              this.auth.loginError = data.detail || data.message || 'Invalid username or password';
+            }
+          } catch (e) {
+            this.auth.loginError = 'Connection failed. Please check network.';
+          } finally {
+            this.auth.loginLoading = false;
+          }
+        },
+
+        async changePassword() {
+          if (this.auth.newPassword.length < 6) {
+            this.auth.changePasswordError = 'New password must be at least 6 characters long.';
+            return;
+          }
+          if (this.auth.newPassword.toLowerCase() === 'changeme') {
+            this.auth.changePasswordError = 'New password cannot be "changeme". Please choose a secure password.';
+            return;
+          }
+          if (this.auth.newPassword !== this.auth.confirmPassword) {
+            this.auth.changePasswordError = 'New passwords do not match.';
+            return;
+          }
+
+          this.auth.changePasswordLoading = true;
+          this.auth.changePasswordError = '';
+          try {
+            const res = await fetch('/api/auth/change-password', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                current_password: this.auth.currentPassword,
+                new_password: this.auth.newPassword
+              })
+            });
+            const data = await res.json();
+            if (data.success) {
+              this.auth.mustChangePassword = false;
+              this.auth.currentPassword = '';
+              this.auth.newPassword = '';
+              this.auth.confirmPassword = '';
+              this.showToast('Master password secured successfully! Welcome to AppShield.', 'success');
+              await this.loadFleet();
+              if (this.fleet.length > 0) {
+                this.selectedNodeId = this.fleet[0].id;
+                this.currentNode = this.fleet[0];
+                await this.refreshAllNodeData();
+              }
+            } else {
+              this.auth.changePasswordError = data.detail || data.message || 'Failed to update master password.';
+            }
+          } catch (e) {
+            this.auth.changePasswordError = 'Network error while updating password.';
+          } finally {
+            this.auth.changePasswordLoading = false;
+          }
+        },
+
+        async logout() {
+          try {
+            await fetch('/api/auth/logout', { method: 'POST' });
+          } catch (e) {}
+          this.auth.isAuthenticated = false;
+          this.auth.mustChangePassword = false;
+          this.auth.loginPassword = '';
+          this.fleet = [];
+          this.currentNode = null;
+          this.showToast('Signed out from Security Console.', 'info');
+        },
+
         async loadFleet() {
           try {
             const res = await fetch('/api/fleet');
+            if (res.status === 401) {
+              this.auth.isAuthenticated = false;
+              return;
+            }
             const data = await res.json();
+            if (res.status === 403 && data.error === 'PASSWORD_CHANGE_REQUIRED') {
+              this.auth.isAuthenticated = true;
+              this.auth.mustChangePassword = true;
+              return;
+            }
             if (data.success) {
               this.fleet = data.data;
               if (this.selectedNodeId) {

@@ -4,6 +4,8 @@ import random
 import string
 import sqlite3
 import datetime
+import hashlib
+import secrets
 from typing import Dict, Any, List, Optional
 from fastapi import FastAPI, HTTPException, Request, Response, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
@@ -33,6 +35,24 @@ os.makedirs(STATIC_DIR, exist_ok=True)
 os.makedirs(DATA_DIR, exist_ok=True)
 os.makedirs(DOWNLOADS_DIR, exist_ok=True)
 DB_PATH = os.path.join(DATA_DIR, "appshield.db")
+
+# -------------------------------------------------------------------
+# Security & Authentication Helpers
+# -------------------------------------------------------------------
+def hash_password(password: str, salt: Optional[str] = None) -> tuple:
+    if not salt:
+        salt = secrets.token_hex(16)
+    pw_hash = hashlib.pbkdf2_hmac(
+        'sha256',
+        password.encode('utf-8'),
+        salt.encode('utf-8'),
+        100000
+    ).hex()
+    return pw_hash, salt
+
+def verify_password(password: str, salt: str, stored_hash: str) -> bool:
+    computed_hash, _ = hash_password(password, salt)
+    return secrets.compare_digest(computed_hash, stored_hash)
 
 # -------------------------------------------------------------------
 # Database Initialization
@@ -115,10 +135,109 @@ def init_db():
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS admin_auth (
+            id INTEGER PRIMARY KEY CHECK (id = 1),
+            username TEXT NOT NULL DEFAULT 'admin',
+            password_hash TEXT NOT NULL,
+            salt TEXT NOT NULL,
+            must_change_password INTEGER DEFAULT 1,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS admin_sessions (
+            token TEXT PRIMARY KEY,
+            username TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            expires_at TIMESTAMP NOT NULL
+        )
+    ''')
+    c.execute("SELECT id FROM admin_auth WHERE id = 1")
+    if not c.fetchone():
+        pw_hash, salt = hash_password("changeme")
+        c.execute('''
+            INSERT INTO admin_auth (id, username, password_hash, salt, must_change_password)
+            VALUES (1, 'admin', ?, ?, 1)
+        ''', (pw_hash, salt))
     conn.commit()
     conn.close()
 
 init_db()
+
+# -------------------------------------------------------------------
+# Authentication Verification & Middleware
+# -------------------------------------------------------------------
+def get_session_from_request(request: Request) -> Optional[dict]:
+    token = request.cookies.get("appshield_session")
+    if not token:
+        auth_header = request.headers.get("Authorization")
+        if auth_header and auth_header.startswith("Bearer "):
+            token = auth_header.split(" ", 1)[1].strip()
+    if not token:
+        return None
+
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        c = conn.cursor()
+        c.execute("""
+            SELECT s.token, s.username, s.expires_at, a.must_change_password
+            FROM admin_sessions s
+            JOIN admin_auth a ON a.username = s.username
+            WHERE s.token = ?
+        """, (token,))
+        row = c.fetchone()
+        conn.close()
+        if not row:
+            return None
+        expires_at = datetime.datetime.fromisoformat(row["expires_at"])
+        if datetime.datetime.utcnow() > expires_at:
+            return None
+        return dict(row)
+    except Exception:
+        return None
+
+def is_route_exempt_from_auth(method: str, path: str) -> bool:
+    if method == "OPTIONS":
+        return True
+    if path in ["/", "/favicon.ico", "/manifest.json", "/api/health"]:
+        return True
+    if path.startswith("/static/") or path.startswith("/downloads/") or path.startswith("/ws/agent/"):
+        return True
+    if path.startswith("/download/"):
+        return True
+    if path in ["/api/auth/login", "/api/auth/status"]:
+        return True
+    if path in ["/api/devices/register", "/api/agent/telemetry"]:
+        return True
+    # Agent polling rules (GET /api/nodes/{device_id}/rules) and posting logs (POST /api/nodes/{device_id}/logs)
+    if method == "GET" and path.startswith("/api/nodes/") and path.endswith("/rules"):
+        return True
+    if method == "POST" and path.startswith("/api/nodes/") and path.endswith("/logs"):
+        return True
+    return False
+
+@app.middleware("http")
+async def auth_middleware(request: Request, call_next):
+    if is_route_exempt_from_auth(request.method, request.url.path):
+        return await call_next(request)
+
+    path = request.url.path
+    if path.startswith("/api/"):
+        session = get_session_from_request(request)
+        if not session:
+            return JSONResponse(
+                status_code=401,
+                content={"success": False, "error": "UNAUTHORIZED", "message": "Authentication required"}
+            )
+        if session.get("must_change_password") and path not in ["/api/auth/change-password", "/api/auth/logout", "/api/auth/status"]:
+            return JSONResponse(
+                status_code=403,
+                content={"success": False, "error": "PASSWORD_CHANGE_REQUIRED", "message": "You must change your default password before accessing the portal."}
+            )
+
+    return await call_next(request)
 
 # -------------------------------------------------------------------
 # WebSocket Connection Manager for Real-Time Endpoints
@@ -195,6 +314,124 @@ class DnsSettingsDto(BaseModel):
     secondary_ipv6: Optional[str] = ""
     is_enabled: bool = True
     apply_to_all: Optional[bool] = False
+
+class LoginDto(BaseModel):
+    username: str
+    password: str
+
+class ChangePasswordDto(BaseModel):
+    current_password: str
+    new_password: str
+
+# -------------------------------------------------------------------
+# Authentication Endpoints
+# -------------------------------------------------------------------
+@app.get("/api/health")
+async def health_check():
+    return {"status": "ok", "timestamp": datetime.datetime.utcnow().isoformat()}
+
+@app.post("/api/auth/login")
+async def login(dto: LoginDto, response: Response):
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    c = conn.cursor()
+    c.execute("SELECT * FROM admin_auth WHERE username = ?", (dto.username,))
+    admin = c.fetchone()
+    if not admin or not verify_password(dto.password, admin["salt"], admin["password_hash"]):
+        conn.close()
+        raise HTTPException(status_code=401, detail="Invalid username or password")
+
+    token = secrets.token_urlsafe(32)
+    expires_at = (datetime.datetime.utcnow() + datetime.timedelta(days=7)).isoformat()
+    c.execute(
+        "INSERT INTO admin_sessions (token, username, expires_at) VALUES (?, ?, ?)",
+        (token, dto.username, expires_at)
+    )
+    conn.commit()
+    conn.close()
+
+    response.set_cookie(
+        key="appshield_session",
+        value=token,
+        max_age=7 * 86400,
+        httponly=True,
+        samesite="lax",
+        path="/"
+    )
+    return {
+        "success": True,
+        "token": token,
+        "username": dto.username,
+        "must_change_password": bool(admin["must_change_password"])
+    }
+
+@app.get("/api/auth/status")
+async def auth_status(request: Request):
+    session = get_session_from_request(request)
+    if not session:
+        return {"authenticated": False, "username": None, "must_change_password": False}
+    return {
+        "authenticated": True,
+        "username": session["username"],
+        "must_change_password": bool(session["must_change_password"])
+    }
+
+@app.post("/api/auth/change-password")
+async def change_password(dto: ChangePasswordDto, request: Request):
+    session = get_session_from_request(request)
+    if not session:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    username = session["username"]
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    c = conn.cursor()
+    c.execute("SELECT * FROM admin_auth WHERE username = ?", (username,))
+    admin = c.fetchone()
+
+    if not admin or not verify_password(dto.current_password, admin["salt"], admin["password_hash"]):
+        conn.close()
+        raise HTTPException(status_code=400, detail="Current password is incorrect")
+
+    new_pw = dto.new_password.strip() if dto.new_password else ""
+    if len(new_pw) < 6:
+        conn.close()
+        raise HTTPException(status_code=400, detail="New password must be at least 6 characters long")
+
+    if new_pw.lower() == "changeme":
+        conn.close()
+        raise HTTPException(status_code=400, detail="New password cannot be 'changeme'")
+
+    new_hash, new_salt = hash_password(new_pw)
+    c.execute("""
+        UPDATE admin_auth
+        SET password_hash = ?, salt = ?, must_change_password = 0, updated_at = CURRENT_TIMESTAMP
+        WHERE username = ?
+    """, (new_hash, new_salt, username))
+    conn.commit()
+    conn.close()
+
+    return {"success": True, "message": "Password changed successfully"}
+
+@app.post("/api/auth/logout")
+async def logout(request: Request, response: Response):
+    token = request.cookies.get("appshield_session")
+    if not token:
+        auth_header = request.headers.get("Authorization")
+        if auth_header and auth_header.startswith("Bearer "):
+            token = auth_header.split(" ", 1)[1].strip()
+    if token:
+        try:
+            conn = sqlite3.connect(DB_PATH)
+            c = conn.cursor()
+            c.execute("DELETE FROM admin_sessions WHERE token = ?", (token,))
+            conn.commit()
+            conn.close()
+        except Exception:
+            pass
+
+    response.delete_cookie(key="appshield_session", path="/")
+    return {"success": True, "message": "Logged out successfully"}
 
 # -------------------------------------------------------------------
 # Device & Pairing Endpoints
