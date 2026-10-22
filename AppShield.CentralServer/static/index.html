@@ -1236,50 +1236,75 @@
             <span class="text-xs font-mono font-bold px-3 py-1 rounded-full border"
                   :class="tailscale.running ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' : 'bg-zinc-800 text-zinc-400 border-zinc-700'"
                   x-text="tailscale.statusText"></span>
-            <button @click="checkTailscaleStatus()" :disabled="tailscale.isChecking" class="p-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg text-xs" title="Refresh Tailscale Status">
+            <button @click="checkTailscaleStatus()" :disabled="tailscale.isChecking" class="px-2.5 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition border border-zinc-700" title="Scan Tailscale Installation">
               <svg class="w-3.5 h-3.5" :class="tailscale.isChecking ? 'animate-spin' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+              <span>Scan Status</span>
             </button>
           </div>
         </div>
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
           <!-- Install / Auth Actions -->
-          <div class="p-3.5 bg-zinc-900/80 rounded-xl border border-zinc-800 space-y-2.5">
-            <span class="text-[11px] font-bold text-zinc-300 uppercase tracking-wider block">Central Server Mesh Status</span>
-            <p class="text-[11px] text-zinc-400">
-              <span x-show="tailscale.running">Server is connected to your private Tailscale mesh at <code class="text-indigo-300 font-mono" x-text="tailscale.ip"></code>.</span>
-              <span x-show="!tailscale.running && tailscale.installed">Tailscale is installed on server but not signed in. Click Authorize to link your account.</span>
-              <span x-show="!tailscale.installed">Tailscale is not installed on this server. Click 1-Click Install below.</span>
-            </p>
-            <div class="flex flex-wrap items-center gap-2 pt-1">
-              <button x-show="!tailscale.installed" @click="installTailscaleOnServer()" :disabled="tailscale.isInstalling" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-lg transition flex items-center space-x-1.5 shadow-sm">
-                <span>⚡ 1-Click Install Tailscale</span>
-              </button>
-              <button @click="loginTailscaleOnServer()" :disabled="tailscale.isLoggingIn" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-lg transition flex items-center space-x-1.5 shadow-sm">
-                <span x-show="!tailscale.isLoggingIn">🔗 Authorize & Sign In</span>
-                <span x-show="tailscale.isLoggingIn" class="flex items-center space-x-1">
-                  <svg class="w-3.5 h-3.5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-                  <span>Connecting...</span>
-                </span>
-              </button>
+          <div class="p-3.5 bg-zinc-900/80 rounded-xl border border-zinc-800 space-y-2.5 flex flex-col justify-between">
+            <div class="space-y-2">
+              <span class="text-[11px] font-bold text-zinc-300 uppercase tracking-wider block">Central Server Mesh Status</span>
+              <p class="text-[11px] text-zinc-400 leading-relaxed">
+                <span x-show="tailscale.running">Server is connected to your private Tailscale mesh at <code class="text-emerald-400 font-mono font-bold" x-text="tailscale.ip"></code>.</span>
+                <span x-show="!tailscale.running && tailscale.installed">Tailscale is installed on server but not signed in. Click Authorize to link your account.</span>
+                <span x-show="!tailscale.installed">Tailscale is not installed on this server. Click 1-Click Install below.</span>
+              </p>
             </div>
-            <div x-show="tailscale.authUrl" class="mt-2 p-2.5 bg-indigo-950/60 border border-indigo-500/40 rounded-xl">
-              <a :href="tailscale.authUrl" target="_blank" rel="noopener noreferrer" class="text-xs font-bold text-indigo-300 hover:text-white flex items-center space-x-1.5">
-                <span>🚀 Click here to Open Tailscale Sign-In Page &rarr;</span>
-              </a>
+            <div>
+              <div class="flex flex-wrap items-center gap-2 pt-1">
+                <button x-show="!tailscale.installed" @click="installTailscaleOnServer()" :disabled="tailscale.isInstalling" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-lg transition flex items-center space-x-1.5 shadow-sm">
+                  <span>⚡ 1-Click Install Tailscale</span>
+                </button>
+                <button x-show="!tailscale.running" @click="loginTailscaleOnServer()" :disabled="tailscale.isLoggingIn" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-lg transition flex items-center space-x-1.5 shadow-sm">
+                  <span x-show="!tailscale.isLoggingIn">🔗 Authorize & Sign In</span>
+                  <span x-show="tailscale.isLoggingIn" class="flex items-center space-x-1">
+                    <svg class="w-3.5 h-3.5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                    <span>Connecting...</span>
+                  </span>
+                </button>
+                <button x-show="tailscale.running" @click="checkTailscaleStatus()" class="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-emerald-400 text-xs font-semibold rounded-lg border border-zinc-700 flex items-center space-x-1.5">
+                  <span>🟢 Connected & Active</span>
+                </button>
+              </div>
+              <div x-show="tailscale.authUrl && !tailscale.running" class="mt-2 p-2.5 bg-indigo-950/60 border border-indigo-500/40 rounded-xl">
+                <a :href="tailscale.authUrl" target="_blank" rel="noopener noreferrer" class="text-xs font-bold text-indigo-300 hover:text-white flex items-center space-x-1.5">
+                  <span>🚀 Click here to Open Tailscale Sign-In Page &rarr;</span>
+                </a>
+              </div>
             </div>
           </div>
 
-          <!-- Direct Outside Access URL -->
-          <div class="p-3.5 bg-zinc-900/80 rounded-xl border border-zinc-800 space-y-2 flex flex-col justify-between">
-            <div>
-              <span class="text-[11px] font-bold text-zinc-300 uppercase tracking-wider block">Remote Phone / Laptop Access URL</span>
-              <p class="text-[11px] text-zinc-400 mt-1">Open this URL on your phone when away from home:</p>
-              <div class="mt-2 p-2 bg-zinc-950 rounded-lg border border-zinc-800 text-xs font-mono text-indigo-300 select-all truncate" x-text="tailscale.ip ? ('http://' + tailscale.ip + ':8000') : 'Configure Tailscale to generate remote URL'"></div>
+          <!-- Direct Outside Access URLs: Tailscale IP + MagicDNS Link -->
+          <div class="p-3.5 bg-zinc-900/80 rounded-xl border border-zinc-800 space-y-3">
+            <span class="text-[11px] font-bold text-zinc-300 uppercase tracking-wider block">Remote Phone / Laptop Access URLs</span>
+            
+            <!-- 1. Tailscale IP Link -->
+            <div class="space-y-1">
+              <div class="flex items-center justify-between text-[11px]">
+                <span class="text-zinc-400 font-semibold">1. Tailscale IP Link:</span>
+                <button x-show="tailscale.ip" @click="copyCommand('http://' + tailscale.ip + ':8000')" class="text-indigo-400 hover:text-indigo-300 font-semibold">📋 Copy IP Link</button>
+              </div>
+              <div class="p-2 bg-zinc-950 rounded-lg border border-zinc-800 text-xs font-mono text-emerald-400 select-all truncate flex items-center justify-between">
+                <span x-text="tailscale.ip ? ('http://' + tailscale.ip + ':8000') : 'Configure Tailscale for remote IP'"></span>
+                <a x-show="tailscale.ip" :href="'http://' + tailscale.ip + ':8000'" target="_blank" class="text-zinc-400 hover:text-white ml-2 text-[11px] font-sans font-semibold">Open &nearr;</a>
+              </div>
             </div>
-            <button x-show="tailscale.ip" @click="copyCommand('http://' + tailscale.ip + ':8000')" class="w-full py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-semibold rounded-lg transition">
-              📋 Copy Remote URL
-            </button>
+
+            <!-- 2. MagicDNS Link -->
+            <div class="space-y-1">
+              <div class="flex items-center justify-between text-[11px]">
+                <span class="text-zinc-400 font-semibold">2. Tailscale Magic Link (MagicDNS):</span>
+                <button x-show="tailscale.magicLink" @click="copyCommand(tailscale.magicLink)" class="text-purple-400 hover:text-purple-300 font-semibold">📋 Copy Magic Link</button>
+              </div>
+              <div class="p-2 bg-zinc-950 rounded-lg border border-zinc-800 text-xs font-mono text-purple-300 select-all truncate flex items-center justify-between">
+                <span x-text="tailscale.magicLink || (tailscale.ip ? ('http://' + (tailscale.dnsName || tailscale.nodeName) + ':8000') : 'Configure Tailscale for Magic Link')"></span>
+                <a x-show="tailscale.magicLink" :href="tailscale.magicLink" target="_blank" class="text-zinc-400 hover:text-white ml-2 text-[11px] font-sans font-semibold">Open &nearr;</a>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -1300,7 +1325,7 @@
           <div class="flex items-center space-x-2">
             <span class="text-xs font-mono font-bold px-3 py-1 rounded-full border"
                   :class="currentNode?.tailscale_ip ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' : 'bg-zinc-800 text-zinc-400 border-zinc-700'"
-                  x-text="currentNode?.tailscale_ip ? ('🟢 Linked: ' + currentNode.tailscale_ip) : '⚪ Mesh Inactive'"></span>
+                  x-text="currentNode && currentNode.tailscale_ip ? ('🟢 Linked: ' + currentNode.tailscale_ip) : '⚪ Mesh Inactive'"></span>
             <button @click="autoDetectNodeTailscale()" class="p-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg text-xs" title="Auto-Detect & Link Tailscale IP">
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
             </button>
@@ -1310,8 +1335,8 @@
         <div class="p-4 bg-zinc-900/80 rounded-xl border border-zinc-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div class="space-y-1">
             <div class="text-xs font-semibold text-zinc-200">
-              <span x-show="currentNode?.tailscale_ip">✅ This computer is connected to Tailscale (<code class="text-indigo-300 font-mono" x-text="currentNode.tailscale_ip"></code>).</span>
-              <span x-show="!currentNode?.tailscale_ip">Install Tailscale on this child computer and sign in to link with Central Hub.</span>
+              <span x-show="currentNode && currentNode.tailscale_ip">✅ This computer is connected to Tailscale (<code class="text-indigo-300 font-mono" x-text="currentNode ? currentNode.tailscale_ip : ''"></code>).</span>
+              <span x-show="!currentNode || !currentNode.tailscale_ip">Install Tailscale on this child computer and sign in to link with Central Hub.</span>
             </div>
             <p class="text-[11px] text-zinc-400">
               When installed, this child's computer communicates securely over mesh even when outside home Wi-Fi.

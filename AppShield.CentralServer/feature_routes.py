@@ -57,7 +57,7 @@ async def send_node_command(device_id: str, cmd: CommandDto):
 @router.post("/fleet/{device_id:path}/ping")
 @router.get("/fleet/{device_id:path}/ping")
 async def ping_node_status(device_id: str):
-    is_live = device_id in manager.active_connections
+    is_live = device_id in manager.active_agents
     sent = False
     if is_live:
         sent = await manager.send_command(device_id, {"action": "ping", "payload": {}})

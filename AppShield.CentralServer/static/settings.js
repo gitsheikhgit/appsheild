@@ -10,6 +10,9 @@ window.AppShieldSettings = {
     installed: false,
     running: false,
     ip: '',
+    magicLink: '',
+    dnsName: '',
+    nodeName: '',
     authUrl: '',
     statusText: 'Checking...',
     isChecking: false,
@@ -37,12 +40,17 @@ window.AppShieldSettings = {
       const res = await fetch('/api/tailscale/status');
       const json = await res.json();
       if (json.success && json.data) {
-        this.tailscale.installed = json.data.installed;
-        this.tailscale.running = json.data.running;
-        this.tailscale.ip = json.data.ip || '';
+        const isRunning = Boolean(json.data.running || (json.data.backend_state === 'Running') || json.data.tailscale_ip || json.data.ip);
+        const ip = json.data.ip || json.data.tailscale_ip || '';
+        this.tailscale.installed = Boolean(json.data.installed);
+        this.tailscale.running = isRunning;
+        this.tailscale.ip = ip;
+        this.tailscale.dnsName = json.data.dns_name || '';
+        this.tailscale.nodeName = json.data.node_name || 'appsheild';
+        this.tailscale.magicLink = json.data.magic_link || (json.data.dns_name ? `http://${json.data.dns_name}:8000` : '');
         this.tailscale.authUrl = json.data.auth_url || '';
-        this.tailscale.statusText = json.data.running 
-          ? `🟢 Active: ${json.data.ip}` 
+        this.tailscale.statusText = isRunning 
+          ? `🟢 Active: ${ip}` 
           : (json.data.installed ? '🟡 Installed, Not Logged In' : '⚪ Not Installed');
       }
     } catch (e) {

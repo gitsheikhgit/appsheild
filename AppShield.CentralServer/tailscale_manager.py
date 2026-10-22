@@ -147,8 +147,32 @@ class TailscaleManager:
                 ipv4_addrs = [a for a in addrs if ":" not in a]
                 if ipv4_addrs:
                     result["tailscale_ip"] = ipv4_addrs[0]
+                    result["ip"] = ipv4_addrs[0]
                 result["node_name"] = self_node.get("HostName")
+                dns_name = (self_node.get("DNSName") or "").rstrip(".")
+                result["dns_name"] = dns_name
+                result["magic_link"] = f"http://{dns_name}:8000" if dns_name else ""
+                result["ip_link"] = f"http://{result.get('tailscale_ip')}:8000" if result.get("tailscale_ip") else ""
                 result["auth_url"] = data.get("AuthURL")
+                result["running"] = (result.get("backend_state") == "Running") or bool(result.get("tailscale_ip"))
+
+                # Collect peers map for auto-linking kids' devices
+                peers_map = {}
+                peer_dict = data.get("Peer", {})
+                for pkey, pval in peer_dict.items():
+                    hname = pval.get("HostName", "")
+                    p_dns = (pval.get("DNSName") or "").rstrip(".")
+                    p_ips = [a for a in pval.get("TailscaleIPs", []) if ":" not in a]
+                    if p_ips:
+                        peers_map[hname.lower()] = {
+                            "hostname": hname,
+                            "dns_name": p_dns,
+                            "ip": p_ips[0],
+                            "magic_link": f"http://{p_dns}:54120" if p_dns else "",
+                            "os": pval.get("OS", ""),
+                            "online": pval.get("Online", False)
+                        }
+                result["peers"] = peers_map
                 return result
         except Exception:
             pass
@@ -163,8 +187,12 @@ class TailscaleManager:
             stdout, _ = await proc.communicate()
             ip = stdout.decode().strip()
             if ip.startswith("100."):
-                result["tailscale_ip"] = ip.splitlines()[0]
+                t_ip = ip.splitlines()[0]
+                result["tailscale_ip"] = t_ip
+                result["ip"] = t_ip
+                result["ip_link"] = f"http://{t_ip}:8000"
                 result["backend_state"] = "Running"
+                result["running"] = True
             else:
                 result["backend_state"] = "NeedsLogin"
         except Exception:

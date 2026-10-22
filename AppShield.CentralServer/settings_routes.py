@@ -21,6 +21,9 @@ router = APIRouter(prefix="/api", tags=["Settings & Infrastructure"])
 async def get_tailscale_status():
     """Returns current status of Tailscale on the Central Server."""
     data = await TailscaleManager.get_status()
+    is_running = (data.get("backend_state") == "Running") or bool(data.get("tailscale_ip"))
+    data["running"] = is_running
+    data["ip"] = data.get("tailscale_ip") or ""
     return {"success": True, "data": data}
 
 @router.post("/tailscale/install")
@@ -38,8 +41,8 @@ async def login_tailscale():
 @router.get("/nodes/{device_id}/tailscale-probe")
 async def probe_node_tailscale(device_id: str):
     """
-    Returns the detected Tailscale IP for a specific connected node
-    from the database and active telemetry cache.
+    Returns the detected Tailscale IP and MagicDNS for a specific connected node
+    from the database, active telemetry cache, or Tailscale peer network map.
     """
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
@@ -52,11 +55,32 @@ async def probe_node_tailscale(device_id: str):
         raise HTTPException(status_code=404, detail="Device not found")
 
     t_ip = row["tailscale_ip"]
+    dns_name = ""
+
+    # If missing from DB, query active Tailscale peer list
+    if not t_ip or not str(t_ip).startswith("100."):
+        import re
+        ts_data = await TailscaleManager.get_status()
+        peers = ts_data.get("peers", {})
+        node_name_clean = re.sub(r"[^a-z0-9]", "", (row["name"] or "").lower())
+        for hname, peer in peers.items():
+            peer_name_clean = re.sub(r"[^a-z0-9]", "", hname)
+            if peer_name_clean in node_name_clean or node_name_clean in peer_name_clean:
+                t_ip = peer["ip"]
+                dns_name = peer.get("dns_name", "")
+                conn2 = sqlite3.connect(DB_PATH)
+                c2 = conn2.cursor()
+                c2.execute("UPDATE devices SET tailscale_ip = ? WHERE id = ?", (t_ip, device_id))
+                conn2.commit()
+                conn2.close()
+                break
+
     return {
         "success": True,
         "device_id": device_id,
         "name": row["name"],
         "tailscale_ip": t_ip or "",
+        "dns_name": dns_name or "",
         "detected": bool(t_ip and str(t_ip).startswith("100."))
     }
 
