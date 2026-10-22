@@ -81,19 +81,17 @@
     header button, header a, header input, header select, .no-drag {
       -webkit-app-region: no-drag;
     }
-    /* Mobile Header & Drawer Spacing: guaranteed clearance below iPhone notch, Dynamic Island, and status bar */
+    /* Mobile Header & Drawer Spacing: Natural, native iOS notch and Dynamic Island clearance */
     .app-header {
-      padding-top: max(3.5rem, calc(env(safe-area-inset-top, 0px) + 0.75rem));
-      min-height: calc(5.25rem + env(safe-area-inset-top, 0px));
+      padding-top: max(2.75rem, env(safe-area-inset-top, 0px));
     }
     .mobile-sidebar {
-      padding-top: max(3.5rem, calc(env(safe-area-inset-top, 0px) + 0.5rem));
+      padding-top: max(2.75rem, env(safe-area-inset-top, 0px));
       padding-bottom: max(1.5rem, env(safe-area-inset-bottom, 0px));
     }
     @media (min-width: 768px) {
       .app-header {
         padding-top: 0px !important;
-        min-height: 3.5rem !important;
       }
       .mobile-sidebar {
         padding-top: 0px !important;
@@ -301,10 +299,10 @@
   <div class="flex-1 flex flex-col h-screen overflow-hidden">
     <!-- Top Header Bar -->
     <header class="flex-shrink-0 bg-[#11131c]/95 backdrop-blur border-b border-zinc-800/80 px-3 sm:px-6 z-20 app-header">
-      <div class="h-14 flex items-center justify-between gap-2">
+      <div class="h-12 sm:h-14 flex items-center justify-between gap-2">
         <div class="flex items-center space-x-2 sm:space-x-3 min-w-0">
           <!-- Mobile Sidebar Toggle -->
-          <button @click="mobileSidebarOpen = !mobileSidebarOpen" class="md:hidden w-10 h-10 rounded-lg bg-zinc-800/90 border border-zinc-700/60 text-zinc-300 hover:text-white hover:bg-zinc-700 focus:outline-none flex items-center justify-center flex-shrink-0 transition" aria-label="Open Navigation Menu">
+          <button @click="mobileSidebarOpen = !mobileSidebarOpen" class="md:hidden w-9 h-9 rounded-lg bg-zinc-800/90 border border-zinc-700/60 text-zinc-300 hover:text-white hover:bg-zinc-700 focus:outline-none flex items-center justify-center flex-shrink-0 transition" aria-label="Open Navigation Menu">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
           </button>
           <div class="min-w-0">
@@ -368,7 +366,7 @@
     </div>
 
     <!-- Scrollable Main Content Canvas -->
-    <main class="flex-1 overflow-y-auto p-4 sm:p-6 pb-28 md:pb-6 custom-scroll space-y-6">
+    <main class="flex-1 overflow-y-auto px-3 sm:px-6 pt-2.5 sm:pt-6 pb-28 md:pb-6 custom-scroll space-y-4 sm:space-y-6">
 
       <!-- Empty Fleet Prompt -->
       <div x-show="fleet.length === 0" class="p-8 glass-card border border-indigo-500/30 rounded-2xl text-center space-y-4 max-w-xl mx-auto shadow-2xl">
