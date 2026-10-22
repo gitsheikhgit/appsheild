@@ -116,6 +116,16 @@ window.AppShieldSettings = {
     }, 3000);
   },
 
+  installTailscaleOnClient(osType) {
+    if (osType === 'mac') {
+      window.open('https://tailscale.com/download/mac', '_blank');
+      this.showToast('Opened Tailscale for macOS installer download.', 'info');
+    } else {
+      window.open('https://pkgs.tailscale.com/stable/tailscale-setup-latest.exe', '_blank');
+      this.showToast('Downloading Tailscale for Windows setup installer.', 'info');
+    }
+  },
+
   async autoDetectNodeTailscale() {
     if (!this.currentNode) return;
     try {
@@ -123,9 +133,10 @@ window.AppShieldSettings = {
       const json = await res.json();
       if (json.success && json.tailscale_ip) {
         this.currentNode.tailscale_ip = json.tailscale_ip;
-        this.showToast(`Found Tailscale IP: ${json.tailscale_ip}! Click "Save Settings" to persist.`, 'success');
+        this.showToast(`Found Tailscale IP: ${json.tailscale_ip}! Auto-saving settings...`, 'success');
+        await this.saveCurrentNodeSettings();
       } else {
-        this.showToast('No Tailscale IP detected on child node yet. Make sure Tailscale is connected on their device.', 'info');
+        this.showToast('No Tailscale IP detected on child node yet. Ensure Tailscale is installed & signed in on their device.', 'info');
       }
     } catch (e) {
       this.showToast('Failed to probe Tailscale IP', 'error');
