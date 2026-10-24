@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 AppShield macOS Endpoint Protection & Parental Shield Agent
-Version: 1.3.1
+Version: 1.3.2
 
 Features:
 - Outbound encrypted WebSocket & REST telemetry to AppShield Central Server
@@ -55,6 +55,22 @@ def get_settings_path() -> str:
 def get_features_path() -> str:
     return os.path.join(get_base_dir(), "features.json")
 
+def get_hardware_uuid_prefix() -> str:
+    """Retrieve permanent Mac IOPlatformUUID so device_id remains identical across reinstalls."""
+    try:
+        out = subprocess.check_output(["ioreg", "-rd1", "-c", "IOPlatformExpertDevice"], text=True)
+        for line in out.splitlines():
+            if "IOPlatformUUID" in line:
+                parts = line.split("=")
+                if len(parts) >= 2:
+                    raw = parts[1].strip().strip('"').replace("-", "").lower()
+                    if len(raw) >= 12:
+                        return raw[:12]
+    except Exception:
+        pass
+    import uuid
+    return uuid.uuid4().hex[:12]
+
 def load_or_create_settings() -> Dict[str, Any]:
     """Loads system settings (server URL, device ID, tailscale IP, standalone mode)."""
     settings_path = get_settings_path()
@@ -79,7 +95,7 @@ def load_or_create_settings() -> Dict[str, Any]:
                 old = json.load(f)
                 import secrets
                 settings = {
-                    "device_id": old.get("device_id"),
+                    "device_id": old.get("device_id") or f"mac_{get_hardware_uuid_prefix()}",
                     "name": old.get("name"),
                     "server_url": old.get("server_url", DEFAULT_SERVER_URL),
                     "standalone_mode": old.get("server_url") in ["", "standalone", None],
@@ -92,9 +108,8 @@ def load_or_create_settings() -> Dict[str, Any]:
             pass
 
     # Create new default settings
-    import uuid
     import secrets
-    mac_id = f"mac_{uuid.uuid4().hex[:12]}"
+    mac_id = f"mac_{get_hardware_uuid_prefix()}"
     try:
         hostname = subprocess.check_output(["scutil", "--get", "ComputerName"], text=True).strip()
     except Exception:
@@ -732,7 +747,7 @@ class AppShieldMacAgent:
             "os": f"macOS {platform.mac_ver()[0]} ({platform.machine()})",
             "lan_ip": get_primary_ip(),
             "tailscale_ip": t_ip,
-            "agent_version": "1.3.1",
+            "agent_version": "1.3.2",
             "psk": self.settings.get("psk", "")
         }
         try:
@@ -1069,7 +1084,7 @@ class AppShieldMacAgent:
 
     def start(self):
         print("====================================================================")
-        print("          AppShield macOS Endpoint Protection Agent v1.3.1          ")
+        print("          AppShield macOS Endpoint Protection Agent v1.3.2          ")
         print("====================================================================")
         print(f" Device ID:    {self.device_id}")
         print(f" Tailscale IP: {get_tailscale_ip() or self.tailscale_ip or 'None detected'}")

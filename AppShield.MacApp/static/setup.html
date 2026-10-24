@@ -164,13 +164,15 @@
           <!-- Inline Expandable Confirmation -->
           <div id="inlineUninstall_installer" class="hidden p-4 border-t border-rose-500/30 bg-black/50 space-y-3">
             <p class="text-xs text-rose-300 leading-relaxed">
-              To permanently remove AppShield and purge this Mac from the Central Server, type <span class="font-mono font-bold text-white bg-rose-900/60 px-1.5 py-0.5 rounded">DELETE</span> below:
+              To permanently remove AppShield and purge this Mac from the Central Server, type <span class="font-mono font-bold text-white bg-rose-900/80 hover:bg-rose-800 px-1.5 py-0.5 rounded cursor-pointer underline transition" onclick="document.getElementById('inlineUninstallInput_installer').value='DELETE'; checkInlineUninstallInput('installer', 'DELETE');" title="Click to autofill DELETE">DELETE</span> below:
             </p>
             <div class="flex items-center space-x-2">
               <input 
                 type="text" 
                 id="inlineUninstallInput_installer" 
                 oninput="checkInlineUninstallInput('installer', this.value)"
+                onkeyup="checkInlineUninstallInput('installer', this.value); if(event.key==='Enter'&&!document.getElementById('btnInlineUninstallConfirm_installer').disabled)executeConfirmedUninstall();"
+                onpaste="setTimeout(()=>checkInlineUninstallInput('installer', this.value), 50)"
                 placeholder="Type DELETE" 
                 class="flex-1 bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-2 text-xs text-white font-mono uppercase tracking-wider focus:outline-none focus:border-rose-500">
               <button 
@@ -287,13 +289,15 @@
           <!-- Inline Expandable Confirmation -->
           <div id="inlineUninstall_installed" class="hidden p-4 border-t border-rose-500/30 bg-black/50 space-y-3">
             <p class="text-xs text-rose-300 leading-relaxed">
-              To permanently remove AppShield and purge this computer from the Central Server, type <span class="font-mono font-bold text-white bg-rose-900/60 px-1.5 py-0.5 rounded">DELETE</span> below:
+              To permanently remove AppShield and purge this computer from the Central Server, type <span class="font-mono font-bold text-white bg-rose-900/80 hover:bg-rose-800 px-1.5 py-0.5 rounded cursor-pointer underline transition" onclick="document.getElementById('inlineUninstallInput_installed').value='DELETE'; checkInlineUninstallInput('installed', 'DELETE');" title="Click to autofill DELETE">DELETE</span> below:
             </p>
             <div class="flex items-center space-x-2">
               <input 
                 type="text" 
                 id="inlineUninstallInput_installed" 
                 oninput="checkInlineUninstallInput('installed', this.value)"
+                onkeyup="checkInlineUninstallInput('installed', this.value); if(event.key==='Enter'&&!document.getElementById('btnInlineUninstallConfirm_installed').disabled)executeConfirmedUninstall();"
+                onpaste="setTimeout(()=>checkInlineUninstallInput('installed', this.value), 50)"
                 placeholder="Type DELETE" 
                 class="flex-1 bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-2 text-xs text-white font-mono uppercase tracking-wider focus:outline-none focus:border-rose-500">
               <button 
@@ -346,7 +350,7 @@
           <div>
             <div class="flex items-center space-x-1.5">
               <h1 class="text-base font-bold text-white font-['Outfit'] tracking-wide">AppShield</h1>
-              <span class="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">v1.3.1</span>
+              <span class="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">v1.3.2</span>
             </div>
             <p class="text-[10px] text-zinc-400">Endpoint & Fleet Shield</p>
           </div>
@@ -996,12 +1000,14 @@
 
       <div class="space-y-1.5">
         <label class="block text-xs font-semibold text-zinc-300">
-          To confirm disconnection, type <span class="text-rose-400 font-mono font-bold tracking-wider">DELETE</span> below:
+          To confirm disconnection, type <span class="text-rose-400 font-mono font-bold tracking-wider cursor-pointer underline hover:text-rose-300 transition" onclick="document.getElementById('disconnectConfirmInput').value='DELETE'; checkDisconnectInput('DELETE');" title="Click to autofill DELETE">DELETE</span> below:
         </label>
         <input 
           type="text" 
           id="disconnectConfirmInput" 
           oninput="checkDisconnectInput(this.value)"
+          onkeyup="checkDisconnectInput(this.value); if(event.key==='Enter'&&!document.getElementById('btnConfirmDisconnect').disabled)executeDisconnectServer();"
+          onpaste="setTimeout(()=>checkDisconnectInput(this.value), 50)"
           placeholder="Type DELETE" 
           class="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-3.5 py-2.5 text-sm text-white font-mono focus:outline-none focus:border-rose-500 uppercase tracking-wider">
       </div>
@@ -1057,12 +1063,14 @@
 
       <div class="space-y-1.5">
         <label class="block text-xs font-semibold text-zinc-300">
-          To confirm uninstallation, type <span class="text-rose-400 font-mono font-bold tracking-wider">DELETE</span> below:
+          To confirm uninstallation, type <span class="text-rose-400 font-mono font-bold tracking-wider cursor-pointer underline hover:text-rose-300 transition" onclick="document.getElementById('uninstallConfirmInput').value='DELETE'; checkUninstallInput('DELETE');" title="Click to autofill DELETE">DELETE</span> below:
         </label>
         <input 
           type="text" 
           id="uninstallConfirmInput" 
           oninput="checkUninstallInput(this.value)"
+          onkeyup="checkUninstallInput(this.value); if(event.key==='Enter'&&!document.getElementById('btnConfirmUninstall').disabled)executeConfirmedUninstall();"
+          onpaste="setTimeout(()=>checkUninstallInput(this.value), 50)"
           placeholder="Type DELETE" 
           class="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-3.5 py-2.5 text-sm text-white font-mono focus:outline-none focus:border-rose-500 uppercase tracking-wider">
       </div>
@@ -2252,9 +2260,9 @@
     function checkDisconnectInput(val) {
       const btn = document.getElementById("btnConfirmDisconnect");
       if (!btn) return;
-      if (val.trim() === "DELETE") {
+      if (val && val.trim().toUpperCase() === "DELETE") {
         btn.disabled = false;
-        btn.className = "px-5 py-2.5 text-xs font-bold rounded-xl transition flex items-center space-x-1.5 bg-rose-600 hover:bg-rose-700 text-white cursor-pointer shadow-lg shadow-rose-600/30";
+        btn.className = "px-5 py-2.5 text-xs font-bold rounded-xl transition flex items-center space-x-1.5 bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white cursor-pointer shadow-lg shadow-rose-600/30";
       } else {
         btn.disabled = true;
         btn.className = "px-5 py-2.5 text-xs font-bold rounded-xl transition flex items-center space-x-1.5 bg-rose-950/40 text-rose-500/50 border border-rose-900/40 cursor-not-allowed";

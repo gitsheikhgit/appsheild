@@ -4,7 +4,7 @@
 
 // ==============================================================================
 // AppShield for macOS: Native Cocoa Application & Graphical Setup Engine
-// Version: 1.3.1
+// Version: 1.3.2
 // ==============================================================================
 
 @interface AppDelegate : NSObject <NSApplicationDelegate, WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandler, NSWindowDelegate>
@@ -219,7 +219,7 @@
             settingsDict[@"standalone_mode"] = @(isStandalone);
 
             if (!settingsDict[@"device_id"]) {
-                settingsDict[@"device_id"] = [NSString stringWithFormat:@"mac_%@", [[NSUUID UUID].UUIDString.lowercaseString substringToIndex:12]];
+                settingsDict[@"device_id"] = [NSString stringWithFormat:@"mac_%@", [self getHardwareUUIDPrefix]];
             }
             if (!settingsDict[@"name"]) {
                 settingsDict[@"name"] = [NSHost currentHost].localizedName ?: @"Mac";
@@ -262,7 +262,7 @@
                             @"os": @"macOS",
                             @"lan_ip": @"127.0.0.1",
                             @"tailscale_ip": settingsDict[@"tailscale_ip"] ?: @"",
-                            @"agent_version": @"1.3.1",
+                            @"agent_version": @"1.3.2",
                             @"psk": settingsDict[@"psk"] ?: @""
                         };
                         req.HTTPBody = [NSJSONSerialization dataWithJSONObject:payload options:0 error:nil];
@@ -647,9 +647,35 @@
     return list;
 }
 
+- (NSString *)getHardwareUUIDPrefix {
+    NSTask *task = [[NSTask alloc] init];
+    task.launchPath = @"/usr/sbin/ioreg";
+    task.arguments = @[@"-rd1", @"-c", @"IOPlatformExpertDevice"];
+    NSPipe *pipe = [NSPipe pipe];
+    task.standardOutput = pipe;
+    @try {
+        [task launch];
+        NSData *data = [[pipe fileHandleForReading] readDataToEndOfFile];
+        [task waitUntilExit];
+        NSString *outStr = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
+        for (NSString *line in [outStr componentsSeparatedByString:@"\n"]) {
+            if ([line containsString:@"IOPlatformUUID"]) {
+                NSArray *parts = [line componentsSeparatedByString:@"="];
+                if (parts.count >= 2) {
+                    NSString *raw = [[[[parts[1] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]] stringByReplacingOccurrencesOfString:@"\"" withString:@""] stringByReplacingOccurrencesOfString:@"-" withString:@""] lowercaseString];
+                    if (raw.length >= 12) {
+                        return [raw substringToIndex:12];
+                    }
+                }
+            }
+        }
+    } @catch (NSException *e) {}
+    return [[[NSUUID UUID].UUIDString stringByReplacingOccurrencesOfString:@"-" withString:@""].lowercaseString substringToIndex:12];
+}
+
 - (void)handleGetStatus {
     BOOL isInstalled = NO;
-    NSString *deviceId = @"mac_detecting";
+    NSString *deviceId = [NSString stringWithFormat:@"mac_%@", [self getHardwareUUIDPrefix]];
 
     // 1. Check if launchd daemon AND /Applications/AppShield.app are installed
     NSString *plist = @"/Library/LaunchDaemons/com.appshield.macagent.plist";
@@ -960,7 +986,7 @@
 
 - (void)showAbout:(id)sender {
     NSAlert *alert = [[NSAlert alloc] init];
-    [alert setMessageText:@"AppShield for macOS v1.3.1"];
+    [alert setMessageText:@"AppShield for macOS v1.3.2"];
     [alert setInformativeText:@"Commercial Multi-Platform Parental Shield & Tamper-Resistant Security.\n\nConnected to Proxmox LXC Hub:\nhttp://192.168.0.101:8000"];
     [alert addButtonWithTitle:@"OK"];
     [alert runModal];
