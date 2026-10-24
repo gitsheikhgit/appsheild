@@ -199,6 +199,16 @@ This produces:
 
 ---
 
+## 🚀 What's New in v1.3.1
+
+- **Autonomous Standalone Web & DNS Shield**: Full Family Web & DNS Shield is now available directly in standalone mode inside the macOS app. Enforces Cloudflare Family, CleanBrowsing, AdGuard Family, Quad9, or Custom DNS across all network adapters with cache flushing (`mDNSResponder`).
+- **Thread-Safe Native Uninstaller**: Replaced background `NSAppleScript` calls with `NSTask` invocation of `/usr/bin/osascript`, eliminating script hangs and guaranteeing the native macOS administrator authorization prompt appears instantly.
+- **DMG Installer Full Feature Parity**: Opening `AppShield-macOS.dmg` now provides full access to all features (Install 24/7 Protection, Open Standalone Console, Web & DNS Shield, and Uninstall) matching the installed application.
+- **Inline Expandable Confirmation Cards**: Replaced overlay modals with inline expandable cards requiring typing `DELETE` to confirm destructive uninstallation and automated device deletion from Central Server.
+- **Cross-Platform v1.3.1 Version Sync**: Synchronized version across macOS Cocoa application, LaunchDaemon, DMG package, and Windows .NET 8 client binaries.
+
+---
+
 ## 🚀 What's New in v1.3.0
 
 - **Fleet Computer Management & Deletion**: Parents can permanently delete any managed or offline computer directly from the Central Server dashboard with type-to-confirm `DELETE` protection.

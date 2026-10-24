@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-set -e
 
 # ==============================================================================
 # AppShield macOS Agent Clean Uninstaller
@@ -21,6 +20,16 @@ if [ -f "$PLIST_PATH" ]; then
     launchctl bootout system/com.appshield.macagent 2>/dev/null || launchctl unload "$PLIST_PATH" 2>/dev/null || true
     rm -f "$PLIST_PATH"
 fi
+
+# Reset macOS DNS to default DHCP
+echo "[+] Resetting network DNS to DHCP default..."
+networksetup -listallnetworkservices 2>/dev/null | grep -v '^\*' | while read -r s; do
+    if [ -n "$s" ] && ! echo "$s" | grep -q "asterisk"; then
+        networksetup -setdnsservers "$s" "empty" 2>/dev/null || true
+    fi
+done
+dscacheutil -flushcache 2>/dev/null || true
+killall -HUP mDNSResponder 2>/dev/null || true
 
 # 1. Notify Central Server to deregister device and purge from server database
 SETTINGS_FILE="/Library/Application Support/AppShield/settings.json"

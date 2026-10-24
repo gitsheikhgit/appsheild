@@ -4,7 +4,7 @@
 
 // ==============================================================================
 // AppShield for macOS: Native Cocoa Application & Graphical Setup Engine
-// Version: 1.3.0
+// Version: 1.3.1
 // ==============================================================================
 
 @interface AppDelegate : NSObject <NSApplicationDelegate, WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandler, NSWindowDelegate>
@@ -262,7 +262,7 @@
                             @"os": @"macOS",
                             @"lan_ip": @"127.0.0.1",
                             @"tailscale_ip": settingsDict[@"tailscale_ip"] ?: @"",
-                            @"agent_version": @"1.3.0",
+                            @"agent_version": @"1.3.1",
                             @"psk": settingsDict[@"psk"] ?: @""
                         };
                         req.HTTPBody = [NSJSONSerialization dataWithJSONObject:payload options:0 error:nil];
@@ -304,6 +304,11 @@
         }
     } else if ([action isEqualToString:@"syncRules"]) {
         [self executeSyncRules];
+    } else if ([action isEqualToString:@"applyDns"]) {
+        NSDictionary *dnsSettings = body[@"dns"] ?: body[@"settings"];
+        if (dnsSettings) {
+            [self executeApplyDns:dnsSettings];
+        }
     } else if ([action isEqualToString:@"saveFeatures"]) {
         NSDictionary *features = body[@"features"];
         if (features) {
@@ -690,6 +695,10 @@
     NSData *featData = [NSJSONSerialization dataWithJSONObject:featuresDict options:0 error:nil];
     NSString *featJson = featData ? [[NSString alloc] initWithData:featData encoding:NSUTF8StringEncoding] : @"{}";
 
+    NSDictionary *dnsDict = featuresDict[@"dns_filter"] ?: @{};
+    NSData *dnsData = [NSJSONSerialization dataWithJSONObject:dnsDict options:0 error:nil];
+    NSString *dnsJson = dnsData ? [[NSString alloc] initWithData:dnsData encoding:NSUTF8StringEncoding] : @"{}";
+
     NSArray *installedApps = [self getInstalledApps];
     NSArray *runningApps = [self getRunningApps];
 
@@ -708,6 +717,7 @@
         @"  deviceName: '%@',"
         @"  users: %@,"
         @"  features: %@,"
+        @"  dns: %@,"
         @"  installedApps: %@,"
         @"  runningApps: %@"
         @"});",
@@ -718,6 +728,7 @@
         [deviceName stringByReplacingOccurrencesOfString:@"'" withString:@"\\'"],
         usersJson,
         featJson,
+        dnsJson,
         instJson,
         runJson];
 
@@ -738,24 +749,27 @@
     }
 
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-        // Standard macOS authorization prompt: do shell script ... with administrator privileges
+        NSString *cmd = [NSString stringWithFormat:@"bash '%@' '%@'", installScript, serverUrl];
+        NSString *escapedCmd = [cmd stringByReplacingOccurrencesOfString:@"\\" withString:@"\\\\"];
+        escapedCmd = [escapedCmd stringByReplacingOccurrencesOfString:@"\"" withString:@"\\\""];
         NSString *scriptText = [NSString stringWithFormat:
-            @"do shell script \"bash '%@' '%@'\" with administrator privileges",
-            installScript, serverUrl];
+            @"do shell script \"%@\" with administrator privileges",
+            escapedCmd];
 
-        NSAppleScript *appleScript = [[NSAppleScript alloc] initWithSource:scriptText];
-        NSDictionary *errorInfo = nil;
-        NSAppleEventDescriptor *result = [appleScript executeAndReturnError:&errorInfo];
+        NSTask *task = [[NSTask alloc] init];
+        task.launchPath = @"/usr/bin/osascript";
+        task.arguments = @[@"-e", scriptText];
+        @try {
+            [task launch];
+            [task waitUntilExit];
+            NSLog(@"[AppShield] Install task exited with code: %d", task.terminationStatus);
+        } @catch (NSException *e) {
+            NSLog(@"[AppShield] Install task exception: %@", e);
+        }
 
         dispatch_async(dispatch_get_main_queue(), ^{
-            if (errorInfo) {
-                NSLog(@"[AppShield] Authorization canceled or failed: %@", errorInfo);
-                [self handleGetStatus];
-            } else {
-                NSLog(@"[AppShield] Agent installed successfully!");
-                [self loadSetupHtml];
-                [self handleGetStatus];
-            }
+            [self loadSetupHtml];
+            [self handleGetStatus];
         });
     });
 }
@@ -805,6 +819,9 @@
     NSString *resourcePath = [[NSBundle mainBundle] resourcePath];
     NSString *uninstallScript = [resourcePath stringByAppendingPathComponent:@"uninstall-mac-agent.sh"];
     if (![[NSFileManager defaultManager] fileExistsAtPath:uninstallScript]) {
+        uninstallScript = @"/Library/Application Support/AppShield/uninstall-mac-agent.sh";
+    }
+    if (![[NSFileManager defaultManager] fileExistsAtPath:uninstallScript]) {
         uninstallScript = [@"./uninstall-mac-agent.sh" stringByStandardizingPath];
     }
 
@@ -816,16 +833,99 @@
     }
 
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+        NSString *escapedCmd = [execCmd stringByReplacingOccurrencesOfString:@"\\" withString:@"\\\\"];
+        escapedCmd = [escapedCmd stringByReplacingOccurrencesOfString:@"\"" withString:@"\\\""];
         NSString *scriptText = [NSString stringWithFormat:
             @"do shell script \"%@\" with administrator privileges",
-            execCmd];
+            escapedCmd];
 
-        NSAppleScript *appleScript = [[NSAppleScript alloc] initWithSource:scriptText];
-        NSDictionary *errorInfo = nil;
-        [appleScript executeAndReturnError:&errorInfo];
+        NSTask *task = [[NSTask alloc] init];
+        task.launchPath = @"/usr/bin/osascript";
+        task.arguments = @[@"-e", scriptText];
+        @try {
+            [task launch];
+            [task waitUntilExit];
+            NSLog(@"[AppShield] Uninstall task exited with status: %d", task.terminationStatus);
+        } @catch (NSException *e) {
+            NSLog(@"[AppShield] Error running uninstall task: %@", e);
+        }
 
         dispatch_async(dispatch_get_main_queue(), ^{
             [self loadSetupHtml];
+            [self handleGetStatus];
+        });
+    });
+}
+
+- (void)executeApplyDns:(NSDictionary *)dnsSettings {
+    if (!dnsSettings) return;
+
+    // 1. Update features.json
+    NSString *featuresPath = @"/Library/Application Support/AppShield/features.json";
+    NSMutableDictionary *featuresDict = [NSMutableDictionary dictionary];
+    if ([[NSFileManager defaultManager] fileExistsAtPath:featuresPath]) {
+        NSData *fData = [NSData dataWithContentsOfFile:featuresPath];
+        if (fData) {
+            NSDictionary *json = [NSJSONSerialization JSONObjectWithData:fData options:0 error:nil];
+            if (json) [featuresDict addEntriesFromDictionary:json];
+        }
+    }
+    featuresDict[@"dns_filter"] = dnsSettings;
+
+    NSData *outData = [NSJSONSerialization dataWithJSONObject:featuresDict options:NSJSONWritingPrettyPrinted error:nil];
+    if (outData) {
+        if (![outData writeToFile:featuresPath atomically:YES]) {
+            NSString *tmp = [NSTemporaryDirectory() stringByAppendingPathComponent:@"features_dns.json"];
+            [outData writeToFile:tmp atomically:YES];
+            NSString *cmd = [NSString stringWithFormat:@"cp -f '%@' '%@' 2>/dev/null", tmp, featuresPath];
+            system([cmd UTF8String]);
+        }
+    }
+
+    // 2. Direct system execution via networksetup
+    NSString *primaryDns = dnsSettings[@"primary_dns"] ?: @"";
+    NSString *secondaryDns = dnsSettings[@"secondary_dns"] ?: @"";
+    NSString *primaryIpv6 = dnsSettings[@"primary_ipv6"] ?: @"";
+    NSString *secondaryIpv6 = dnsSettings[@"secondary_ipv6"] ?: @"";
+    BOOL isEnabled = [dnsSettings[@"is_enabled"] boolValue];
+
+    NSMutableArray *dnsArgs = [NSMutableArray array];
+    if (isEnabled) {
+        for (NSString *addr in @[primaryDns, secondaryDns, primaryIpv6, secondaryIpv6]) {
+            NSString *trimmed = [addr stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+            if (trimmed.length > 0 && ![trimmed isEqualToString:@"N/A"] && ![dnsArgs containsObject:trimmed]) {
+                [dnsArgs addObject:trimmed];
+            }
+        }
+    }
+
+    NSString *dnsStr = (dnsArgs.count > 0) ? [dnsArgs componentsJoinedByString:@" "] : @"empty";
+
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+        // Build shell script for setting DNS on all network services
+        NSMutableString *cmd = [NSMutableString string];
+        [cmd appendString:@"networksetup -listallnetworkservices 2>/dev/null | grep -v '^\\*' | while read -r s; do "];
+        [cmd appendFormat:@"if [ -n \"$s\" ] && ! echo \"$s\" | grep -q 'asterisk'; then networksetup -setdnsservers \"$s\" %@ 2>/dev/null || true; fi; done; ", dnsStr];
+        [cmd appendString:@"dscacheutil -flushcache 2>/dev/null || true; killall -HUP mDNSResponder 2>/dev/null || true"];
+
+        // If background daemon is running, poke it to sync DNS
+        system("pkill -HUP -f agent.py 2>/dev/null || true");
+
+        // Try direct execution; if permissions required, trigger osascript with admin privileges
+        int res = system([cmd UTF8String]);
+        if (res != 0) {
+            NSString *escaped = [cmd stringByReplacingOccurrencesOfString:@"\"" withString:@"\\\""];
+            NSString *asCmd = [NSString stringWithFormat:@"do shell script \"%@\" with administrator privileges", escaped];
+            NSTask *task = [[NSTask alloc] init];
+            task.launchPath = @"/usr/bin/osascript";
+            task.arguments = @[@"-e", asCmd];
+            @try {
+                [task launch];
+                [task waitUntilExit];
+            } @catch (NSException *e) {}
+        }
+
+        dispatch_async(dispatch_get_main_queue(), ^{
             [self handleGetStatus];
         });
     });
@@ -860,7 +960,7 @@
 
 - (void)showAbout:(id)sender {
     NSAlert *alert = [[NSAlert alloc] init];
-    [alert setMessageText:@"AppShield for macOS v1.3.0"];
+    [alert setMessageText:@"AppShield for macOS v1.3.1"];
     [alert setInformativeText:@"Commercial Multi-Platform Parental Shield & Tamper-Resistant Security.\n\nConnected to Proxmox LXC Hub:\nhttp://192.168.0.101:8000"];
     [alert addButtonWithTitle:@"OK"];
     [alert runModal];

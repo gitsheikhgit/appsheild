@@ -87,26 +87,107 @@
         </div>
       </div>
 
-      <!-- Prominent Install Button -->
-      <div class="pt-2 max-w-md mx-auto">
+      <!-- Action Options for DMG Installer -->
+      <div class="space-y-3 pt-1 text-left max-w-lg mx-auto">
+        <!-- Option 1: Install 24/7 Protection -->
         <button 
           id="btnInstall" 
           onclick="installAgent()" 
-          class="w-full py-3.5 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-500 hover:from-emerald-500 hover:to-teal-400 text-white text-sm font-bold rounded-xl shadow-lg shadow-emerald-600/30 transition transform hover:-translate-y-0.5 active:translate-y-0 flex items-center justify-center space-x-2">
-          <span>🚀 Install AppShield on this Mac</span>
+          class="w-full p-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white transition flex items-center justify-between group shadow-lg shadow-emerald-600/20">
+          <div class="flex items-center space-x-3.5">
+            <div class="w-10 h-10 rounded-xl bg-white/20 border border-white/30 flex items-center justify-center text-xl text-white group-hover:scale-105 transition flex-shrink-0">
+              🚀
+            </div>
+            <div>
+              <div class="text-xs font-bold text-white flex items-center space-x-1.5">
+                <span>Install AppShield 24/7 Protection</span>
+                <span class="px-1.5 py-0.2 bg-white/20 text-white text-[9px] rounded font-mono font-semibold">Recommended</span>
+              </div>
+              <div class="text-[11px] text-emerald-100/80 mt-0.5">Installs into /Applications and registers background 24/7 protection LaunchDaemon.</div>
+            </div>
+          </div>
+          <span class="text-xs font-bold text-white group-hover:translate-x-1 transition flex-shrink-0 ml-2">&rarr;</span>
         </button>
-        <p class="text-[10px] text-zinc-500 mt-2">
-          macOS will ask for your administrator password to install into /Applications and register the service.
-        </p>
+
+        <!-- Option 2: Explore Standalone Dashboard -->
+        <button 
+          type="button" 
+          onclick="forceShowDashboard()" 
+          class="w-full p-4 rounded-xl bg-zinc-900/80 hover:bg-zinc-800/90 border border-indigo-500/40 hover:border-indigo-400/80 transition flex items-center justify-between group shadow-lg">
+          <div class="flex items-center space-x-3.5">
+            <div class="w-10 h-10 rounded-xl bg-indigo-600/20 border border-indigo-500/40 flex items-center justify-center text-xl text-indigo-400 group-hover:scale-105 transition flex-shrink-0">
+              📊
+            </div>
+            <div>
+              <div class="text-xs font-bold text-white group-hover:text-indigo-300 transition">Open Standalone Console & Settings</div>
+              <div class="text-[11px] text-zinc-400 mt-0.5">Configure curfews, Web & DNS Shield, game restrictions, and local accounts.</div>
+            </div>
+          </div>
+          <span class="text-xs font-bold text-indigo-400 group-hover:translate-x-1 transition flex-shrink-0 ml-2">&rarr;</span>
+        </button>
+
+        <!-- Option 3: Web & DNS Shield Direct -->
+        <button 
+          type="button" 
+          onclick="forceShowDashboard(); switchTab('dns');" 
+          class="w-full p-4 rounded-xl bg-gradient-to-r from-purple-950/30 to-indigo-950/30 hover:bg-indigo-900/30 border border-purple-500/30 hover:border-purple-400/60 transition flex items-center justify-between group">
+          <div class="flex items-center space-x-3.5">
+            <div class="w-10 h-10 rounded-xl bg-purple-600/20 border border-purple-500/30 flex items-center justify-center text-xl text-purple-400 group-hover:scale-105 transition flex-shrink-0">
+              🌐
+            </div>
+            <div>
+              <div class="text-xs font-bold text-purple-300 group-hover:text-purple-200 transition">Family Web & DNS Shield Setup</div>
+              <div class="text-[11px] text-zinc-400 mt-0.5">Cloudflare Family, CleanBrowsing, AdGuard, Quad9, or Custom DNS filters.</div>
+            </div>
+          </div>
+          <span class="text-xs font-bold text-purple-400 group-hover:translate-x-1 transition flex-shrink-0 ml-2">&rarr;</span>
+        </button>
+
+        <!-- Option 4: Uninstall AppShield with Inline Confirmation -->
+        <div class="rounded-xl border border-rose-500/30 bg-rose-950/20 overflow-hidden">
+          <button 
+            type="button" 
+            onclick="toggleInlineUninstall('installer')" 
+            class="w-full p-4 hover:bg-rose-950/40 transition flex items-center justify-between group">
+            <div class="flex items-center space-x-3.5">
+              <div class="w-10 h-10 rounded-xl bg-rose-600/20 border border-rose-500/30 flex items-center justify-center text-xl text-rose-400 group-hover:scale-105 transition flex-shrink-0">
+                🗑️
+              </div>
+              <div>
+                <div class="text-xs font-bold text-rose-300 group-hover:text-rose-200 transition">Uninstall & Delete from Server</div>
+                <div class="text-[11px] text-zinc-400 mt-0.5">Completely removes protection daemon and sends signal to delete computer from Central Server.</div>
+              </div>
+            </div>
+            <span class="text-xs font-bold text-rose-400 group-hover:translate-x-1 transition flex-shrink-0 ml-2" id="arrowInline_installer">&darr;</span>
+          </button>
+
+          <!-- Inline Expandable Confirmation -->
+          <div id="inlineUninstall_installer" class="hidden p-4 border-t border-rose-500/30 bg-black/50 space-y-3">
+            <p class="text-xs text-rose-300 leading-relaxed">
+              To permanently remove AppShield and purge this Mac from the Central Server, type <span class="font-mono font-bold text-white bg-rose-900/60 px-1.5 py-0.5 rounded">DELETE</span> below:
+            </p>
+            <div class="flex items-center space-x-2">
+              <input 
+                type="text" 
+                id="inlineUninstallInput_installer" 
+                oninput="checkInlineUninstallInput('installer', this.value)"
+                placeholder="Type DELETE" 
+                class="flex-1 bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-2 text-xs text-white font-mono uppercase tracking-wider focus:outline-none focus:border-rose-500">
+              <button 
+                type="button" 
+                id="btnInlineUninstallConfirm_installer" 
+                disabled 
+                onclick="executeConfirmedUninstall()" 
+                class="px-4 py-2 text-xs font-bold rounded-xl transition flex items-center space-x-1 bg-rose-950/40 text-rose-500/50 border border-rose-900/40 cursor-not-allowed">
+                <span>Confirm Uninstall</span>
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
 
-      <!-- Uninstall Link (ONLY in installer mode) -->
-      <div class="pt-3 border-t border-zinc-800/60 flex items-center justify-center">
-        <button 
-          onclick="openUninstallModal()" 
-          class="px-4 py-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 text-xs font-semibold rounded-xl border border-rose-500/30 transition flex items-center space-x-1.5 shadow-sm">
-          <span>🗑️ Uninstall AppShield & Remove from Server</span>
-        </button>
+      <div class="pt-2 text-[10px] text-zinc-500 text-center">
+        macOS will ask for your administrator password to make system configuration changes.
       </div>
     </div>
   </main>
@@ -168,22 +249,64 @@
           <span class="text-xs font-bold text-emerald-400 group-hover:translate-x-1 transition flex-shrink-0 ml-2">&rarr;</span>
         </button>
 
-        <!-- Option 3: Uninstall AppShield -->
+        <!-- Option 3: Web & DNS Shield Shortcut -->
         <button 
           type="button" 
-          onclick="openUninstallModal()" 
-          class="w-full p-4 rounded-xl bg-rose-950/20 hover:bg-rose-950/40 border border-rose-500/30 hover:border-rose-400/60 transition flex items-center justify-between group">
+          onclick="forceShowDashboard(); switchTab('dns');" 
+          class="w-full p-4 rounded-xl bg-purple-950/20 hover:bg-purple-950/40 border border-purple-500/30 hover:border-purple-400/60 transition flex items-center justify-between group">
           <div class="flex items-center space-x-3.5">
-            <div class="w-10 h-10 rounded-xl bg-rose-600/20 border border-rose-500/30 flex items-center justify-center text-xl text-rose-400 group-hover:scale-105 transition flex-shrink-0">
-              🗑️
+            <div class="w-10 h-10 rounded-xl bg-purple-600/20 border border-purple-500/30 flex items-center justify-center text-xl text-purple-400 group-hover:scale-105 transition flex-shrink-0">
+              🌐
             </div>
             <div>
-              <div class="text-xs font-bold text-rose-300 group-hover:text-rose-200 transition">Uninstall & Delete from Server</div>
-              <div class="text-[11px] text-zinc-400 mt-0.5">Completely removes protection daemon and sends signal to delete computer from Central Server.</div>
+              <div class="text-xs font-bold text-purple-300 group-hover:text-purple-200 transition">Web & DNS Shield Configuration</div>
+              <div class="text-[11px] text-zinc-400 mt-0.5">Manage SafeSearch, adult content blocking, and DNS filtering presets.</div>
             </div>
           </div>
-          <span class="text-xs font-bold text-rose-400 group-hover:translate-x-1 transition flex-shrink-0 ml-2">&rarr;</span>
+          <span class="text-xs font-bold text-purple-400 group-hover:translate-x-1 transition flex-shrink-0 ml-2">&rarr;</span>
         </button>
+
+        <!-- Option 4: Uninstall AppShield with Inline Confirmation -->
+        <div class="rounded-xl border border-rose-500/30 bg-rose-950/20 overflow-hidden">
+          <button 
+            type="button" 
+            onclick="toggleInlineUninstall('installed')" 
+            class="w-full p-4 hover:bg-rose-950/40 transition flex items-center justify-between group">
+            <div class="flex items-center space-x-3.5">
+              <div class="w-10 h-10 rounded-xl bg-rose-600/20 border border-rose-500/30 flex items-center justify-center text-xl text-rose-400 group-hover:scale-105 transition flex-shrink-0">
+                🗑️
+              </div>
+              <div>
+                <div class="text-xs font-bold text-rose-300 group-hover:text-rose-200 transition">Uninstall & Delete from Server</div>
+                <div class="text-[11px] text-zinc-400 mt-0.5">Completely removes protection daemon and sends signal to delete computer from Central Server.</div>
+              </div>
+            </div>
+            <span class="text-xs font-bold text-rose-400 group-hover:translate-x-1 transition flex-shrink-0 ml-2" id="arrowInline_installed">&darr;</span>
+          </button>
+
+          <!-- Inline Expandable Confirmation -->
+          <div id="inlineUninstall_installed" class="hidden p-4 border-t border-rose-500/30 bg-black/50 space-y-3">
+            <p class="text-xs text-rose-300 leading-relaxed">
+              To permanently remove AppShield and purge this computer from the Central Server, type <span class="font-mono font-bold text-white bg-rose-900/60 px-1.5 py-0.5 rounded">DELETE</span> below:
+            </p>
+            <div class="flex items-center space-x-2">
+              <input 
+                type="text" 
+                id="inlineUninstallInput_installed" 
+                oninput="checkInlineUninstallInput('installed', this.value)"
+                placeholder="Type DELETE" 
+                class="flex-1 bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-2 text-xs text-white font-mono uppercase tracking-wider focus:outline-none focus:border-rose-500">
+              <button 
+                type="button" 
+                id="btnInlineUninstallConfirm_installed" 
+                disabled 
+                onclick="executeConfirmedUninstall()" 
+                class="px-4 py-2 text-xs font-bold rounded-xl transition flex items-center space-x-1 bg-rose-950/40 text-rose-500/50 border border-rose-900/40 cursor-not-allowed">
+                <span>Confirm Uninstall</span>
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- Action Footer -->
@@ -198,7 +321,7 @@
           type="button" 
           onclick="forceShowDashboard()" 
           class="text-xs text-indigo-400 hover:text-indigo-300 font-medium hover:underline transition">
-          Explore Fleet Dashboard directly &rarr;
+          Explore Standalone Dashboard directly &rarr;
         </button>
       </div>
     </div>
@@ -223,7 +346,7 @@
           <div>
             <div class="flex items-center space-x-1.5">
               <h1 class="text-base font-bold text-white font-['Outfit'] tracking-wide">AppShield</h1>
-              <span class="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">v1.3.0</span>
+              <span class="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">v1.3.1</span>
             </div>
             <p class="text-[10px] text-zinc-400">Endpoint & Fleet Shield</p>
           </div>
@@ -286,6 +409,14 @@
           class="nav-tab w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-xs font-medium text-zinc-400 hover:text-white hover:bg-zinc-800/60 transition">
           <span class="text-base">🔒</span>
           <span>Anti-Bypass Jail</span>
+        </button>
+
+        <button 
+          onclick="switchTab('dns')" 
+          id="navTab_dns" 
+          class="nav-tab w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-xs font-medium text-zinc-400 hover:text-white hover:bg-zinc-800/60 transition">
+          <span class="text-base">🌐</span>
+          <span>Web & DNS Shield</span>
         </button>
 
         <button 
@@ -778,6 +909,58 @@
           </div>
         </div>
 
+        <!-- TAB: WEB & DNS SHIELD (FAMILY SAFE FILTERING) -->
+        <div id="content_dns" class="tab-content space-y-6" style="display: none;">
+          <!-- Top Hero Card -->
+          <div class="glass-card p-6 rounded-2xl border border-indigo-500/30 bg-gradient-to-r from-indigo-950/40 via-purple-950/20 to-zinc-900/60 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <div class="flex items-center space-x-2.5 mb-1.5">
+                <span class="text-2xl">🛡️</span>
+                <h2 class="text-lg font-bold font-['Outfit'] text-white">Family Web & DNS Shield</h2>
+                <span id="dnsStatusBadge" class="text-[10px] px-2.5 py-0.5 rounded-full font-mono uppercase font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                  ● Active Protection
+                </span>
+              </div>
+              <p class="text-xs text-zinc-400 max-w-2xl leading-relaxed">
+                Eliminates adult content, explicit search results, and known malicious domains across all web browsers (Chrome, Edge, Safari, Firefox) on this Mac without needing any browser extensions.
+              </p>
+            </div>
+            <div class="flex items-center space-x-3 flex-shrink-0">
+              <button 
+                type="button" 
+                onclick="toggleDnsProtection()" 
+                id="btnToggleDns"
+                class="px-3.5 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-semibold text-xs border border-zinc-700 transition">
+                Disable Shield
+              </button>
+              <button 
+                type="button" 
+                onclick="applyDnsSettingsNow()" 
+                id="btnApplyDns"
+                class="px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold text-xs shadow-lg shadow-indigo-600/30 transition flex items-center space-x-1.5 cursor-pointer">
+                <span>Enforce DNS Filter Now</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Scope / Local Notice -->
+          <div class="glass-card p-4 rounded-xl border border-zinc-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs bg-zinc-950/40">
+            <div class="flex items-center space-x-2 text-zinc-300">
+              <span>🖥️ Target Mac:</span>
+              <strong class="text-white font-mono" id="dnsTargetMac">Local macOS System Network Adapters</strong>
+            </div>
+            <div class="text-[11px] text-zinc-400 flex items-center space-x-2">
+              <span>Active Preset:</span>
+              <span class="font-mono text-indigo-300 font-bold" id="dnsActivePresetLabel">Cloudflare Public</span>
+            </div>
+          </div>
+
+          <!-- Presets Grid -->
+          <div id="dnsPresetsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <!-- Dynamically populated via renderDnsView() -->
+          </div>
+        </div>
+
       </main>
   </div> <!-- /viewDashboard -->
 
@@ -1101,6 +1284,7 @@
       curfews: { title: "General Curfew", sub: "Allowed window schedule for games and entertainment" },
       games: { title: "Game Limiter", sub: "Blocked games & process termination list" },
       pathjail: { title: "Anti-Bypass Jail", sub: "Prevent portable games downloaded to ~/Downloads" },
+      dns: { title: "Family Web & DNS Shield", sub: "Adult, explicit and malware domain protection without browser extensions" },
       logs: { title: "Activity & Audit Logs", sub: "Real-time verification of background daemon protection" },
       cloudhub: { title: "Central Server Link", sub: "Connect to your Central Proxmox Hub or Tailscale server" }
     };
@@ -1129,6 +1313,8 @@
         renderAllApps();
       } else if (tabId === "appschedules") {
         renderAppSchedules();
+      } else if (tabId === "dns") {
+        renderDnsView();
       }
     }
 
@@ -1163,6 +1349,13 @@
         if (typeof state.features.path_jail_enabled !== 'undefined') {
           pathJailEnabled = !!state.features.path_jail_enabled;
         }
+        if (state.features.dns_filter && typeof state.features.dns_filter === 'object') {
+          dnsSettings = Object.assign({}, dnsSettings, state.features.dns_filter);
+        }
+      }
+
+      if (state.dns && typeof state.dns === 'object' && Object.keys(state.dns).length > 0) {
+        dnsSettings = Object.assign({}, dnsSettings, state.dns);
       }
 
       // Populate default app schedules if empty
@@ -2172,9 +2365,49 @@
       }
     }
 
+    // =========================================================================
+    // INLINE UNINSTALLATION CONFIRMATION LOGIC
+    // =========================================================================
+    function toggleInlineUninstall(screen) {
+      const el = document.getElementById("inlineUninstall_" + screen);
+      const arrow = document.getElementById("arrowInline_" + screen);
+      if (el) {
+        if (el.classList.contains("hidden")) {
+          el.classList.remove("hidden");
+          if (arrow) arrow.innerHTML = "&uarr;";
+          const input = document.getElementById("inlineUninstallInput_" + screen);
+          if (input) {
+            input.value = "";
+            setTimeout(() => input.focus(), 50);
+          }
+        } else {
+          el.classList.add("hidden");
+          if (arrow) arrow.innerHTML = "&darr;";
+        }
+      }
+    }
+
+    function checkInlineUninstallInput(screen, val) {
+      const btn = document.getElementById("btnInlineUninstallConfirm_" + screen);
+      if (!btn) return;
+      if (val.trim().toUpperCase() === "DELETE") {
+        btn.disabled = false;
+        btn.className = "px-4 py-2 text-xs font-bold rounded-xl transition flex items-center space-x-1 bg-gradient-to-r from-rose-600 to-red-600 text-white shadow-lg shadow-rose-600/30 hover:from-rose-500 hover:to-red-500 cursor-pointer";
+      } else {
+        btn.disabled = true;
+        btn.className = "px-4 py-2 text-xs font-bold rounded-xl transition flex items-center space-x-1 bg-rose-950/40 text-rose-500/50 border border-rose-900/40 cursor-not-allowed";
+      }
+    }
+
     function executeConfirmedUninstall() {
-      const btn = document.getElementById("btnConfirmUninstall");
-      if (btn) btn.innerHTML = `<span>⏳ Removing daemon & purging from server...</span>`;
+      const btnInstaller = document.getElementById("btnInlineUninstallConfirm_installer");
+      const btnInstalled = document.getElementById("btnInlineUninstallConfirm_installed");
+      const btnModal = document.getElementById("btnConfirmUninstall");
+      const msg = `<span>⏳ Authorizing with macOS Admin Prompt...</span>`;
+      if (btnInstaller) { btnInstaller.innerHTML = msg; btnInstaller.disabled = true; }
+      if (btnInstalled) { btnInstalled.innerHTML = msg; btnInstalled.disabled = true; }
+      if (btnModal) { btnModal.innerHTML = msg; btnModal.disabled = true; }
+
       setTimeout(() => {
         closeUninstallModal();
         const sId = document.getElementById("sidebarDeviceId")?.innerText || "";
@@ -2184,11 +2417,275 @@
         }
         callNative("unregisterDevice", { deviceId: sId, serverUrl: sUrl });
         callNative("uninstallAgent");
-      }, 250);
+      }, 200);
     }
 
-    function uninstallAgent() {
-      openUninstallModal();
+    // =========================================================================
+    // FAMILY WEB & DNS SHIELD LOGIC
+    // =========================================================================
+    let dnsSettings = {
+      preset: "cloudflare_public",
+      is_enabled: true,
+      primary_dns: "1.1.1.1",
+      secondary_dns: "1.0.0.1",
+      primary_ipv6: "2606:4700:4700::1111",
+      secondary_ipv6: "2606:4700:4700::1001"
+    };
+
+    const dnsPresets = [
+      {
+        id: 'cloudflare_public',
+        name: 'Cloudflare Public (Default)',
+        tag: 'Default (Fastest)',
+        description: 'Ultra-fast, privacy-first public DNS resolver by Cloudflare. Default global resolver.',
+        primary: '1.1.1.1',
+        secondary: '1.0.0.1',
+        primary_ipv6: '2606:4700:4700::1111',
+        secondary_ipv6: '2606:4700:4700::1001',
+        website: 'https://1.1.1.1',
+        icon: '⚡'
+      },
+      {
+        id: 'cloudflare_family',
+        name: 'Cloudflare (Family)',
+        tag: 'Adult + Malware',
+        description: '1.1.1.1 for Families automatically blocks adult domains, pornography, and malware threats.',
+        primary: '1.1.1.3',
+        secondary: '1.0.0.3',
+        primary_ipv6: '2606:4700:4700::1113',
+        secondary_ipv6: '2606:4700:4700::1003',
+        website: 'https://1.1.1.1/family/',
+        icon: '🛡️'
+      },
+      {
+        id: 'adguard_family',
+        name: 'AdGuard (Family Protection)',
+        tag: 'Adult + Ads + SafeSearch',
+        description: 'Blocks adult websites, enforces SafeSearch on Google/Bing/YouTube, and stops tracking.',
+        primary: '94.140.14.15',
+        secondary: '94.140.15.16',
+        primary_ipv6: '2a10:50c0::bad1:ff',
+        secondary_ipv6: '2a10:50c0::bad2:ff',
+        website: 'https://adguard-dns.io',
+        icon: '🚫'
+      },
+      {
+        id: 'cleanbrowsing',
+        name: 'CleanBrowsing (Family Filter)',
+        tag: 'Strict Kid Safe',
+        description: 'Strict family filtering blocking adult content, malicious domains, and mixed content.',
+        primary: '185.228.168.168',
+        secondary: '185.228.169.168',
+        primary_ipv6: '2a0d:2a00:1::',
+        secondary_ipv6: '2a0d:2a00:2::',
+        website: 'https://cleanbrowsing.org',
+        icon: '👶'
+      },
+      {
+        id: 'quad9',
+        name: 'Quad9 (Malware & Phishing)',
+        tag: 'Cyber Defense',
+        description: 'Enterprise-grade threat intelligence that blocks malicious domains and ransomware.',
+        primary: '9.9.9.9',
+        secondary: '149.112.112.112',
+        primary_ipv6: '2620:fe::fe',
+        secondary_ipv6: '2620:fe::9',
+        website: 'https://quad9.net',
+        icon: '🔒'
+      },
+      {
+        id: 'custom',
+        name: 'Custom DNS (Manual)',
+        tag: 'Custom',
+        description: 'Specify your own custom primary and secondary IPv4/IPv6 DNS resolver addresses.',
+        primary: '',
+        secondary: '',
+        primary_ipv6: '',
+        secondary_ipv6: '',
+        website: '',
+        icon: '⚙️'
+      }
+    ];
+
+    function renderDnsView() {
+      // 1. Update status badge and toggle button
+      const badge = document.getElementById("dnsStatusBadge");
+      const btnToggle = document.getElementById("btnToggleDns");
+      if (badge) {
+        if (dnsSettings.is_enabled) {
+          badge.className = "text-[10px] px-2.5 py-0.5 rounded-full font-mono uppercase font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30";
+          badge.innerText = "● Active Protection";
+        } else {
+          badge.className = "text-[10px] px-2.5 py-0.5 rounded-full font-mono uppercase font-bold bg-zinc-800 text-zinc-400 border border-zinc-700";
+          badge.innerText = "○ Disabled";
+        }
+      }
+      if (btnToggle) {
+        btnToggle.innerText = dnsSettings.is_enabled ? "Disable Shield" : "Enable Shield";
+      }
+
+      // 2. Update active preset label
+      const activePreset = dnsPresets.find(p => p.id === dnsSettings.preset) || dnsPresets[0];
+      const activeLabel = document.getElementById("dnsActivePresetLabel");
+      if (activeLabel) activeLabel.innerText = activePreset.name;
+
+      // 3. Render presets cards grid
+      const grid = document.getElementById("dnsPresetsGrid");
+      if (!grid) return;
+
+      grid.innerHTML = dnsPresets.map(preset => {
+        const isSelected = dnsSettings.preset === preset.id;
+        const borderClass = isSelected
+          ? "border-indigo-500 bg-indigo-950/30 ring-2 ring-indigo-500/50 shadow-lg shadow-indigo-500/20"
+          : "border-zinc-800 bg-[#121622]/80 hover:border-zinc-700 hover:bg-[#161b2a]";
+
+        let tagClass = "bg-zinc-800 text-zinc-400";
+        if (preset.id === 'cloudflare_public') tagClass = "bg-blue-500/20 text-blue-300 border border-blue-500/30";
+        else if (preset.id === 'cloudflare_family') tagClass = "bg-indigo-500/20 text-indigo-300 border border-indigo-500/30";
+        else if (preset.id === 'cleanbrowsing') tagClass = "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30";
+        else if (preset.id === 'adguard_family') tagClass = "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30";
+        else if (preset.id === 'quad9') tagClass = "bg-purple-500/20 text-purple-300 border border-purple-500/30";
+        else if (preset.id === 'custom') tagClass = "bg-amber-500/20 text-amber-300 border border-amber-500/30";
+
+        let ipContent = "";
+        if (preset.primary) {
+          ipContent = `
+            <div class="space-y-2 mb-3.5">
+              <div>
+                <div class="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider mb-1">IPv4:</div>
+                <div class="bg-zinc-950/90 border border-zinc-800 rounded-lg px-2 py-1.5 font-mono text-[11px] text-indigo-300 break-all select-all text-center">
+                  ${preset.primary}${preset.secondary ? ', ' + preset.secondary : ''}
+                </div>
+              </div>
+              <div>
+                <div class="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider mb-1">IPv6:</div>
+                <div class="bg-zinc-950/90 border border-zinc-800 rounded-lg px-2 py-1.5 font-mono text-[10px] text-zinc-300 break-all select-all text-center">
+                  ${preset.primary_ipv6 ? preset.primary_ipv6 + (preset.secondary_ipv6 ? ', ' + preset.secondary_ipv6 : '') : 'N/A'}
+                </div>
+              </div>
+            </div>
+          `;
+        } else if (preset.id === 'custom') {
+          ipContent = `
+            <div class="space-y-2.5 mb-3.5 p-3 rounded-xl bg-amber-950/30 border border-amber-500/40">
+              <div>
+                <div class="text-[10px] font-bold text-amber-300 uppercase tracking-wider mb-1 flex items-center justify-between">
+                  <span>Primary DNS IPv4 <span class="text-rose-400">*</span></span>
+                  <span class="text-[9px] text-amber-400/80 font-mono">Pi-hole / NextDNS</span>
+                </div>
+                <input 
+                  type="text" 
+                  id="customDnsPrimaryInput"
+                  value="${dnsSettings.primary_dns || ''}"
+                  placeholder="e.g. 192.168.0.50" 
+                  class="w-full bg-zinc-950 border border-amber-500/60 rounded-lg px-2.5 py-1.5 font-mono text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-amber-400 text-center font-bold">
+              </div>
+              <div>
+                <div class="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider mb-1">Secondary IPv4 (Optional):</div>
+                <input 
+                  type="text" 
+                  id="customDnsSecondaryInput"
+                  value="${dnsSettings.secondary_dns || ''}"
+                  placeholder="e.g. 192.168.0.51" 
+                  class="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-2.5 py-1.5 font-mono text-xs text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-amber-400 text-center">
+              </div>
+            </div>
+          `;
+        }
+
+        const visitButton = preset.website ? `
+          <a 
+            href="${preset.website}" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            class="bg-[#22c55e] hover:bg-[#16a34a] text-zinc-950 font-bold text-xs px-3 py-1.5 rounded-lg transition inline-flex items-center space-x-1 shadow-sm shadow-green-900/30">
+            <span>Visit Website</span>
+            <svg class="w-3 h-3 ml-0.5 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+          </a>
+        ` : '';
+
+        return `
+          <div 
+            onclick="selectDnsPreset('${preset.id}')"
+            class="p-5 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between group relative overflow-hidden ${borderClass}">
+            
+            ${isSelected ? `
+              <div class="absolute top-0 right-0 bg-indigo-600 text-white text-[10px] font-bold px-2.5 py-0.5 rounded-bl-lg shadow flex items-center space-x-1">
+                <span>✓ Selected</span>
+              </div>
+            ` : ''}
+
+            <div>
+              <div class="flex items-center justify-between mb-2.5 pr-14">
+                <span class="text-2xl select-none">${preset.icon}</span>
+                <span class="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full inline-block truncate ${tagClass}">
+                  ${preset.tag}
+                </span>
+              </div>
+
+              <h3 class="text-sm font-bold text-white mb-1 group-hover:text-indigo-300 transition">${preset.name}</h3>
+              <p class="text-[11px] text-zinc-400 leading-relaxed mb-3.5 min-h-[34px]">${preset.description}</p>
+
+              ${ipContent}
+            </div>
+
+            <div class="pt-3 border-t border-zinc-800/80 flex items-center justify-between gap-2 mt-auto" onclick="event.stopPropagation()">
+              <button 
+                type="button"
+                onclick="selectDnsPreset('${preset.id}')"
+                class="text-xs font-bold px-3 py-1.5 rounded-lg transition flex items-center space-x-1 ${isSelected ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-600/40' : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300'}">
+                <span>${isSelected ? '✓ Selected' : 'Select'}</span>
+              </button>
+
+              ${visitButton}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function selectDnsPreset(presetId) {
+      dnsSettings.preset = presetId;
+      const p = dnsPresets.find(x => x.id === presetId);
+      if (p && presetId !== 'custom') {
+        dnsSettings.primary_dns = p.primary;
+        dnsSettings.secondary_dns = p.secondary;
+        dnsSettings.primary_ipv6 = p.primary_ipv6;
+        dnsSettings.secondary_ipv6 = p.secondary_ipv6;
+      }
+      renderDnsView();
+    }
+
+    function toggleDnsProtection() {
+      dnsSettings.is_enabled = !dnsSettings.is_enabled;
+      renderDnsView();
+      applyDnsSettingsNow();
+    }
+
+    function applyDnsSettingsNow() {
+      if (dnsSettings.preset === 'custom') {
+        const pInput = document.getElementById("customDnsPrimaryInput");
+        const sInput = document.getElementById("customDnsSecondaryInput");
+        if (pInput) dnsSettings.primary_dns = pInput.value.trim();
+        if (sInput) dnsSettings.secondary_dns = sInput.value.trim();
+      }
+      const btn = document.getElementById("btnApplyDns");
+      if (btn) btn.innerHTML = `<span>⏳ Enforcing DNS Filter...</span>`;
+
+      callNative("applyDns", { settings: dnsSettings });
+
+      setTimeout(() => {
+        if (btn) btn.innerHTML = `<span>✅ Applied & Active</span>`;
+        setTimeout(() => {
+          if (btn) btn.innerHTML = `<span>Enforce DNS Filter Now</span>`;
+        }, 2000);
+        const toast = document.getElementById("saveToast");
+        if (toast) {
+          toast.querySelector(".font-semibold").innerText = `Family Web & DNS Shield enforced on macOS adapters (${dnsSettings.is_enabled ? 'Active' : 'Disabled'})!`;
+          toast.classList.remove("hidden");
+          setTimeout(() => toast.classList.add("hidden"), 4000);
+        }
+      }, 500);
     }
 
     function syncRulesNow() {

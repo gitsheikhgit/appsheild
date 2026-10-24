@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 AppShield macOS Endpoint Protection & Parental Shield Agent
-Version: 1.3.0
+Version: 1.3.1
 
 Features:
 - Outbound encrypted WebSocket & REST telemetry to AppShield Central Server
@@ -732,7 +732,7 @@ class AppShieldMacAgent:
             "os": f"macOS {platform.mac_ver()[0]} ({platform.machine()})",
             "lan_ip": get_primary_ip(),
             "tailscale_ip": t_ip,
-            "agent_version": "1.3.0",
+            "agent_version": "1.3.1",
             "psk": self.settings.get("psk", "")
         }
         try:
@@ -780,6 +780,7 @@ class AppShieldMacAgent:
                 self.settings = load_or_create_settings()
                 self.features = load_or_create_features()
                 self.config["rules"] = self.features.get("rules", [])
+                self.check_and_apply_dns_filter()
 
                 # Check if server was configured
                 s_url = (self.settings.get("server_url") or "").rstrip("/")
@@ -831,6 +832,17 @@ class AppShieldMacAgent:
             urllib.request.urlopen(req, timeout=3)
         except Exception:
             pass
+
+    def check_and_apply_dns_filter(self):
+        dns_cfg = self.features.get("dns_filter") or self.config.get("dns_filter")
+        if dns_cfg is not None and dns_cfg != getattr(self, "_last_applied_dns", None):
+            p_dns = dns_cfg.get("primary_dns", "")
+            s_dns = dns_cfg.get("secondary_dns", "")
+            p_ipv6 = dns_cfg.get("primary_ipv6", "")
+            s_ipv6 = dns_cfg.get("secondary_ipv6", "")
+            is_en = bool(dns_cfg.get("is_enabled", True))
+            self.apply_macos_dns_filter(p_dns, s_dns, p_ipv6, s_ipv6, is_en)
+            self._last_applied_dns = dict(dns_cfg)
 
     def apply_macos_dns_filter(self, primary_dns: str, secondary_dns: str = "", primary_ipv6: str = "", secondary_ipv6: str = "", is_enabled: bool = True) -> bool:
         """
@@ -1057,7 +1069,7 @@ class AppShieldMacAgent:
 
     def start(self):
         print("====================================================================")
-        print("          AppShield macOS Endpoint Protection Agent v1.3.0          ")
+        print("          AppShield macOS Endpoint Protection Agent v1.3.1          ")
         print("====================================================================")
         print(f" Device ID:    {self.device_id}")
         print(f" Tailscale IP: {get_tailscale_ip() or self.tailscale_ip or 'None detected'}")
