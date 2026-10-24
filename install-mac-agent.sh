@@ -96,7 +96,12 @@ if [ "$SERVER_URL" = "standalone" ] || [ -z "$SERVER_URL" ]; then
     STANDALONE_VAL="true"
 fi
 
-MAC_DEVICE_ID="mac_$(uuidgen | tr '[:upper:]' '[:lower:]' | cut -d'-' -f1-2)"
+HW_UUID=$(ioreg -rd1 -c IOPlatformExpertDevice 2>/dev/null | awk -F'"' '/IOPlatformUUID/{print $4}' | tr -d '-' | tr '[:upper:]' '[:lower:]')
+if [ -n "$HW_UUID" ] && [ ${#HW_UUID} -ge 12 ]; then
+    MAC_DEVICE_ID="mac_${HW_UUID:0:12}"
+else
+    MAC_DEVICE_ID="mac_$(uuidgen | tr -d '-' | tr '[:upper:]' '[:lower:]' | cut -c1-12)"
+fi
 COMPUTER_NAME="$(scutil --get ComputerName 2>/dev/null || hostname)"
 PSK_KEY="$(openssl rand -hex 16 2>/dev/null || uuidgen | tr -d '-' | tr '[:upper:]' '[:lower:]')"
 

@@ -1022,7 +1022,8 @@ class AppShieldMacAgent:
                         # Push telemetry
                         telemetry = {
                             "device_id": self.device_id,
-                            "timestamp": datetime.datetime.utcnow().isoformat(),
+                            "timestamp": time.time(),
+                            "iso_timestamp": datetime.datetime.utcnow().isoformat(),
                             "users": users,
                             "processes": procs,
                             "installed_apps": installed,

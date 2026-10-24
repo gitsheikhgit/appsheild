@@ -1323,6 +1323,8 @@
         renderAppSchedules();
       } else if (tabId === "dns") {
         renderDnsView();
+      } else if (tabId === "connect-server") {
+        renderCentralHubStatus();
       }
     }
 
@@ -1344,6 +1346,10 @@
 
       if (state.serverUrl) {
         currentServerUrl = state.serverUrl;
+        const centralInput = document.getElementById("centralServerUrlInput");
+        if (centralInput && state.serverUrl !== "standalone" && state.serverUrl.startsWith("http")) {
+          centralInput.value = state.serverUrl;
+        }
       }
 
       if (state.users && Array.isArray(state.users)) {
@@ -1422,6 +1428,7 @@
       isProtected = !!state.isInstalled;
       isRunningFromApplications = !!state.isFromApplications;
       renderAppView();
+      renderCentralHubStatus();
     };
 
     window.updateRunningApps = function(apps) {
@@ -2237,6 +2244,11 @@
       if (devIdSpan) {
         const sId = document.getElementById("sidebarDeviceId");
         devIdSpan.innerText = sId ? sId.innerText : "mac_client";
+      }
+
+      const centralInput = document.getElementById("centralServerUrlInput");
+      if (centralInput && isConnected && (!centralInput.value || centralInput.value.trim() === '')) {
+        centralInput.value = currentServerUrl;
       }
     }
 

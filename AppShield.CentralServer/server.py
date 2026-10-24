@@ -369,7 +369,20 @@ async def get_fleet():
         dev_id = r["id"]
         # Merge live status if agent is currently connected via WebSocket or active polling
         tel = live_telemetry.get(dev_id)
-        is_recent_telemetry = tel and (time.time() - tel.get("timestamp", 0) < 60)
+        is_recent_telemetry = False
+        if tel:
+            ts = tel.get("server_timestamp") or tel.get("timestamp", 0)
+            if isinstance(ts, (int, float)):
+                is_recent_telemetry = (time.time() - ts < 60)
+            elif isinstance(ts, str):
+                try:
+                    is_recent_telemetry = (time.time() - float(ts) < 60)
+                except Exception:
+                    try:
+                        parsed_dt = datetime.datetime.fromisoformat(ts.replace("Z", "+00:00"))
+                        is_recent_telemetry = (abs(time.time() - parsed_dt.timestamp()) < 60)
+                    except Exception:
+                        is_recent_telemetry = True
         if (dev_id in manager.active_agents) or is_recent_telemetry:
             r["status"] = "online"
         else:
@@ -521,6 +534,7 @@ async def agent_websocket_endpoint(websocket: WebSocket, device_id: str):
                     payload = msg
 
                 if payload:
+                    payload["server_timestamp"] = time.time()
                     live_telemetry[device_id] = payload
                     t_ip = payload.get("tailscale_ip")
                     if t_ip:
@@ -555,7 +569,9 @@ async def report_telemetry(report: TelemetryReportDto):
         "processes": report.processes,
         "users": report.users,
         "installed_apps": report.installed_apps,
-        "tailscale_ip": report.tailscale_ip
+        "tailscale_ip": report.tailscale_ip,
+        "server_timestamp": time.time(),
+        "timestamp": time.time()
     }
 
     # Persist cache files for users and installed apps
