@@ -32,6 +32,9 @@ dscacheutil -flushcache 2>/dev/null || true
 killall -HUP mDNSResponder 2>/dev/null || true
 
 # 1. Notify Central Server to deregister device and purge from server database
+PARAM_SERVER="$1"
+PARAM_DEVICE="$2"
+
 SETTINGS_FILE="/Library/Application Support/AppShield/settings.json"
 CONFIG_FILE="/Library/Application Support/AppShield/config.json"
 LEGACY_CONFIG="/Library/Application Support/AppShield/agent_config.json"
@@ -44,33 +47,55 @@ elif [ -f "$LEGACY_CONFIG" ]; then
     ACTIVE_CONFIG="$LEGACY_CONFIG"
 fi
 
-if [ -n "$ACTIVE_CONFIG" ]; then
+SERVER_URL="$PARAM_SERVER"
+DEVICE_ID="$PARAM_DEVICE"
+
+if [ -z "$SERVER_URL" ] && [ -n "$ACTIVE_CONFIG" ]; then
     SERVER_URL=$(/usr/bin/python3 -c "import json; print(json.load(open('$ACTIVE_CONFIG')).get('server_url',''))" 2>/dev/null || grep -o '"server_url"[^,]*' "$ACTIVE_CONFIG" 2>/dev/null | cut -d'"' -f4 | tr -d '[:space:]' || true)
+fi
+
+if [ -z "$DEVICE_ID" ] && [ -n "$ACTIVE_CONFIG" ]; then
     DEVICE_ID=$(/usr/bin/python3 -c "import json; print(json.load(open('$ACTIVE_CONFIG')).get('device_id',''))" 2>/dev/null || grep -o '"device_id"[^,]*' "$ACTIVE_CONFIG" 2>/dev/null | cut -d'"' -f4 | tr -d '[:space:]' || true)
+fi
 
-    if [ -z "$DEVICE_ID" ]; then
-        DEVICE_ID=$(grep -rho '"device_id"[^,]*' "/Library/Application Support/AppShield" 2>/dev/null | head -n1 | cut -d'"' -f4 | tr -d '[:space:]' || true)
-    fi
+if [ -z "$DEVICE_ID" ]; then
+    DEVICE_ID=$(grep -rho '"device_id"[^,]*' "/Library/Application Support/AppShield" 2>/dev/null | head -n1 | cut -d'"' -f4 | tr -d '[:space:]' || true)
+fi
 
-    TARGET_SERVERS=()
-    if [ -n "$SERVER_URL" ] && [ "$SERVER_URL" != "standalone" ]; then
-        TARGET_SERVERS+=("$SERVER_URL")
-    fi
-    TARGET_SERVERS+=("http://192.168.0.101:8000")
-
-    if [ -n "$DEVICE_ID" ]; then
-        echo "[+] Sending signal to delete computer '$DEVICE_ID' from Central Server..."
-        for srv in "${TARGET_SERVERS[@]}"; do
-            srv_clean=$(echo "$srv" | sed 's:/*$::')
-            echo "    -> Purging $DEVICE_ID from $srv_clean..."
-            curl -s -m 4 -X POST "$srv_clean/api/devices/unregister" \
-                 -H "Content-Type: application/json" \
-                 -d "{\"device_id\":\"$DEVICE_ID\",\"reason\":\"uninstalled\"}" 2>/dev/null || true
-            curl -s -m 4 -X DELETE "$srv_clean/api/fleet/$DEVICE_ID" 2>/dev/null || true
-        done
-        echo "[+] Central Server delete signal completed."
+# Fallback to permanent Hardware IOPlatformUUID
+HW_UUID=$(ioreg -rd1 -c IOPlatformExpertDevice 2>/dev/null | awk -F'=' '/IOPlatformUUID/{print $2}' | tr -d ' "-' | tr '[:upper:]' '[:lower:]' | cut -c1-12)
+DEVICES_TO_PURGE=()
+if [ -n "$DEVICE_ID" ]; then
+    DEVICES_TO_PURGE+=("$DEVICE_ID")
+fi
+if [ -n "$HW_UUID" ]; then
+    HW_DEV="mac_${HW_UUID}"
+    if [ "$HW_DEV" != "$DEVICE_ID" ]; then
+        DEVICES_TO_PURGE+=("$HW_DEV")
     fi
 fi
+
+TARGET_SERVERS=()
+if [ -n "$SERVER_URL" ] && [ "$SERVER_URL" != "standalone" ]; then
+    TARGET_SERVERS+=("$SERVER_URL")
+fi
+TARGET_SERVERS+=("http://192.168.0.101:8000")
+
+echo "[+] Sending signal to delete computer from Central Server..."
+for srv in "${TARGET_SERVERS[@]}"; do
+    srv_clean=$(echo "$srv" | sed 's:/*$::')
+    for dev in "${DEVICES_TO_PURGE[@]}"; do
+        echo "    -> Purging device '$dev' from $srv_clean..."
+        curl -s -m 4 -X POST "$srv_clean/api/devices/unregister" \
+             -H "Content-Type: application/json" \
+             -d "{\"device_id\":\"$dev\",\"reason\":\"uninstalled\"}" 2>/dev/null || true
+        curl -s -m 4 -X DELETE "$srv_clean/api/fleet/$dev" 2>/dev/null || true
+        curl -s -m 4 -X POST "$srv_clean/api/fleet/$dev/delete" \
+             -H "Content-Type: application/json" \
+             -d "{\"device_id\":\"$dev\"}" 2>/dev/null || true
+    done
+done
+echo "[+] Central Server delete signal completed."
 
 # 2. Terminate background daemon and admin processes (DO NOT kill installer wrapper yet)
 pkill -9 -f "AppShield/agent/agent.py" 2>/dev/null || true

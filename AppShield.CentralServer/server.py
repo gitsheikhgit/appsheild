@@ -191,10 +191,12 @@ async def security_auth_middleware(request: Request, call_next):
         path.startswith("/ws/agent") or
         path == "/api/devices/register" or
         path == "/api/devices/unregister" or
+        path.startswith("/api/devices/unregister") or
         path == "/api/agent/telemetry" or
         path == "/api/pair/new-code" or
         path == "/favicon.ico" or
-        (request.method == "DELETE" and path.startswith("/api/fleet/"))
+        (request.method == "DELETE" and path.startswith("/api/fleet/")) or
+        (request.method == "POST" and path.startswith("/api/fleet/") and path.endswith("/delete"))
     ):
         return await call_next(request)
 
@@ -493,6 +495,10 @@ async def delete_fleet_device(device_id: str):
                 pass
 
     return {"success": True, "message": f"Device {device_id} permanently removed from fleet."}
+
+@app.post("/api/fleet/{device_id}/delete")
+async def delete_fleet_device_post(device_id: str):
+    return await delete_fleet_device(device_id)
 
 @app.get("/api/pair/new-code")
 async def generate_pairing_code():

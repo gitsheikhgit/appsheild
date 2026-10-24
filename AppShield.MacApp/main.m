@@ -820,25 +820,53 @@
             }
         }
     }
+    if (!devId || devId.length == 0) {
+        devId = [NSString stringWithFormat:@"mac_%@", [self getHardwareUUIDPrefix]];
+    }
     if (!srvUrl || [srvUrl isEqualToString:@"standalone"] || ![srvUrl hasPrefix:@"http"]) {
         srvUrl = @"http://192.168.0.101:8000";
     }
     if (devId && devId.length > 0) {
         NSString *cleanUrl = [srvUrl stringByTrimmingCharactersInSet:[NSCharacterSet characterSetWithCharactersInString:@"/"]];
+        dispatch_semaphore_t sema = dispatch_semaphore_create(0);
+        
+        // 1. Unregister via POST
         NSURL *postUrl = [NSURL URLWithString:[NSString stringWithFormat:@"%@/api/devices/unregister", cleanUrl]];
         if (postUrl) {
             NSMutableURLRequest *req = [NSMutableURLRequest requestWithURL:postUrl];
             req.HTTPMethod = @"POST";
+            req.timeoutInterval = 3.0;
             [req setValue:@"application/json" forHTTPHeaderField:@"Content-Type"];
             NSDictionary *payload = @{@"device_id": devId, @"reason": @"uninstalled"};
             req.HTTPBody = [NSJSONSerialization dataWithJSONObject:payload options:0 error:nil];
-            [[[NSURLSession sharedSession] dataTaskWithRequest:req] resume];
+            [[[NSURLSession sharedSession] dataTaskWithRequest:req completionHandler:^(NSData *d, NSURLResponse *r, NSError *e) {
+                dispatch_semaphore_signal(sema);
+            }] resume];
+            dispatch_semaphore_wait(sema, dispatch_time(DISPATCH_TIME_NOW, 1500 * NSEC_PER_MSEC));
         }
+
+        // 2. Unregister via DELETE
         NSURL *delUrl = [NSURL URLWithString:[NSString stringWithFormat:@"%@/api/fleet/%@", cleanUrl, devId]];
         if (delUrl) {
             NSMutableURLRequest *req = [NSMutableURLRequest requestWithURL:delUrl];
             req.HTTPMethod = @"DELETE";
-            [[[NSURLSession sharedSession] dataTaskWithRequest:req] resume];
+            req.timeoutInterval = 3.0;
+            [[[NSURLSession sharedSession] dataTaskWithRequest:req completionHandler:^(NSData *d, NSURLResponse *r, NSError *e) {
+                dispatch_semaphore_signal(sema);
+            }] resume];
+            dispatch_semaphore_wait(sema, dispatch_time(DISPATCH_TIME_NOW, 1500 * NSEC_PER_MSEC));
+        }
+
+        // 3. Unregister via POST delete
+        NSURL *postDelUrl = [NSURL URLWithString:[NSString stringWithFormat:@"%@/api/fleet/%@/delete", cleanUrl, devId]];
+        if (postDelUrl) {
+            NSMutableURLRequest *req = [NSMutableURLRequest requestWithURL:postDelUrl];
+            req.HTTPMethod = @"POST";
+            req.timeoutInterval = 3.0;
+            [[[NSURLSession sharedSession] dataTaskWithRequest:req completionHandler:^(NSData *d, NSURLResponse *r, NSError *e) {
+                dispatch_semaphore_signal(sema);
+            }] resume];
+            dispatch_semaphore_wait(sema, dispatch_time(DISPATCH_TIME_NOW, 1500 * NSEC_PER_MSEC));
         }
     }
 
@@ -853,7 +881,7 @@
 
     NSString *execCmd;
     if ([[NSFileManager defaultManager] fileExistsAtPath:uninstallScript]) {
-        execCmd = [NSString stringWithFormat:@"bash '%@'", uninstallScript];
+        execCmd = [NSString stringWithFormat:@"bash '%@' '%@' '%@'", uninstallScript, srvUrl, devId ?: @""];
     } else {
         execCmd = @"launchctl bootout system/com.appshield.macagent 2>/dev/null || launchctl unload /Library/LaunchDaemons/com.appshield.macagent.plist 2>/dev/null || true; rm -f /Library/LaunchDaemons/com.appshield.macagent.plist; pkill -9 -f 'AppShield/agent/agent.py' 2>/dev/null || true; rm -rf '/Library/Application Support/AppShield' /var/log/appshield-agent.log /Applications/AppShield.app";
     }

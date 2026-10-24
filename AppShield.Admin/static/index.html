@@ -284,6 +284,10 @@
         <button @click="triggerOfflinePopUp('Manage PC', 'Target computer is offline.')" class="bg-rose-600/30 hover:bg-rose-600 text-rose-200 border border-rose-500/40 px-2.5 py-1 rounded text-[11px] font-semibold transition">
           Resolve Connection
         </button>
+        <button @click="deleteCurrentNode()" class="bg-rose-800/80 hover:bg-rose-600 text-white border border-rose-600/50 px-2.5 py-1 rounded text-[11px] font-semibold transition flex items-center space-x-1">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+          <span>Remove Computer</span>
+        </button>
         <button @click="showAddModal = true" class="bg-indigo-600 hover:bg-indigo-500 text-white px-2.5 py-1 rounded text-[11px] font-semibold transition">
           + Add Client
         </button>
@@ -325,6 +329,10 @@
                 <span :class="currentNode?.status?.startsWith('online') ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-rose-500/20 text-rose-300 border-rose-500/30'" 
                       class="text-[10px] font-mono font-bold px-2.5 py-0.5 rounded-full border"
                       x-text="formatStatus(currentNode?.status)"></span>
+                <button @click="deleteCurrentNode()" title="Delete this computer from fleet" class="text-[11px] font-bold text-rose-400 hover:text-white bg-rose-500/20 hover:bg-rose-600 px-2 py-0.5 rounded-lg border border-rose-500/40 flex items-center space-x-1 transition ml-2">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                  <span>Delete PC</span>
+                </button>
               </div>
               <p class="text-xs text-zinc-400">
                 Session 0 Kernel Protection & Remote Application Control
@@ -424,7 +432,13 @@
                    class="p-3.5 rounded-xl border cursor-pointer transition space-y-2">
                 <div class="flex items-center justify-between">
                   <span class="font-bold text-xs text-white truncate" x-text="node.name"></span>
-                  <span :class="node.status?.startsWith('online') ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'" class="text-[9px] font-mono px-2 py-0.5 rounded-full" x-text="node.status || 'unknown'"></span>
+                  <div class="flex items-center space-x-1.5">
+                    <span :class="node.status?.startsWith('online') ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'" class="text-[9px] font-mono px-2 py-0.5 rounded-full" x-text="node.status || 'unknown'"></span>
+                    <button @click.stop="deleteNode(node)" title="Delete computer from fleet" class="text-[10px] font-bold text-rose-400 hover:text-white bg-rose-500/15 hover:bg-rose-600 px-2 py-0.5 rounded border border-rose-500/30 flex items-center space-x-1 transition">
+                      <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                      <span>Delete</span>
+                    </button>
+                  </div>
                 </div>
                 <div class="text-[11px] text-zinc-400 font-mono space-y-0.5">
                   <div>LAN: <span class="text-zinc-300" x-text="node.lan_ip || 'None'"></span></div>
@@ -2021,7 +2035,8 @@
         },
 
         async deleteCurrentNode() {
-          if (!confirm(`Remove ${this.currentNode.name} from fleet management?`)) return;
+          if (!this.currentNode) return;
+          if (!confirm(`Are you sure you want to permanently remove "${this.currentNode.name}" from fleet management?`)) return;
           try {
             await fetch(`/api/fleet/${this.currentNode.id}`, { method: 'DELETE' });
             this.showToast('Node removed from fleet', 'info');
@@ -2034,6 +2049,26 @@
             }
           } catch (e) {
             this.showToast('Error removing node', 'error');
+          }
+        },
+
+        async deleteNode(node) {
+          if (!node) return;
+          if (!confirm(`Are you sure you want to permanently delete "${node.name}" (${node.id}) from the fleet?`)) return;
+          try {
+            await fetch(`/api/fleet/${node.id}`, { method: 'DELETE' });
+            this.showToast(`Deleted ${node.name} from fleet`, 'info');
+            await this.loadFleet();
+            if (this.fleet.length > 0) {
+              if (this.selectedNodeId === node.id) {
+                this.selectedNodeId = this.fleet[0].id;
+                this.onNodeChange();
+              }
+            } else {
+              this.currentNode = null;
+            }
+          } catch (e) {
+            this.showToast('Error deleting computer', 'error');
           }
         },
 

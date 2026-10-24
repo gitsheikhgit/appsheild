@@ -1,7 +1,7 @@
 import os
 import urllib.parse
 from typing import Any, Dict, Optional
-from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi import FastAPI, HTTPException, Request, Response, Body
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -51,9 +51,20 @@ async def update_fleet_node(node_id: str, updates: Dict[str, Any]):
 @app.delete("/api/fleet/{node_id}")
 async def delete_fleet_node(node_id: str):
     deleted = fleet_store.delete(node_id)
-    if not deleted:
-        raise HTTPException(status_code=404, detail="Node not found")
     return {"success": True, "message": "Node removed from fleet"}
+
+@app.post("/api/fleet/{node_id}/delete")
+async def delete_fleet_node_post(node_id: str):
+    deleted = fleet_store.delete(node_id)
+    return {"success": True, "message": "Node removed from fleet"}
+
+@app.post("/api/devices/unregister")
+async def unregister_device(payload: Dict[str, Any] = Body(...)):
+    dev_id = payload.get("device_id") or payload.get("id")
+    if dev_id:
+        fleet_store.delete(dev_id)
+        return {"success": True, "message": f"Device {dev_id} unregistered from fleet"}
+    return {"success": False, "detail": "Missing device_id"}
 
 @app.post("/api/fleet/{node_id}/ping")
 async def ping_fleet_node(node_id: str):
