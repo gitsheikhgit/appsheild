@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 AppShield macOS Endpoint Protection & Parental Shield Agent
-Version: 1.2.0
+Version: 1.3.0
 
 Features:
 - Outbound encrypted WebSocket & REST telemetry to AppShield Central Server
@@ -22,6 +22,7 @@ import platform
 import subprocess
 import threading
 import datetime
+import base64
 import urllib.request
 import urllib.parse
 import re
@@ -62,7 +63,12 @@ def load_or_create_settings() -> Dict[str, Any]:
     if os.path.exists(settings_path):
         try:
             with open(settings_path, "r", encoding="utf-8") as f:
-                return json.load(f)
+                settings = json.load(f)
+                if not settings.get("psk"):
+                    import secrets
+                    settings["psk"] = secrets.token_hex(16)
+                    save_settings(settings)
+                return settings
         except Exception:
             pass
 
@@ -71,12 +77,14 @@ def load_or_create_settings() -> Dict[str, Any]:
         try:
             with open(legacy_path, "r", encoding="utf-8") as f:
                 old = json.load(f)
+                import secrets
                 settings = {
                     "device_id": old.get("device_id"),
                     "name": old.get("name"),
                     "server_url": old.get("server_url", DEFAULT_SERVER_URL),
                     "standalone_mode": old.get("server_url") in ["", "standalone", None],
-                    "tailscale_ip": get_tailscale_ip() or ""
+                    "tailscale_ip": get_tailscale_ip() or "",
+                    "psk": old.get("psk") or secrets.token_hex(16)
                 }
                 save_settings(settings)
                 return settings
@@ -85,6 +93,7 @@ def load_or_create_settings() -> Dict[str, Any]:
 
     # Create new default settings
     import uuid
+    import secrets
     mac_id = f"mac_{uuid.uuid4().hex[:12]}"
     try:
         hostname = subprocess.check_output(["scutil", "--get", "ComputerName"], text=True).strip()
@@ -96,7 +105,8 @@ def load_or_create_settings() -> Dict[str, Any]:
         "name": hostname,
         "server_url": DEFAULT_SERVER_URL,
         "standalone_mode": False,
-        "tailscale_ip": get_tailscale_ip() or ""
+        "tailscale_ip": get_tailscale_ip() or "",
+        "psk": secrets.token_hex(16)
     }
     save_settings(settings)
     return settings
@@ -108,6 +118,10 @@ def save_settings(settings: Dict[str, Any]):
             json.dump(settings, f, indent=2)
     except Exception as e:
         print(f"[!] Warning: Failed to save settings to {path}: {e}")
+
+def load_or_create_config() -> Dict[str, Any]:
+    """Compatibility alias for loading settings."""
+    return load_or_create_settings()
 
 def load_or_create_features() -> Dict[str, Any]:
     """Loads parental features (curfew schedules, app blocking, path jail, managed users)."""
@@ -293,6 +307,48 @@ def get_active_console_user() -> str:
         pass
     return os.environ.get("USER", "standard_user")
 
+_icon_cache: Dict[str, str] = {}
+
+def get_macos_app_icon_base64(clean_name: str, app_path: str) -> str:
+    """Returns data:image/png;base64 string for macOS application icon."""
+    global _icon_cache
+    if clean_name in _icon_cache:
+        return _icon_cache[clean_name]
+
+    # 1. Check shared icon cache populated by Cocoa AppShield.app
+    cache_path = f"/Library/Application Support/AppShield/icons/{clean_name}.png"
+    if os.path.exists(cache_path):
+        try:
+            with open(cache_path, "rb") as f:
+                b64 = f"data:image/png;base64,{base64.b64encode(f.read()).decode('ascii')}"
+                _icon_cache[clean_name] = b64
+                return b64
+        except Exception:
+            pass
+
+    # 2. Extract embedded PNG from .icns inside Contents/Resources
+    if app_path and os.path.isdir(app_path):
+        res_dir = os.path.join(app_path, "Contents", "Resources")
+        if os.path.exists(res_dir):
+            try:
+                for f in os.listdir(res_dir):
+                    if f.endswith(".icns"):
+                        icns_file = os.path.join(res_dir, f)
+                        with open(icns_file, "rb") as icf:
+                            data = icf.read()
+                        png_start = data.find(b"\x89PNG\r\n\x1a\n")
+                        if png_start != -1:
+                            iend = data.find(b"IEND\xaeB`\x82", png_start)
+                            if iend != -1:
+                                raw_png = data[png_start:iend + 8]
+                                b64 = f"data:image/png;base64,{base64.b64encode(raw_png).decode('ascii')}"
+                                _icon_cache[clean_name] = b64
+                                return b64
+            except Exception:
+                pass
+
+    return ""
+
 _cached_installed_apps: List[Dict[str, Any]] = []
 _last_installed_scan_time = 0.0
 
@@ -358,13 +414,16 @@ def enumerate_installed_macos_apps() -> List[Dict[str, Any]]:
                     except Exception:
                         pass
 
+                icon_b64 = get_macos_app_icon_base64(clean_name, app_path)
+
                 apps.append({
                     "DisplayName": display_name,
                     "Publisher": publisher,
                     "DisplayVersion": str(version),
                     "ExeName": clean_name,
                     "InstallLocation": app_path,
-                    "IsBlocked": False
+                    "IsBlocked": False,
+                    "icon": icon_b64
                 })
         except Exception:
             pass
@@ -418,15 +477,18 @@ def enumerate_running_processes(managed_user_names: set) -> List[Dict[str, Any]]
             seen_apps.add(clean_name)
 
             is_managed = console_user in managed_user_names
+            proc_path = bundle_path or f"/Applications/{clean_name}.app"
+            icon_b64 = get_macos_app_icon_base64(clean_name, proc_path)
 
             processes.append({
                 "pid": pid,
                 "processName": clean_name,
-                "executablePath": bundle_path or f"/Applications/{clean_name}.app",
+                "executablePath": proc_path,
                 "username": console_user,
                 "memoryMB": 65.0,  # Approximate UI app baseline
                 "isManagedUser": is_managed,
-                "domain": "Application"
+                "domain": "Application",
+                "icon": icon_b64
             })
     except Exception as e:
         pass
@@ -578,24 +640,48 @@ class EnforcementEngine:
                 if not rule.get("is_enabled", True):
                     continue
 
-                target = rule.get("target_process", "").lower()
-                if not target:
+                # Filter by targeted user if specified (e.g. only masroor)
+                target_user = rule.get("target_user")
+                if target_user and target_user.lower() != user.lower():
                     continue
 
-                # Match process name or path
-                if target in p_name.lower() or target in p_path.lower():
-                    rtype = rule.get("rule_type", "AllowedWindow")
+                # Support single process or bunch/group of processes
+                targets = [t.lower() for t in rule.get("target_processes", []) if t]
+                single_target = rule.get("target_process")
+                if single_target and single_target.lower() not in targets:
+                    targets.append(single_target.lower())
 
-                    if rtype == "AllowedWindow":
-                        s_start = rule.get("schedule_start", "12:00")
-                        s_end = rule.get("schedule_end", "20:00")
-                        if not self.is_within_schedule(s_start, s_end):
-                            reason = f"Curfew: Allowed only between {s_start} and {s_end}"
-                            self.kill_process(pid, p_name, user, p_path, reason)
-                            break
-                    elif rtype == "AlwaysBlock":
-                        self.kill_process(pid, p_name, user, p_path, "Always Blocked by Parent")
+                if not targets:
+                    continue
+
+                # Check if this running process matches any target in the rule
+                matched = any(t in p_name.lower() or t in p_path.lower() for t in targets)
+                if not matched:
+                    continue
+
+                # Check day of week schedule if days specified
+                days = rule.get("days", [])
+                if days:
+                    from datetime import datetime
+                    curr_day = datetime.now().strftime("%a")
+                    if curr_day not in days:
+                        # Outside scheduled days -> block process
+                        reason = f"Curfew: Not scheduled on {curr_day}"
+                        self.kill_process(pid, p_name, user, p_path, reason)
                         break
+
+                rtype = rule.get("rule_type", "AllowedWindow")
+                if rtype == "AllowedWindow" or rtype == "AppGroupWindow":
+                    s_start = rule.get("schedule_start", "12:00")
+                    s_end = rule.get("schedule_end", "20:00")
+                    if not self.is_within_schedule(s_start, s_end):
+                        sched_name = rule.get("name") or "Curfew"
+                        reason = f"{sched_name}: Allowed only {s_start} - {s_end}"
+                        self.kill_process(pid, p_name, user, p_path, reason)
+                        break
+                elif rtype == "AlwaysBlock":
+                    self.kill_process(pid, p_name, user, p_path, "Always Blocked by Parent")
+                    break
 
     def kill_process(self, pid: int, name: str, user: str, path: str, reason: str):
         print(f"[!] ENFORCEMENT: Killing {name} (PID: {pid}, User: {user}) - {reason}")
@@ -646,7 +732,8 @@ class AppShieldMacAgent:
             "os": f"macOS {platform.mac_ver()[0]} ({platform.machine()})",
             "lan_ip": get_primary_ip(),
             "tailscale_ip": t_ip,
-            "agent_version": "1.2.0"
+            "agent_version": "1.3.0",
+            "psk": self.settings.get("psk", "")
         }
         try:
             req = urllib.request.Request(
@@ -689,9 +776,18 @@ class AppShieldMacAgent:
         print("====================================================================")
         while self.running:
             try:
-                # Reload features in case parent edited features.json locally
+                # Reload settings & features in case user updated via App
+                self.settings = load_or_create_settings()
                 self.features = load_or_create_features()
                 self.config["rules"] = self.features.get("rules", [])
+
+                # Check if server was configured
+                s_url = (self.settings.get("server_url") or "").rstrip("/")
+                is_st = self.settings.get("standalone_mode", False) or not s_url or s_url.lower() == "standalone"
+                if not is_st:
+                    print(f"[+] Central Server configured ({s_url}). Switching to live fleet relay...")
+                    break
+
                 users = enumerate_macos_users()
                 self.update_managed_users_cache(users)
                 procs = enumerate_running_processes(self.managed_usernames)
@@ -961,29 +1057,38 @@ class AppShieldMacAgent:
 
     def start(self):
         print("====================================================================")
-        print("          AppShield macOS Endpoint Protection Agent v1.2.0          ")
+        print("          AppShield macOS Endpoint Protection Agent v1.3.0          ")
         print("====================================================================")
         print(f" Device ID:    {self.device_id}")
-        print(f" Target Hub:   {self.server_url if not self.standalone_mode else 'STANDALONE (No Server)'}")
         print(f" Tailscale IP: {get_tailscale_ip() or self.tailscale_ip or 'None detected'}")
         print(f" Running As:   UID {os.geteuid()} ({'Root / Daemon' if os.geteuid() == 0 else 'User Session'})")
         print("====================================================================")
 
-        if self.standalone_mode:
-            print("[+] Standalone mode active: enforcing curfews and app blocks locally.")
-            self.standalone_enforcement_loop()
-            return
+        while self.running:
+            self.settings = load_or_create_settings()
+            self.features = load_or_create_features()
+            self.device_id = self.settings.get("device_id", self.device_id)
+            self.server_url = (self.settings.get("server_url") or "").rstrip("/")
+            self.standalone_mode = self.settings.get("standalone_mode", False) or not self.server_url or self.server_url.lower() == "standalone"
 
-        self.register_with_server()
-        self.fetch_rules()
+            if self.standalone_mode:
+                print("[+] Standalone mode active: enforcing curfews and app blocks locally.")
+                self.standalone_enforcement_loop()
+            else:
+                print(f"[+] Connecting to Central Hub: {self.server_url}")
+                self.register_with_server()
+                self.fetch_rules()
 
-        if HAS_WEBSOCKETS:
-            try:
-                asyncio.run(self.websocket_loop())
-            except KeyboardInterrupt:
-                print("\n[+] Agent stopped.")
-        else:
-            self.http_polling_loop()
+                if HAS_WEBSOCKETS:
+                    try:
+                        asyncio.run(self.websocket_loop())
+                    except KeyboardInterrupt:
+                        break
+                    except Exception as e:
+                        time.sleep(4)
+                else:
+                    self.http_polling_loop()
+            time.sleep(2)
 
 if __name__ == "__main__":
     agent = AppShieldMacAgent()

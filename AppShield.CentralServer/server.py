@@ -4,6 +4,7 @@ import random
 import string
 import sqlite3
 import datetime
+import time
 import secrets
 from typing import Dict, Any, List, Optional
 from fastapi import FastAPI, HTTPException, Request, Response, WebSocket, WebSocketDisconnect
@@ -23,6 +24,7 @@ from core_state import (
     verify_password,
     get_session_from_request,
     DeviceRegisterDto,
+    DeviceUnregisterDto,
     TelemetryReportDto,
     LoginDto,
     ChangePasswordDto
@@ -33,7 +35,7 @@ import settings_routes
 app = FastAPI(
     title="AppShield Central Cloud Server",
     description="Centralized Fleet Management, Telemetry & Real-Time Parental Control Relay",
-    version="1.2.0"
+    version="1.3.0"
 )
 
 app.add_middleware(
@@ -188,9 +190,11 @@ async def security_auth_middleware(request: Request, call_next):
         path == "/api/auth/status" or
         path.startswith("/ws/agent") or
         path == "/api/devices/register" or
+        path == "/api/devices/unregister" or
         path == "/api/agent/telemetry" or
         path == "/api/pair/new-code" or
-        path == "/favicon.ico"
+        path == "/favicon.ico" or
+        (request.method == "DELETE" and path.startswith("/api/fleet/"))
     ):
         return await call_next(request)
 
@@ -361,9 +365,13 @@ async def get_fleet():
 
     for r in rows:
         dev_id = r["id"]
-        # Merge live status if agent is currently connected via WebSocket
-        if dev_id in manager.active_agents:
+        # Merge live status if agent is currently connected via WebSocket or active polling
+        tel = live_telemetry.get(dev_id)
+        is_recent_telemetry = tel and (time.time() - tel.get("timestamp", 0) < 60)
+        if (dev_id in manager.active_agents) or is_recent_telemetry:
             r["status"] = "online"
+        else:
+            r["status"] = "offline"
         # Provide active IP: prefer Tailscale IP if reachable, fallback to LAN IP
         t_ip = r.get("tailscale_ip")
         lan_ip = r.get("lan_ip")
@@ -375,21 +383,116 @@ async def get_fleet():
 async def register_device(dto: DeviceRegisterDto):
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
-    c.execute('''
-        INSERT INTO devices (id, name, os, lan_ip, tailscale_ip, agent_version, status, last_seen)
-        VALUES (?, ?, ?, ?, ?, ?, 'online', CURRENT_TIMESTAMP)
-        ON CONFLICT(id) DO UPDATE SET
-            name = excluded.name,
-            os = excluded.os,
-            lan_ip = excluded.lan_ip,
-            tailscale_ip = COALESCE(excluded.tailscale_ip, devices.tailscale_ip),
-            agent_version = excluded.agent_version,
-            status = 'online',
-            last_seen = CURRENT_TIMESTAMP
-    ''', (dto.id, dto.name, dto.os, dto.lan_ip, dto.tailscale_ip, dto.agent_version))
+
+    try:
+        c.execute("ALTER TABLE devices ADD COLUMN psk TEXT")
+    except Exception:
+        pass
+
+    # Check if a device with this IP or name was previously added manually
+    existing_id = None
+    c.execute("SELECT id FROM devices WHERE id = ?", (dto.id,))
+    row = c.fetchone()
+    if not row:
+        if dto.tailscale_ip:
+            c.execute("SELECT id FROM devices WHERE tailscale_ip = ?", (dto.tailscale_ip,))
+            r = c.fetchone()
+            if r:
+                existing_id = r[0]
+        if not existing_id and dto.lan_ip and dto.lan_ip != "127.0.0.1":
+            c.execute("SELECT id FROM devices WHERE lan_ip = ?", (dto.lan_ip,))
+            r = c.fetchone()
+            if r:
+                existing_id = r[0]
+        if not existing_id and dto.name:
+            c.execute("SELECT id FROM devices WHERE name = ?", (dto.name,))
+            r = c.fetchone()
+            if r:
+                existing_id = r[0]
+
+    if existing_id:
+        c.execute('''
+            UPDATE devices SET
+                id = ?,
+                name = ?,
+                os = ?,
+                lan_ip = ?,
+                tailscale_ip = COALESCE(?, tailscale_ip),
+                agent_version = ?,
+                status = 'online',
+                last_seen = CURRENT_TIMESTAMP,
+                psk = COALESCE(?, psk)
+            WHERE id = ?
+        ''', (dto.id, dto.name, dto.os, dto.lan_ip, dto.tailscale_ip, dto.agent_version, dto.psk, existing_id))
+    else:
+        c.execute('''
+            INSERT INTO devices (id, name, os, lan_ip, tailscale_ip, agent_version, status, last_seen, psk)
+            VALUES (?, ?, ?, ?, ?, ?, 'online', CURRENT_TIMESTAMP, ?)
+            ON CONFLICT(id) DO UPDATE SET
+                name = excluded.name,
+                os = excluded.os,
+                lan_ip = excluded.lan_ip,
+                tailscale_ip = COALESCE(excluded.tailscale_ip, devices.tailscale_ip),
+                agent_version = excluded.agent_version,
+                status = 'online',
+                last_seen = CURRENT_TIMESTAMP,
+                psk = COALESCE(excluded.psk, devices.psk)
+        ''', (dto.id, dto.name, dto.os, dto.lan_ip, dto.tailscale_ip, dto.agent_version, dto.psk))
+
     conn.commit()
     conn.close()
     return {"success": True, "message": "Device registered", "device_id": dto.id}
+
+@app.post("/api/devices/unregister")
+async def unregister_device(dto: DeviceUnregisterDto):
+    dev_id = dto.device_id
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("DELETE FROM rules WHERE device_id = ?", (dev_id,))
+    c.execute("DELETE FROM audit_logs WHERE device_id = ?", (dev_id,))
+    c.execute("DELETE FROM dns_settings WHERE device_id = ?", (dev_id,))
+    c.execute("DELETE FROM user_policies WHERE device_id = ?", (dev_id,))
+    c.execute("DELETE FROM devices WHERE id = ?", (dev_id,))
+    conn.commit()
+    conn.close()
+
+    live_telemetry.pop(dev_id, None)
+    manager.disconnect_agent(dev_id)
+
+    for fname in [f"users_{dev_id}.json", f"installed_{dev_id}.json"]:
+        p = os.path.join(DATA_DIR, fname)
+        if os.path.exists(p):
+            try:
+                os.remove(p)
+            except Exception:
+                pass
+
+    return {"success": True, "message": f"Device {dev_id} unregistered and purged from fleet."}
+ 
+@app.delete("/api/fleet/{device_id}")
+async def delete_fleet_device(device_id: str):
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("DELETE FROM rules WHERE device_id = ?", (device_id,))
+    c.execute("DELETE FROM audit_logs WHERE device_id = ?", (device_id,))
+    c.execute("DELETE FROM dns_settings WHERE device_id = ?", (device_id,))
+    c.execute("DELETE FROM user_policies WHERE device_id = ?", (device_id,))
+    c.execute("DELETE FROM devices WHERE id = ?", (device_id,))
+    conn.commit()
+    conn.close()
+
+    live_telemetry.pop(device_id, None)
+    manager.disconnect_agent(device_id)
+
+    for fname in [f"users_{device_id}.json", f"installed_{device_id}.json"]:
+        p = os.path.join(DATA_DIR, fname)
+        if os.path.exists(p):
+            try:
+                os.remove(p)
+            except Exception:
+                pass
+
+    return {"success": True, "message": f"Device {device_id} permanently removed from fleet."}
 
 @app.get("/api/pair/new-code")
 async def generate_pairing_code():

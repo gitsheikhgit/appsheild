@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AppShield Mac Setup</title>
+  <title>AppShield for macOS</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -17,228 +17,1070 @@
       -webkit-user-select: none;
     }
     .glass-card {
-      background: rgba(18, 22, 34, 0.75);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
+      background: rgba(18, 22, 34, 0.85);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
       border: 1px solid rgba(255, 255, 255, 0.08);
     }
     input {
       user-select: text;
       -webkit-user-select: text;
     }
+    .custom-scroll::-webkit-scrollbar {
+      width: 5px;
+    }
+    .custom-scroll::-webkit-scrollbar-track {
+      background: rgba(0, 0, 0, 0.1);
+    }
+    .custom-scroll::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 3px;
+    }
   </style>
 </head>
-<body class="h-screen w-screen flex flex-col justify-between p-8 overflow-hidden bg-gradient-to-br from-[#0c0e14] via-[#11131c] to-[#151926]">
+<body class="h-screen w-screen flex flex-col overflow-hidden bg-gradient-to-br from-[#0c0e14] via-[#11131c] to-[#151926]">
 
-  <!-- TOP HEADER -->
-  <header class="flex items-center justify-between pb-6 border-b border-zinc-800/80">
-    <div class="flex items-center space-x-4">
-      <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-600 via-purple-600 to-indigo-500 flex items-center justify-center shadow-lg shadow-indigo-500/25 border border-indigo-400/30">
-        <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
-        </svg>
+  <!-- ========================================================================= -->
+  <!-- SCREEN 1: PRE-INSTALL VIEW (Installer Only)                               -->
+  <!-- ========================================================================= -->
+  <main id="viewInstaller" class="max-w-2xl mx-auto w-full my-auto space-y-6 p-8" style="display: none;">
+    <div class="glass-card rounded-2xl p-8 shadow-2xl text-center space-y-6 border border-zinc-800">
+      <div class="w-16 h-16 mx-auto rounded-2xl bg-indigo-600/20 border border-indigo-500/40 flex items-center justify-center text-3xl shadow-inner">
+        🛡️
       </div>
       <div>
-        <div class="flex items-center space-x-2">
-          <h1 class="text-xl font-bold text-white tracking-wide font-['Outfit']">AppShield for macOS</h1>
-          <span class="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">v1.2.0</span>
-        </div>
-        <p class="text-xs text-zinc-400 mt-0.5">Commercial Endpoint Protection & Parental Curfew Shield</p>
-      </div>
-    </div>
-
-    <!-- Active Shield Badge -->
-    <div id="statusBadge" class="flex items-center space-x-2 px-3 py-1.5 rounded-full bg-zinc-800/80 border border-zinc-700/60 text-xs">
-      <span class="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse"></span>
-      <span class="text-zinc-300 font-medium">Checking Protection...</span>
-    </div>
-  </header>
-
-  <!-- MAIN CONFIGURATION CONTENT -->
-  <main class="grid grid-cols-1 md:grid-cols-2 gap-6 my-auto max-w-5xl mx-auto w-full">
-    
-    <!-- CARD 1: Central Server Connection & Settings -->
-    <div class="glass-card rounded-2xl p-6 shadow-xl flex flex-col justify-between space-y-4">
-      <div>
-        <div class="flex items-center justify-between mb-2">
-          <div class="flex items-center space-x-2.5">
-            <span class="text-xl">🌐</span>
-            <h2 class="text-base font-bold text-white">Central Hub Settings</h2>
-          </div>
-          <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-zinc-800 text-zinc-400 border border-zinc-700">Optional</span>
-        </div>
-        <p class="text-xs text-zinc-400 leading-relaxed mb-4">
-          Connect to your family's Central Server to manage this Mac remotely from your phone or outside network.
+        <h2 class="text-xl font-bold text-white tracking-wide font-['Outfit']">Install AppShield Protection</h2>
+        <p class="text-xs text-zinc-400 mt-1.5 leading-relaxed max-w-md mx-auto">
+          Enforces 24/7 background curfews, blocks unauthorized games outside scheduled hours, and prevents child tampering across all user accounts.
         </p>
+      </div>
 
-        <div class="flex items-center justify-between mb-1.5">
-          <label class="block text-[11px] font-semibold text-zinc-300">SERVER ADDRESS (IP, TAILSCALE, OR DOMAIN)</label>
-          <button type="button" onclick="autoDetectTailscale()" class="text-indigo-400 hover:text-indigo-300 text-[11px] font-semibold flex items-center space-x-1">
-            <span>🔍 Scan Tailscale IP</span>
-          </button>
-        </div>
-        <div class="flex space-x-2">
-          <input 
-            type="text" 
-            id="serverUrl" 
-            value="http://192.168.0.101:8000"
-            placeholder="http://192.168.0.101:8000 or standalone" 
-            class="flex-1 bg-zinc-900/90 border border-zinc-700 text-white rounded-xl px-3.5 py-2.5 text-xs font-mono focus:outline-none focus:border-indigo-500 transition shadow-inner">
-          <button 
-            id="btnTestServer" 
-            onclick="testServerConnection()" 
-            class="px-4 py-2.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-semibold rounded-xl border border-zinc-700 transition flex items-center space-x-1.5">
-            <span>Ping</span>
-          </button>
-        </div>
-        <div id="testFeedback" class="text-[11px] mt-2 font-mono text-zinc-400 h-4"></div>
-
-        <!-- No Server / Skip Option -->
-        <div class="mt-3 p-3 bg-indigo-950/30 rounded-xl border border-indigo-500/20 flex items-center justify-between">
+      <!-- Feature Highlights Grid -->
+      <div class="grid grid-cols-2 gap-3 text-left text-xs max-w-lg mx-auto">
+        <div class="p-3 rounded-xl bg-zinc-900/60 border border-zinc-800/80 flex items-center space-x-2.5">
+          <span class="text-emerald-400 text-sm">✓</span>
           <div>
-            <div class="text-[11px] font-bold text-indigo-300">No Server? Run Standalone</div>
-            <div class="text-[10px] text-zinc-400">Enforce curfews and app blocking locally without a hub.</div>
+            <div class="font-semibold text-zinc-200">12 PM - 8 PM Curfew</div>
+            <div class="text-[10px] text-zinc-400">Games killed outside hours</div>
           </div>
-          <button 
-            type="button" 
-            onclick="activateStandaloneMode()" 
-            class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-bold rounded-lg transition shadow-sm">
-            Skip Server
-          </button>
+        </div>
+        <div class="p-3 rounded-xl bg-zinc-900/60 border border-zinc-800/80 flex items-center space-x-2.5">
+          <span class="text-emerald-400 text-sm">✓</span>
+          <div>
+            <div class="font-semibold text-zinc-200">Anti-Bypass Jail</div>
+            <div class="text-[10px] text-zinc-400">Downloads execution blocked</div>
+          </div>
+        </div>
+        <div class="p-3 rounded-xl bg-zinc-900/60 border border-zinc-800/80 flex items-center space-x-2.5">
+          <span class="text-emerald-400 text-sm">✓</span>
+          <div>
+            <div class="font-semibold text-zinc-200">Roblox, Steam, Discord</div>
+            <div class="text-[10px] text-zinc-400">Instant process termination</div>
+          </div>
+        </div>
+        <div class="p-3 rounded-xl bg-zinc-900/60 border border-zinc-800/80 flex items-center space-x-2.5">
+          <span class="text-emerald-400 text-sm">✓</span>
+          <div>
+            <div class="font-semibold text-zinc-200">Runs 24/7 as Daemon</div>
+            <div class="text-[10px] text-zinc-400">Cannot be stopped by kids</div>
+          </div>
         </div>
       </div>
 
-      <!-- Quick Server Actions & Server Setup Later Accordion -->
-      <div class="pt-3 border-t border-zinc-800/80 space-y-3">
-        <div class="flex items-center justify-between">
-          <button 
-            onclick="saveServerUrl()" 
-            class="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-bold rounded-xl transition border border-zinc-700">
-            Save Address
-          </button>
-          <button 
-            onclick="openFleetDashboard()" 
-            class="px-4 py-2 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 text-xs font-semibold rounded-xl transition flex items-center space-x-1.5">
-            <span>👑 Open Fleet Dashboard</span>
-          </button>
-        </div>
-
-        <!-- Setup Server Later Guide Dropdown -->
-        <details class="text-[11px] text-zinc-400 bg-zinc-950 p-2.5 rounded-xl border border-zinc-800 cursor-pointer">
-          <summary class="font-bold text-zinc-300 hover:text-white flex items-center justify-between">
-            <span>🖥️ Want to Setup Central Hub Later? (1-Click Proxmox)</span>
-            <span class="text-xs text-indigo-400">▼</span>
-          </summary>
-          <div class="mt-2 space-y-2 text-zinc-400 pt-2 border-t border-zinc-800/60">
-            <p>Run this 1-line script on any Proxmox LXC, Ubuntu VM, or Raspberry Pi:</p>
-            <div class="flex items-center space-x-2">
-              <pre class="flex-1 p-2 bg-zinc-900 rounded font-mono text-[10px] text-emerald-400 overflow-x-auto select-all">curl -fsSL https://raw.githubusercontent.com/gitsheikhgit/appsheild/main/install-on-proxmox-lxc.sh | bash</pre>
-              <button type="button" onclick="copyProxmoxCommand()" class="px-2.5 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-white rounded font-semibold text-[10px]">Copy</button>
-            </div>
-          </div>
-        </details>
-      </div>
-    </div>
-
-    <!-- CARD 2: Mac Endpoint Protection & Features -->
-    <div class="glass-card rounded-2xl p-6 shadow-xl flex flex-col justify-between space-y-4">
-      <div>
-        <div class="flex items-center justify-between mb-2">
-          <div class="flex items-center space-x-2.5">
-            <span class="text-xl">🛡️</span>
-            <h2 class="text-base font-bold text-white">Protect This Mac</h2>
-          </div>
-          <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Autonomous</span>
-        </div>
-        <p class="text-xs text-zinc-400 leading-relaxed mb-4">
-          Enable background protection on this Mac to enforce curfews, block unauthorized games, and prevent child tampering. Works with or without server.
+      <!-- Prominent Install Button -->
+      <div class="pt-2 max-w-md mx-auto">
+        <button 
+          id="btnInstall" 
+          onclick="installAgent()" 
+          class="w-full py-3.5 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-500 hover:from-emerald-500 hover:to-teal-400 text-white text-sm font-bold rounded-xl shadow-lg shadow-emerald-600/30 transition transform hover:-translate-y-0.5 active:translate-y-0 flex items-center justify-center space-x-2">
+          <span>🚀 Install AppShield on this Mac</span>
+        </button>
+        <p class="text-[10px] text-zinc-500 mt-2">
+          macOS will ask for your administrator password to install into /Applications and register the service.
         </p>
-
-        <!-- Feature Pills -->
-        <div class="grid grid-cols-2 gap-2 text-[11px] mb-4">
-          <div class="p-2.5 rounded-xl bg-zinc-900/50 border border-zinc-800/80 flex items-center space-x-2">
-            <span class="text-emerald-400">✓</span>
-            <span class="text-zinc-300">12 PM - 8 PM Curfew</span>
-          </div>
-          <div class="p-2.5 rounded-xl bg-zinc-900/50 border border-zinc-800/80 flex items-center space-x-2">
-            <span class="text-emerald-400">✓</span>
-            <span class="text-zinc-300">Roblox & Steam Kill</span>
-          </div>
-          <div class="p-2.5 rounded-xl bg-zinc-900/50 border border-zinc-800/80 flex items-center space-x-2">
-            <span class="text-emerald-400">✓</span>
-            <span class="text-zinc-300">Downloads Path Jail</span>
-          </div>
-          <div class="p-2.5 rounded-xl bg-zinc-900/50 border border-zinc-800/80 flex items-center space-x-2">
-            <span class="text-emerald-400">✓</span>
-            <span class="text-zinc-300">Remote Screen Lock</span>
-          </div>
-        </div>
       </div>
 
-      <!-- Action Area: Dynamically changes based on detection of installed app -->
-      <div class="pt-4 border-t border-zinc-800/80">
-        <!-- When Already Installed: Offer Reinstall or Complete Uninstall -->
-        <div id="installedControls" class="space-y-3" style="display: none;">
-          <div class="p-3 bg-emerald-950/30 rounded-xl border border-emerald-500/30 flex items-center justify-between">
-            <div class="flex items-center space-x-2">
-              <span class="text-base">🛡️</span>
-              <span class="text-xs font-bold text-emerald-300">AppShield Detected on this Mac</span>
-            </div>
-            <span class="text-[10px] text-zinc-400 font-mono">LaunchDaemon Active</span>
-          </div>
-
-          <div class="flex items-center space-x-2.5">
-            <button 
-              id="btnReinstall" 
-              onclick="reinstallAgent()" 
-              class="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl shadow-lg transition flex items-center justify-center space-x-1.5">
-              <span>🔄 Reinstall / Update</span>
-            </button>
-            <button 
-              id="btnUninstall" 
-              onclick="uninstallAgent()" 
-              class="flex-1 py-2.5 bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 border border-rose-500/40 text-xs font-bold rounded-xl transition flex items-center justify-center space-x-1.5">
-              <span>🗑️ Uninstall AppShield</span>
-            </button>
-            <button 
-              id="btnSyncRules" 
-              onclick="syncRulesNow()" 
-              title="Sync Rules from Server" 
-              class="p-2.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 rounded-xl transition">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-            </button>
-          </div>
-        </div>
-
-        <!-- When Not Installed: Clean 1-Click Install Button -->
-        <div id="uninstalledControls">
-          <button 
-            id="btnInstall" 
-            onclick="installAgent()" 
-            class="w-full py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-emerald-600/25 transition flex items-center justify-center space-x-2">
-            <span>🚀 Install Protection on this Mac</span>
-          </button>
-        </div>
+      <!-- Uninstall Link (ONLY in installer mode) -->
+      <div class="pt-3 border-t border-zinc-800/60 flex items-center justify-center">
+        <button 
+          onclick="openUninstallModal()" 
+          class="px-4 py-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 text-xs font-semibold rounded-xl border border-rose-500/30 transition flex items-center space-x-1.5 shadow-sm">
+          <span>🗑️ Uninstall AppShield & Remove from Server</span>
+        </button>
       </div>
     </div>
   </main>
 
-  <!-- FOOTER -->
-  <footer class="flex items-center justify-between pt-4 border-t border-zinc-800/80 text-xs text-zinc-500">
-    <div class="flex items-center space-x-2 font-mono text-[11px]">
-      <span>Device ID:</span>
-      <span id="deviceId" class="text-zinc-400 font-semibold">mac_detecting...</span>
+  <!-- ========================================================================= -->
+  <!-- SCREEN 2: EXISTING INSTALLATION DETECTED & OPTIONS (Installer Mode)       -->
+  <!-- ========================================================================= -->
+  <main id="viewInstallComplete" class="max-w-xl mx-auto w-full my-auto space-y-6 p-8" style="display: none;">
+    <div class="glass-card rounded-2xl p-8 shadow-2xl text-center space-y-6 border border-emerald-500/30">
+      <div class="w-16 h-16 mx-auto rounded-2xl bg-emerald-600/20 border border-emerald-500/40 flex items-center justify-center text-3xl shadow-inner">
+        🛡️
+      </div>
+      <div>
+        <div class="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[11px] font-semibold uppercase tracking-wider mb-2">
+          ● Protection Active on This Mac
+        </div>
+        <h2 class="text-xl font-bold text-white tracking-wide font-['Outfit']">AppShield Already Installed</h2>
+        <p class="text-xs text-zinc-400 mt-2 leading-relaxed max-w-md mx-auto">
+          AppShield is installed and active in <span class="text-emerald-400 font-semibold font-mono">/Applications/AppShield.app</span>. Choose an action below to manage, update, or uninstall.
+        </p>
+      </div>
+
+      <!-- Action Options Grid -->
+      <div class="space-y-3 pt-1 text-left">
+        <!-- Option 1: Update / Overwrite AppShield -->
+        <button 
+          type="button" 
+          onclick="installAgent()" 
+          class="w-full p-4 rounded-xl bg-zinc-900/80 hover:bg-zinc-800/90 border border-indigo-500/40 hover:border-indigo-400/80 transition flex items-center justify-between group shadow-lg">
+          <div class="flex items-center space-x-3.5">
+            <div class="w-10 h-10 rounded-xl bg-indigo-600/20 border border-indigo-500/40 flex items-center justify-center text-xl text-indigo-400 group-hover:scale-105 transition flex-shrink-0">
+              🔄
+            </div>
+            <div>
+              <div class="text-xs font-bold text-white group-hover:text-indigo-300 transition flex items-center space-x-1.5">
+                <span>Update / Reinstall AppShield</span>
+                <span class="px-1.5 py-0.2 bg-indigo-500/30 text-indigo-300 text-[9px] rounded font-mono">Recommended</span>
+              </div>
+              <div class="text-[11px] text-zinc-400 mt-0.5">Refreshes application binaries & LaunchDaemon while preserving active rules.</div>
+            </div>
+          </div>
+          <span class="text-xs font-bold text-indigo-400 group-hover:translate-x-1 transition flex-shrink-0 ml-2">&rarr;</span>
+        </button>
+
+        <!-- Option 2: Open Installed App -->
+        <button 
+          type="button" 
+          onclick="launchInstalledApp()" 
+          class="w-full p-4 rounded-xl bg-gradient-to-r from-emerald-600/20 to-teal-600/20 hover:from-emerald-600/30 hover:to-teal-600/30 border border-emerald-500/40 hover:border-emerald-400/80 transition flex items-center justify-between group shadow-lg">
+          <div class="flex items-center space-x-3.5">
+            <div class="w-10 h-10 rounded-xl bg-emerald-600/30 border border-emerald-500/40 flex items-center justify-center text-xl text-emerald-400 group-hover:scale-105 transition flex-shrink-0">
+              🚀
+            </div>
+            <div>
+              <div class="text-xs font-bold text-white group-hover:text-emerald-300 transition">Open AppShield Management Console</div>
+              <div class="text-[11px] text-zinc-400 mt-0.5">Launch installed app from /Applications to configure rules, curfews, and apps.</div>
+            </div>
+          </div>
+          <span class="text-xs font-bold text-emerald-400 group-hover:translate-x-1 transition flex-shrink-0 ml-2">&rarr;</span>
+        </button>
+
+        <!-- Option 3: Uninstall AppShield -->
+        <button 
+          type="button" 
+          onclick="openUninstallModal()" 
+          class="w-full p-4 rounded-xl bg-rose-950/20 hover:bg-rose-950/40 border border-rose-500/30 hover:border-rose-400/60 transition flex items-center justify-between group">
+          <div class="flex items-center space-x-3.5">
+            <div class="w-10 h-10 rounded-xl bg-rose-600/20 border border-rose-500/30 flex items-center justify-center text-xl text-rose-400 group-hover:scale-105 transition flex-shrink-0">
+              🗑️
+            </div>
+            <div>
+              <div class="text-xs font-bold text-rose-300 group-hover:text-rose-200 transition">Uninstall & Delete from Server</div>
+              <div class="text-[11px] text-zinc-400 mt-0.5">Completely removes protection daemon and sends signal to delete computer from Central Server.</div>
+            </div>
+          </div>
+          <span class="text-xs font-bold text-rose-400 group-hover:translate-x-1 transition flex-shrink-0 ml-2">&rarr;</span>
+        </button>
+      </div>
+
+      <!-- Action Footer -->
+      <div class="flex items-center justify-between pt-3 border-t border-zinc-800/80">
+        <button 
+          type="button" 
+          onclick="closeInstaller()" 
+          class="px-4 py-2 bg-zinc-800/70 hover:bg-zinc-700 text-zinc-400 hover:text-white text-xs font-semibold rounded-xl border border-zinc-700/60 transition">
+          ✕ Quit Installer
+        </button>
+        <button 
+          type="button" 
+          onclick="forceShowDashboard()" 
+          class="text-xs text-indigo-400 hover:text-indigo-300 font-medium hover:underline transition">
+          Explore Fleet Dashboard directly &rarr;
+        </button>
+      </div>
     </div>
-    <div class="flex items-center space-x-3">
-      <span class="text-[11px] text-zinc-400">Tamper-Resistant 24/7 Security</span>
-      <button onclick="uninstallAgent()" class="text-rose-400/70 hover:text-rose-400 text-[11px] transition">
-        Uninstall
-      </button>
+  </main>
+
+  <!-- ========================================================================= -->
+  <!-- SCREEN 3: FULL STANDALONE FLEET DASHBOARD WITH SIDEBAR NAVIGATION         -->
+  <!-- ========================================================================= -->
+  <div id="viewDashboard" class="flex-1 flex w-full h-full overflow-hidden" style="display: none;">
+
+    <!-- LEFT SIDEBAR NAVIGATION -->
+    <aside class="w-64 bg-[#11131c] border-r border-zinc-800/80 flex flex-col justify-between h-full flex-shrink-0 select-none">
+      
+      <!-- Top Brand Section -->
+      <div class="p-5 border-b border-zinc-800/80 bg-zinc-950/40">
+        <div class="flex items-center space-x-3">
+          <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/20 flex-shrink-0">
+            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+            </svg>
+          </div>
+          <div>
+            <div class="flex items-center space-x-1.5">
+              <h1 class="text-base font-bold text-white font-['Outfit'] tracking-wide">AppShield</h1>
+              <span class="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">v1.3.0</span>
+            </div>
+            <p class="text-[10px] text-zinc-400">Endpoint & Fleet Shield</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Navigation Tabs -->
+      <nav class="flex-1 p-3 space-y-1 overflow-y-auto custom-scroll">
+        <button 
+          onclick="switchTab('overview')" 
+          id="navTab_overview" 
+          class="nav-tab w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition bg-indigo-600/20 text-white border-l-2 border-indigo-500 shadow-sm">
+          <span class="text-base">📊</span>
+          <span>Overview</span>
+        </button>
+
+        <button 
+          onclick="switchTab('accounts')" 
+          id="navTab_accounts" 
+          class="nav-tab w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-xs font-medium text-zinc-400 hover:text-white hover:bg-zinc-800/60 transition">
+          <span class="text-base">👥</span>
+          <span>User Accounts</span>
+        </button>
+
+        <button 
+          onclick="switchTab('runningapps')" 
+          id="navTab_runningapps" 
+          class="nav-tab w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-xs font-medium text-zinc-400 hover:text-white hover:bg-zinc-800/60 transition">
+          <span class="text-base">⚡</span>
+          <span>Running Apps (Child)</span>
+        </button>
+
+        <button 
+          onclick="switchTab('allapps')" 
+          id="navTab_allapps" 
+          class="nav-tab w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-xs font-medium text-zinc-400 hover:text-white hover:bg-zinc-800/60 transition">
+          <span class="text-base">📱</span>
+          <span>All Applications</span>
+        </button>
+
+        <button 
+          onclick="switchTab('appschedules')" 
+          id="navTab_appschedules" 
+          class="nav-tab w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-xs font-medium text-zinc-400 hover:text-white hover:bg-zinc-800/60 transition">
+          <span class="text-base">⏰</span>
+          <span>App & Group Schedules</span>
+        </button>
+
+        <button 
+          onclick="switchTab('games')" 
+          id="navTab_games" 
+          class="nav-tab w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-xs font-medium text-zinc-400 hover:text-white hover:bg-zinc-800/60 transition">
+          <span class="text-base">🎮</span>
+          <span>Game Limiter</span>
+        </button>
+
+        <button 
+          onclick="switchTab('pathjail')" 
+          id="navTab_pathjail" 
+          class="nav-tab w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-xs font-medium text-zinc-400 hover:text-white hover:bg-zinc-800/60 transition">
+          <span class="text-base">🔒</span>
+          <span>Anti-Bypass Jail</span>
+        </button>
+
+        <button 
+          onclick="switchTab('logs')" 
+          id="navTab_logs" 
+          class="nav-tab w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-xs font-medium text-zinc-400 hover:text-white hover:bg-zinc-800/60 transition">
+          <span class="text-base">📋</span>
+          <span>Activity & Audit</span>
+        </button>
+
+        <div class="pt-3 border-t border-zinc-800/60 my-2"></div>
+
+        <button 
+          onclick="switchTab('cloudhub')" 
+          id="navTab_cloudhub" 
+          class="nav-tab w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-xs font-medium text-indigo-300 hover:text-white hover:bg-indigo-950/40 transition">
+          <span class="text-base">👑</span>
+          <span>Connect Central Hub</span>
+        </button>
+      </nav>
+
+      <!-- Bottom Computer Status in Sidebar -->
+      <div class="p-4 border-t border-zinc-800/80 bg-zinc-950/40 text-[11px] space-y-1.5">
+        <div class="flex items-center justify-between text-zinc-400">
+          <span class="font-medium truncate max-w-[140px]" id="sidebarComputerName">Rashid’s Mac</span>
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+        </div>
+        <div class="font-mono text-[10px] text-zinc-500 truncate" id="sidebarDeviceId">mac_detecting</div>
+        <div class="text-[10px] text-emerald-400/90 font-semibold">24/7 Shield Engine Active</div>
+      </div>
+    </aside>
+
+    <!-- RIGHT MAIN CONTENT AREA -->
+    <div class="flex-1 flex flex-col h-full overflow-hidden bg-[#0c0e14]">
+      
+      <!-- Top Action Bar -->
+      <header class="p-4 sm:px-8 border-b border-zinc-800/80 flex items-center justify-between bg-[#11131c]/50 flex-shrink-0">
+        <div>
+          <h2 id="topBarTitle" class="text-base font-bold text-white font-['Outfit']">Dashboard Overview</h2>
+          <p id="topBarSubtitle" class="text-[11px] text-zinc-400">Endpoint Status & Parental Protection Rules</p>
+        </div>
+
+        <div class="flex items-center space-x-3">
+          <div id="statusBadge" class="flex items-center space-x-2 px-3 py-1 rounded-full bg-emerald-950/40 border border-emerald-500/40 text-xs shadow-md">
+            <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+            <span class="text-emerald-300 font-bold text-[11px]">Protected (Standalone)</span>
+          </div>
+
+          <button 
+            onclick="syncRulesNow()" 
+            id="btnSync" 
+            class="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-semibold rounded-xl border border-zinc-700 transition flex items-center space-x-1 shadow">
+            <span>🔄 Sync</span>
+          </button>
+
+          <button 
+            onclick="saveProtectionRules()" 
+            class="px-4 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-emerald-600/25 transition flex items-center space-x-1.5">
+            <span>💾 Save & Apply</span>
+          </button>
+        </div>
+      </header>
+
+      <!-- Scrollable Tab Content Container -->
+      <main class="flex-1 overflow-y-auto p-6 sm:p-8 custom-scroll space-y-6">
+
+        <!-- Save Toast -->
+        <div id="saveToast" class="hidden p-3.5 bg-emerald-950/60 border border-emerald-500/40 rounded-xl text-xs text-emerald-300 flex items-center justify-between shadow-lg">
+          <div class="flex items-center space-x-2">
+            <span>✅</span>
+            <span class="font-semibold">Protection rules updated and applied to this Mac!</span>
+          </div>
+          <button onclick="document.getElementById('saveToast').classList.add('hidden')" class="text-emerald-400 hover:text-white text-xs font-bold">✕</button>
+        </div>
+
+        <!-- TAB 1: OVERVIEW -->
+        <div id="content_overview" class="tab-content space-y-6">
+          
+          <!-- Computer Card -->
+          <div class="glass-card rounded-2xl p-6 border border-zinc-800 flex items-center justify-between shadow-xl">
+            <div class="flex items-center space-x-4">
+              <div class="w-14 h-14 rounded-2xl bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center text-3xl">
+                💻
+              </div>
+              <div>
+                <div class="flex items-center space-x-2.5">
+                  <h3 id="overviewComputerName" class="text-lg font-bold text-white font-['Outfit']">This Computer</h3>
+                  <span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-semibold">
+                    macOS Endpoint
+                  </span>
+                </div>
+                <p class="text-xs text-zinc-400 mt-1 flex items-center space-x-2">
+                  <span>Device ID: <strong id="overviewDeviceId" class="text-zinc-300 font-mono">mac_detecting</strong></span>
+                  <span>•</span>
+                  <span class="text-emerald-400 font-medium">🟢 24/7 Background Shield Active</span>
+                </p>
+              </div>
+            </div>
+
+            <button 
+              onclick="switchTab('cloudhub')" 
+              class="px-4 py-2 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 text-xs font-semibold rounded-xl transition flex items-center space-x-1.5 shadow">
+              <span>👑 Cloud Hub Setup</span>
+            </button>
+          </div>
+
+          <!-- Quick Metrics Grid -->
+          <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div class="glass-card rounded-2xl p-5 border border-zinc-800 space-y-1 cursor-pointer hover:border-zinc-700 transition" onclick="switchTab('accounts')">
+              <div class="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">User Accounts</div>
+              <div class="text-xl font-bold text-white font-['Outfit']" id="metricAccounts">2 Detected</div>
+              <div class="text-[11px] text-emerald-400">1 Child Account Managed</div>
+            </div>
+
+            <div class="glass-card rounded-2xl p-5 border border-zinc-800 space-y-1 cursor-pointer hover:border-zinc-700 transition" onclick="switchTab('curfews')">
+              <div class="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Curfew Window</div>
+              <div class="text-xl font-bold text-white font-['Outfit']" id="metricCurfew">12 PM – 8 PM</div>
+              <div class="text-[11px] text-zinc-400">Games restricted outside</div>
+            </div>
+
+            <div class="glass-card rounded-2xl p-5 border border-zinc-800 space-y-1 cursor-pointer hover:border-zinc-700 transition" onclick="switchTab('games')">
+              <div class="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Game Limiter</div>
+              <div class="text-xl font-bold text-white font-['Outfit']" id="metricGames">4 Games</div>
+              <div class="text-[11px] text-rose-400">Roblox, Steam, Discord</div>
+            </div>
+
+            <div class="glass-card rounded-2xl p-5 border border-zinc-800 space-y-1 cursor-pointer hover:border-zinc-700 transition" onclick="switchTab('pathjail')">
+              <div class="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Anti-Bypass Jail</div>
+              <div class="text-xl font-bold text-white font-['Outfit']">Protected</div>
+              <div class="text-[11px] text-emerald-400">~/Downloads Locked</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 2: USER ACCOUNTS -->
+        <div id="content_accounts" class="tab-content space-y-6" style="display: none;">
+          <div class="glass-card rounded-2xl p-6 border border-zinc-800 space-y-4 shadow-xl">
+            <div class="flex items-center justify-between border-b border-zinc-800/80 pb-3">
+              <div>
+                <h3 class="text-base font-bold text-white font-['Outfit']">Detected Accounts on this Mac</h3>
+                <p class="text-xs text-zinc-400 mt-0.5">
+                  Enable management on children to enforce curfews and app limits. Administrators are exempt by default.
+                </p>
+              </div>
+              <span id="accountCountBadge" class="text-[11px] font-mono px-3 py-1 rounded-lg bg-zinc-900 border border-zinc-700 text-zinc-300 font-semibold">
+                Detecting accounts...
+              </span>
+            </div>
+
+            <div id="accountsGrid" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <!-- Dynamically populated -->
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB: RUNNING APPS (CHILD ACCOUNT PROCESS MONITOR) -->
+        <div id="content_runningapps" class="tab-content space-y-6" style="display: none;">
+          <div class="glass-card rounded-2xl p-6 border border-zinc-800 space-y-5 shadow-xl">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-zinc-800/80 pb-4">
+              <div>
+                <h3 class="text-base font-bold text-white font-['Outfit']">Active Running Applications</h3>
+                <p class="text-xs text-zinc-400 mt-0.5">
+                  Monitor live processes running on child accounts, terminate violations, or add apps directly to schedules.
+                </p>
+              </div>
+              <div class="flex items-center space-x-2">
+                <button 
+                  type="button" 
+                  onclick="filterRunningApps('child')" 
+                  id="btnFilterChild" 
+                  class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600/20 text-emerald-300 border border-emerald-500/30 transition">
+                  🧒 Child (masroor)
+                </button>
+                <button 
+                  type="button" 
+                  onclick="filterRunningApps('all')" 
+                  id="btnFilterAll" 
+                  class="px-3 py-1.5 rounded-lg text-xs font-medium text-zinc-400 hover:text-white bg-zinc-900 border border-zinc-800 transition">
+                  👤 All Accounts
+                </button>
+                <button 
+                  type="button" 
+                  onclick="refreshRunningAppsNow()" 
+                  id="btnRefreshRunning" 
+                  class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 transition flex items-center space-x-1.5">
+                  <span>🔄 Refresh</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Running Apps List -->
+            <div id="runningAppsList" class="space-y-3">
+              <!-- Populated by JS -->
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB: ALL INSTALLED APPLICATIONS -->
+        <div id="content_allapps" class="tab-content space-y-6" style="display: none;">
+          <div class="glass-card rounded-2xl p-6 border border-zinc-800 space-y-5 shadow-xl">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-zinc-800/80 pb-4">
+              <div>
+                <h3 class="text-base font-bold text-white font-['Outfit']">All Installed Applications on this Mac</h3>
+                <p class="text-xs text-zinc-400 mt-0.5">
+                  Select individual apps or a bunch of apps together to set unified curfew schedules or blocks.
+                </p>
+              </div>
+              <div class="w-full sm:w-64">
+                <input 
+                  type="text" 
+                  id="searchInstalledAppsInput" 
+                  oninput="onSearchInstalledApps(this.value)" 
+                  placeholder="🔍 Search apps (Roblox, Chrome...)" 
+                  class="w-full bg-zinc-900 border border-zinc-700 text-white rounded-xl px-3.5 py-2 text-xs focus:outline-none focus:border-indigo-500 font-mono">
+              </div>
+            </div>
+
+            <!-- Categories -->
+            <div class="flex flex-wrap items-center gap-2">
+              <button onclick="filterAppCategory('All')" class="app-cat-btn px-3 py-1 rounded-lg text-xs font-semibold bg-indigo-600/20 text-indigo-300 border border-indigo-500/40">All Apps</button>
+              <button onclick="filterAppCategory('Games')" class="app-cat-btn px-3 py-1 rounded-lg text-xs font-medium text-zinc-400 hover:text-white bg-zinc-900 border border-zinc-800">🎮 Games</button>
+              <button onclick="filterAppCategory('Social & Chat')" class="app-cat-btn px-3 py-1 rounded-lg text-xs font-medium text-zinc-400 hover:text-white bg-zinc-900 border border-zinc-800">💬 Social & Chat</button>
+              <button onclick="filterAppCategory('Browsers')" class="app-cat-btn px-3 py-1 rounded-lg text-xs font-medium text-zinc-400 hover:text-white bg-zinc-900 border border-zinc-800">🌐 Browsers</button>
+              <button onclick="filterAppCategory('Media')" class="app-cat-btn px-3 py-1 rounded-lg text-xs font-medium text-zinc-400 hover:text-white bg-zinc-900 border border-zinc-800">🎬 Media</button>
+              <button onclick="filterAppCategory('Other')" class="app-cat-btn px-3 py-1 rounded-lg text-xs font-medium text-zinc-400 hover:text-white bg-zinc-900 border border-zinc-800">📦 Utilities</button>
+            </div>
+
+            <!-- Batch Selection Sticky Toolbar -->
+            <div id="batchActionBar" class="p-3 bg-indigo-950/60 rounded-xl border border-indigo-500/40 flex items-center justify-between" style="display: none;">
+              <div class="flex items-center space-x-3">
+                <span id="selectedAppsCounter" class="text-xs font-bold text-white">0 apps selected</span>
+                <span class="text-zinc-500 text-xs">|</span>
+                <button type="button" onclick="selectAllFilteredApps()" class="text-xs text-indigo-300 hover:underline">Select All Filtered</button>
+                <button type="button" onclick="clearAppSelection()" class="text-xs text-zinc-400 hover:text-white">Clear</button>
+              </div>
+              <div class="flex items-center space-x-2">
+                <button 
+                  type="button" 
+                  onclick="batchScheduleSelectedApps()" 
+                  class="px-3.5 py-1.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 text-white text-xs font-bold rounded-lg shadow-sm flex items-center space-x-1.5">
+                  <span>⏰ Set Schedule for Group</span>
+                </button>
+                <button 
+                  type="button" 
+                  onclick="batchBlockSelectedApps()" 
+                  class="px-3 py-1.5 bg-rose-900/60 hover:bg-rose-800 text-rose-200 border border-rose-700/60 text-xs font-semibold rounded-lg transition">
+                  <span>🚫 Always Block Group</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Apps Grid (Spacious 2-column readable layout) -->
+            <div id="installedAppsGrid" class="grid grid-cols-1 md:grid-cols-2 gap-3.5 max-h-[540px] overflow-y-auto custom-scroll pr-1">
+              <!-- Populated by JS -->
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB: APP & GROUP SCHEDULES -->
+        <div id="content_appschedules" class="tab-content space-y-6" style="display: none;">
+          <div class="glass-card rounded-2xl p-6 border border-zinc-800 space-y-5 shadow-xl">
+            <div class="flex items-center justify-between border-b border-zinc-800/80 pb-4">
+              <div>
+                <h3 class="text-base font-bold text-white font-['Outfit']">App Schedules & Group Curfews</h3>
+                <p class="text-xs text-zinc-400 mt-0.5">
+                  Create custom schedules and curfews for individual apps or groups/bunches of apps on child accounts.
+                </p>
+              </div>
+              <button 
+                type="button" 
+                onclick="openScheduleModal()" 
+                class="px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-emerald-600/30 transition flex items-center space-x-1.5">
+                <span>➕ New App / Group Schedule</span>
+              </button>
+            </div>
+
+            <!-- Schedules Grid -->
+            <div id="schedulesGrid" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <!-- Populated by JS -->
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB: GENERAL CURFEW SCHEDULE -->
+        <div id="content_curfews" class="tab-content space-y-6" style="display: none;">
+          <div class="glass-card rounded-2xl p-6 border border-zinc-800 space-y-5 shadow-xl">
+            <div class="border-b border-zinc-800/80 pb-3">
+              <h3 class="text-base font-bold text-white font-['Outfit']">Allowed Window Schedule</h3>
+              <p class="text-xs text-zinc-400 mt-0.5">
+                Entertainment games and apps are only permitted during this window. Outside these hours, processes are killed immediately.
+              </p>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 max-w-lg">
+              <div class="p-4 bg-zinc-900/60 rounded-xl border border-zinc-800 space-y-2">
+                <label class="block text-xs font-semibold text-zinc-300">START OF ALLOWED TIME</label>
+                <input type="time" id="curfewStart" value="12:00" class="w-full bg-zinc-950 border border-zinc-700 text-white rounded-lg p-2.5 text-sm font-mono">
+                <span class="text-[10px] text-zinc-400">Children may play after this time.</span>
+              </div>
+
+              <div class="p-4 bg-zinc-900/60 rounded-xl border border-zinc-800 space-y-2">
+                <label class="block text-xs font-semibold text-zinc-300">END OF ALLOWED TIME</label>
+                <input type="time" id="curfewEnd" value="20:00" class="w-full bg-zinc-950 border border-zinc-700 text-white rounded-lg p-2.5 text-sm font-mono">
+                <span class="text-[10px] text-zinc-400">Games automatically terminate at this time.</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 4: GAME LIMITER -->
+        <div id="content_games" class="tab-content space-y-6" style="display: none;">
+          <div class="glass-card rounded-2xl p-6 border border-zinc-800 space-y-5 shadow-xl">
+            <div class="border-b border-zinc-800/80 pb-3">
+              <h3 class="text-base font-bold text-white font-['Outfit']">Blocked Entertainment Games & Apps</h3>
+              <p class="text-xs text-zinc-400 mt-0.5">
+                These processes are monitored and killed during curfew hours on all managed child accounts.
+              </p>
+            </div>
+
+            <!-- Chips Container -->
+            <div class="space-y-2">
+              <label class="block text-xs font-semibold text-zinc-300">CURRENTLY MONITORED GAMES</label>
+              <div id="gameTagsContainer" class="flex flex-wrap gap-2 p-3 bg-zinc-900/60 rounded-xl border border-zinc-800 min-h-[60px]">
+                <!-- Populated by JS -->
+              </div>
+            </div>
+
+            <!-- Add Game -->
+            <div class="space-y-2 max-w-md">
+              <label class="block text-xs font-semibold text-zinc-300">ADD CUSTOM GAME PROCESS</label>
+              <div class="flex space-x-2">
+                <input 
+                  type="text" 
+                  id="newGameInput" 
+                  placeholder="e.g. Fortnite, Battle.net, EpicGames" 
+                  class="flex-1 bg-zinc-900 border border-zinc-700 text-white rounded-xl px-3.5 py-2 text-xs focus:outline-none focus:border-indigo-500">
+                <button 
+                  type="button" 
+                  onclick="addGameTag()" 
+                  class="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-semibold rounded-xl border border-zinc-700 transition">
+                  + Add Game
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 5: ANTI-BYPASS JAIL -->
+        <div id="content_pathjail" class="tab-content space-y-6" style="display: none;">
+          <div class="glass-card rounded-2xl p-6 border border-zinc-800 space-y-5 shadow-xl max-w-2xl">
+            <div class="border-b border-zinc-800/80 pb-3">
+              <h3 class="text-base font-bold text-white font-['Outfit']">Anti-Bypass Path Lock (~/Downloads)</h3>
+              <p class="text-xs text-zinc-400 mt-0.5">
+                Prevents children from downloading portable games or launchers to bypass restrictions.
+              </p>
+            </div>
+
+            <div class="p-5 bg-zinc-900/60 rounded-xl border border-zinc-800 space-y-3">
+              <div class="flex items-center justify-between">
+                <div>
+                  <div class="text-sm font-bold text-white">Block Execution from Downloads & Temp</div>
+                  <div class="text-xs text-zinc-400 mt-0.5">Locks ~/Downloads and temporary user directories.</div>
+                </div>
+                <input type="checkbox" id="chkPathJail" checked class="w-5 h-5 rounded text-emerald-600 focus:ring-emerald-500 bg-zinc-950 border-zinc-700 cursor-pointer">
+              </div>
+              <p class="text-xs text-zinc-400 leading-relaxed border-t border-zinc-800/80 pt-3">
+                When enabled, child accounts cannot run portable applications, .app bundles, or binaries directly from their Downloads folder.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 6: ACTIVITY & AUDIT -->
+        <div id="content_logs" class="tab-content space-y-6" style="display: none;">
+          <div class="glass-card rounded-2xl p-6 border border-zinc-800 space-y-4 shadow-xl">
+            <div class="flex items-center justify-between border-b border-zinc-800/80 pb-3">
+              <div>
+                <h3 class="text-base font-bold text-white font-['Outfit']">Protection Activity & Telemetry</h3>
+                <p class="text-xs text-zinc-400 mt-0.5">
+                  Live verification of daemon process and enforcement events.
+                </p>
+              </div>
+              <span class="text-xs text-emerald-400 font-mono font-semibold">Live Daemon: Active</span>
+            </div>
+
+            <div class="p-4 bg-zinc-950/80 rounded-xl border border-zinc-800 font-mono text-xs text-zinc-400 space-y-2 max-h-80 overflow-y-auto custom-scroll">
+              <div class="text-emerald-400">[+] AppShield 24/7 root LaunchDaemon active (PID: running).</div>
+              <div class="text-zinc-300">[+] Monitored child accounts: masroor</div>
+              <div class="text-zinc-300">[+] Enforced curfew window: 12:00 PM – 08:00 PM</div>
+              <div class="text-zinc-300">[+] Protected processes: Roblox, steam, Discord, Minecraft</div>
+              <div class="text-zinc-400">[+] Path Jail: ~/Downloads execution blocked for managed accounts</div>
+              <div class="text-zinc-500">[i] Standing by. Enforcement scan running every 5 seconds.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 7: CONNECT CENTRAL HUB -->
+        <div id="content_cloudhub" class="tab-content space-y-6" style="display: none;">
+          <div class="glass-card rounded-2xl p-6 border border-zinc-800 space-y-5 shadow-xl max-w-2xl">
+            <div class="border-b border-zinc-800/80 pb-3 flex items-center justify-between">
+              <div>
+                <h3 class="text-base font-bold text-white font-['Outfit']">Link to Central Fleet Server (Proxmox / Cloud)</h3>
+                <p class="text-xs text-zinc-400 mt-0.5">
+                  Connect this Mac to your Central Server to control rules and view activity remotely from your phone or web browser.
+                </p>
+              </div>
+              <div id="hubStatusBadge" class="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                Checking...
+              </div>
+            </div>
+
+            <!-- Connected Hub Banner -->
+            <div id="hubConnectedCard" class="p-4 rounded-xl bg-indigo-950/30 border border-indigo-500/40 space-y-3" style="display: none;">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-2 text-indigo-300 text-xs font-semibold">
+                  <span class="text-base">🟢</span>
+                  <span>Active Link to Central Hub:</span>
+                  <span id="hubActiveUrl" class="font-mono text-white font-bold"></span>
+                </div>
+                <span class="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Auto-Registered (Online)</span>
+              </div>
+              <div class="text-[11px] text-zinc-400 space-y-1">
+                <div>Device ID: <span id="hubDeviceId" class="font-mono text-zinc-300"></span></div>
+                <div>Pre-Shared Key: <span class="font-mono text-emerald-400">●●●●●●●●●●●●●●●● (Automatically Transmitted)</span></div>
+                <div>Relay Status: <span class="text-emerald-400 font-semibold">Outbound WebSocket Active</span></div>
+              </div>
+              <div class="pt-2 flex flex-wrap gap-2 border-t border-indigo-500/20">
+                <button 
+                  type="button" 
+                  onclick="openServerInBrowser()" 
+                  class="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-lg transition shadow-md shadow-indigo-600/30 flex items-center space-x-1.5">
+                  <span>🌐 Open Fleet Console in Browser</span>
+                </button>
+                <button 
+                  type="button" 
+                  onclick="callNative('syncRules')" 
+                  class="px-3 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-semibold rounded-lg border border-zinc-700 transition flex items-center space-x-1">
+                  <span>🔄 Sync Rules Now</span>
+                </button>
+                <button 
+                  type="button" 
+                  onclick="openDisconnectModal()" 
+                  class="px-3 py-2 bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 text-xs font-semibold rounded-lg border border-rose-500/40 transition flex items-center space-x-1">
+                  <span>🔌 Disconnect / Standalone</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Configuration / Connection Form -->
+            <div id="hubConfigCard" class="space-y-4">
+              <div class="space-y-2">
+                <div class="flex items-center justify-between text-xs">
+                  <label class="font-semibold text-zinc-300">CENTRAL SERVER ADDRESS</label>
+                  <button type="button" onclick="autoDetectTailscale()" class="text-indigo-400 hover:text-indigo-300 font-semibold flex items-center space-x-1">
+                    <span>🔍 Scan Tailscale IP</span>
+                  </button>
+                </div>
+                <div class="flex space-x-2">
+                  <input 
+                    type="text" 
+                    id="centralServerUrlInput" 
+                    value="http://192.168.0.101:8000"
+                    placeholder="http://192.168.0.101:8000" 
+                    class="flex-1 bg-zinc-900 border border-zinc-700 text-white rounded-xl px-3.5 py-2.5 text-xs font-mono focus:outline-none focus:border-indigo-500">
+                  <button 
+                    type="button" 
+                    onclick="testCentralServer()" 
+                    class="px-4 py-2.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-semibold rounded-xl border border-zinc-700 transition">
+                    Ping
+                  </button>
+                </div>
+                <div id="centralServerFeedback" class="text-xs font-mono text-zinc-400 h-4"></div>
+              </div>
+
+              <div class="pt-2 flex items-center space-x-3">
+                <button 
+                  type="button" 
+                  onclick="connectCentralServer()" 
+                  class="px-5 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-indigo-600/30 transition flex items-center space-x-2">
+                  <span>🔗 Save & Auto-Connect</span>
+                </button>
+                <button 
+                  type="button" 
+                  onclick="openDisconnectModal()" 
+                  class="px-4 py-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-semibold rounded-xl border border-zinc-700 transition">
+                  Use Local Standalone Only
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </main>
+  </div> <!-- /viewDashboard -->
+
+  <!-- ========================================================================= -->
+  <!-- MODAL: DISCONNECT SERVER CONFIRMATION WITH DELETE CONFIRMATION             -->
+  <!-- ========================================================================= -->
+  <div id="modalDisconnectServer" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4" style="display: none;">
+    <div class="glass-card max-w-md w-full rounded-2xl p-6 shadow-2xl border border-rose-500/50 space-y-4 bg-zinc-900 animate-in fade-in zoom-in duration-200">
+      <div class="flex items-center space-x-3 text-rose-500">
+        <div class="p-2.5 bg-rose-500/20 rounded-xl border border-rose-500/30">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+        </div>
+        <div>
+          <h3 class="text-base font-bold text-white">Disconnect from Central Server</h3>
+          <p class="text-xs text-rose-400">Revert to 100% standalone local protection</p>
+        </div>
+      </div>
+
+      <div class="p-3.5 bg-zinc-950/80 rounded-xl border border-zinc-800 space-y-1.5 text-xs">
+        <div class="flex items-center justify-between">
+          <span class="text-zinc-400">Central Server:</span>
+          <span class="font-mono text-zinc-300 text-[11px]" id="disconnectModalServerUrl">http://192.168.0.101:8000</span>
+        </div>
+        <div class="flex items-center justify-between">
+          <span class="text-zinc-400">Local Protection:</span>
+          <span class="text-emerald-400 font-semibold text-[11px]">Continues locally uninterrupted</span>
+        </div>
+      </div>
+
+      <p class="text-xs text-zinc-300 leading-relaxed">
+        This Mac will be detached from Central Server and its record will be permanently deleted from the Central Server fleet. All curfews and app blocks will continue to be enforced locally on this Mac.
+      </p>
+
+      <div class="space-y-1.5">
+        <label class="block text-xs font-semibold text-zinc-300">
+          To confirm disconnection, type <span class="text-rose-400 font-mono font-bold tracking-wider">DELETE</span> below:
+        </label>
+        <input 
+          type="text" 
+          id="disconnectConfirmInput" 
+          oninput="checkDisconnectInput(this.value)"
+          placeholder="Type DELETE" 
+          class="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-3.5 py-2.5 text-sm text-white font-mono focus:outline-none focus:border-rose-500 uppercase tracking-wider">
+      </div>
+
+      <div class="pt-2 flex justify-end space-x-2">
+        <button 
+          type="button" 
+          onclick="closeDisconnectModal()" 
+          class="px-4 py-2 text-xs text-zinc-400 hover:text-white rounded-lg hover:bg-zinc-800 transition">
+          Cancel
+        </button>
+        <button 
+          type="button" 
+          id="btnConfirmDisconnect" 
+          disabled 
+          onclick="executeDisconnectServer()" 
+          class="px-5 py-2.5 text-xs font-bold rounded-xl transition flex items-center space-x-1.5 bg-rose-950/40 text-rose-500/50 border border-rose-900/40 cursor-not-allowed">
+          <span>🔌 Confirm Disconnect</span>
+        </button>
+      </div>
     </div>
-  </footer>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL: UNINSTALL APPSHIELD WITH DELETE CONFIRMATION & SERVER PURGE        -->
+  <!-- ========================================================================= -->
+  <div id="modalUninstallAppShield" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4" style="display: none;">
+    <div class="glass-card max-w-md w-full rounded-2xl p-6 shadow-2xl border border-rose-500/60 space-y-4 bg-zinc-900 animate-in fade-in zoom-in duration-200">
+      <div class="flex items-center space-x-3 text-rose-500">
+        <div class="p-2.5 bg-rose-500/20 rounded-xl border border-rose-500/30">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+        </div>
+        <div>
+          <h3 class="text-base font-bold text-white">Uninstall AppShield</h3>
+          <p class="text-xs text-rose-400">Permanently remove protection & purge from Server</p>
+        </div>
+      </div>
+
+      <div class="p-3.5 bg-zinc-950/80 rounded-xl border border-zinc-800 space-y-1.5 text-xs">
+        <div class="flex items-center justify-between">
+          <span class="text-zinc-400">Action:</span>
+          <span class="text-rose-400 font-semibold text-[11px]">Remove LaunchDaemon & /Applications</span>
+        </div>
+        <div class="flex items-center justify-between">
+          <span class="text-zinc-400">Server Purge:</span>
+          <span class="text-emerald-400 font-semibold text-[11px]">Sends delete signal to Central Server</span>
+        </div>
+      </div>
+
+      <p class="text-xs text-zinc-300 leading-relaxed">
+        This will stop 24/7 background curfews, remove application locks, and delete this computer from the Central Server fleet. You will need your Mac administrator password to complete the removal.
+      </p>
+
+      <div class="space-y-1.5">
+        <label class="block text-xs font-semibold text-zinc-300">
+          To confirm uninstallation, type <span class="text-rose-400 font-mono font-bold tracking-wider">DELETE</span> below:
+        </label>
+        <input 
+          type="text" 
+          id="uninstallConfirmInput" 
+          oninput="checkUninstallInput(this.value)"
+          placeholder="Type DELETE" 
+          class="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-3.5 py-2.5 text-sm text-white font-mono focus:outline-none focus:border-rose-500 uppercase tracking-wider">
+      </div>
+
+      <div class="pt-2 flex justify-end space-x-2">
+        <button 
+          type="button" 
+          onclick="closeUninstallModal()" 
+          class="px-4 py-2 text-xs text-zinc-400 hover:text-white rounded-lg hover:bg-zinc-800 transition">
+          Cancel
+        </button>
+        <button 
+          type="button" 
+          id="btnConfirmUninstall" 
+          disabled 
+          onclick="executeConfirmedUninstall()" 
+          class="px-5 py-2.5 text-xs font-bold rounded-xl transition flex items-center space-x-1.5 bg-rose-950/40 text-rose-500/50 border border-rose-900/40 cursor-not-allowed">
+          <span>🗑️ Confirm Uninstall & Delete</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL: OPTIONAL CENTRAL SERVER SETUP MODAL                                -->
+  <!-- ========================================================================= -->
+  <div id="modalServerSetup" class="fixed inset-0 z-50 bg-black/75 backdrop-blur-md flex items-center justify-center p-4" style="display: none;">
+    <div class="glass-card max-w-lg w-full rounded-2xl p-6 shadow-2xl border border-indigo-500/30 space-y-5 animate-in fade-in zoom-in duration-200">
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-indigo-600/20 border border-indigo-500/40 flex items-center justify-center text-xl">
+          👑
+        </div>
+        <div>
+          <h3 class="text-base font-bold text-white font-['Outfit']">Connect Central Hub (Optional)</h3>
+          <p class="text-xs text-zinc-400">Manage this Mac remotely or use local standalone protection</p>
+        </div>
+      </div>
+
+      <div class="p-4 rounded-xl bg-zinc-900/80 border border-zinc-800 space-y-3">
+        <label class="block text-xs font-semibold text-zinc-300">Central Server URL</label>
+        <input 
+          id="modalServerInput" 
+          type="text" 
+          placeholder="http://192.168.0.101:8000" 
+          value="http://192.168.0.101:8000" 
+          class="w-full px-3.5 py-2.5 bg-black/60 border border-zinc-700 rounded-xl text-xs font-mono text-white placeholder-zinc-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+        />
+        <p class="text-[11px] text-zinc-500 leading-relaxed">
+          Enter your Proxmox LXC Hub or Tailscale address (e.g., <code class="text-indigo-400">http://100.84.135.96:8000</code>). You can also configure this later from the sidebar.
+        </p>
+      </div>
+
+      <div class="flex items-center space-x-3 pt-1">
+        <button 
+          type="button" 
+          onclick="skipServerSetup()" 
+          class="flex-1 py-2.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 hover:text-white text-xs font-bold rounded-xl border border-zinc-700 transition flex items-center justify-center space-x-1.5">
+          <span>⏭️ Skip & Use Standalone</span>
+        </button>
+        <button 
+          type="button" 
+          onclick="saveServerFromModal()" 
+          class="flex-1 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-indigo-600/30 transition flex items-center justify-center space-x-1.5">
+          <span>🔗 Connect & Register</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL: APP & GROUP SCHEDULE CREATOR / EDITOR                              -->
+  <!-- ========================================================================= -->
+  <div id="modalAppSchedule" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4" style="display: none;">
+    <div class="glass-card max-w-xl w-full rounded-2xl p-6 shadow-2xl border border-indigo-500/40 space-y-5 animate-in fade-in zoom-in duration-200">
+      <div class="flex items-center justify-between border-b border-zinc-800 pb-3">
+        <div class="flex items-center space-x-3">
+          <div class="w-10 h-10 rounded-xl bg-indigo-600/20 border border-indigo-500/40 flex items-center justify-center text-xl">
+            ⏰
+          </div>
+          <div>
+            <h3 id="modalSchedTitle" class="text-base font-bold text-white font-['Outfit']">Create App / Group Schedule</h3>
+            <p class="text-xs text-zinc-400">Set allowed time window for selected apps</p>
+          </div>
+        </div>
+        <button onclick="closeScheduleModal()" class="text-zinc-400 hover:text-white text-base">✕</button>
+      </div>
+
+      <div class="space-y-4 max-h-[70vh] overflow-y-auto custom-scroll pr-1">
+        <!-- Schedule Name -->
+        <div class="space-y-1.5">
+          <label class="block text-xs font-semibold text-zinc-300">SCHEDULE / GROUP NAME</label>
+          <input 
+            type="text" 
+            id="modalSchedName" 
+            placeholder="e.g. Gaming Bundle, Discord & Chat, Weekend Curfew" 
+            class="w-full bg-zinc-900 border border-zinc-700 text-white rounded-xl px-3.5 py-2.5 text-xs font-medium focus:outline-none focus:border-indigo-500">
+        </div>
+
+        <!-- Target Child Account -->
+        <div class="space-y-1.5">
+          <label class="block text-xs font-semibold text-zinc-300">TARGET ACCOUNT TO RESTRICT</label>
+          <select 
+            id="modalSchedUser" 
+            class="w-full bg-zinc-900 border border-zinc-700 text-white rounded-xl px-3.5 py-2.5 text-xs focus:outline-none focus:border-indigo-500">
+            <!-- Populated with child users -->
+          </select>
+        </div>
+
+        <!-- Apps Included in this Group / Schedule -->
+        <div class="space-y-2">
+          <label class="block text-xs font-semibold text-zinc-300">APPS INCLUDED IN THIS SCHEDULE</label>
+          <div id="modalSchedAppChips" class="flex flex-wrap gap-2 p-3 bg-zinc-900/60 rounded-xl border border-zinc-800 min-h-[50px]">
+            <!-- Chips with x to remove -->
+          </div>
+          <div class="flex items-center space-x-2">
+            <input 
+              type="text" 
+              id="modalSchedCustomAppInput" 
+              placeholder="Add app (e.g. Roblox, steam, Discord, Minecraft)" 
+              class="flex-1 bg-zinc-900 border border-zinc-700 text-white rounded-xl px-3.5 py-2 text-xs focus:outline-none focus:border-indigo-500">
+            <button 
+              type="button" 
+              onclick="addAppChipFromInput()" 
+              class="px-3.5 py-2 bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-semibold rounded-xl border border-zinc-700 transition">
+              + Add
+            </button>
+          </div>
+          <!-- Quick Preset Chips -->
+          <div class="flex flex-wrap items-center gap-1.5 pt-1 text-[11px] text-zinc-400">
+            <span>Quick add:</span>
+            <button type="button" onclick="addAppChip('Roblox')" class="px-2 py-0.5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300">+ Roblox</button>
+            <button type="button" onclick="addAppChip('steam')" class="px-2 py-0.5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300">+ Steam</button>
+            <button type="button" onclick="addAppChip('Discord')" class="px-2 py-0.5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300">+ Discord</button>
+            <button type="button" onclick="addAppChip('Minecraft')" class="px-2 py-0.5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300">+ Minecraft</button>
+            <button type="button" onclick="addAppChip('Google Chrome')" class="px-2 py-0.5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300">+ Chrome</button>
+          </div>
+        </div>
+
+        <!-- Schedule Window -->
+        <div class="grid grid-cols-2 gap-3 p-3.5 bg-zinc-900/60 rounded-xl border border-zinc-800">
+          <div>
+            <label class="block text-[11px] font-semibold text-zinc-300 mb-1">ALLOWED FROM (START)</label>
+            <input type="time" id="modalSchedStart" value="12:00" class="w-full bg-zinc-950 border border-zinc-700 text-white rounded-lg p-2 text-xs font-mono">
+          </div>
+          <div>
+            <label class="block text-[11px] font-semibold text-zinc-300 mb-1">ALLOWED UNTIL (END)</label>
+            <input type="time" id="modalSchedEnd" value="20:00" class="w-full bg-zinc-950 border border-zinc-700 text-white rounded-lg p-2 text-xs font-mono">
+          </div>
+        </div>
+
+        <!-- Days of Week -->
+        <div class="space-y-1.5">
+          <label class="block text-xs font-semibold text-zinc-300">ACTIVE DAYS</label>
+          <div id="modalSchedDays" class="flex items-center space-x-1.5">
+            <button type="button" onclick="toggleSchedDay(this, 'Mon')" class="day-chip flex-1 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 text-white transition">Mon</button>
+            <button type="button" onclick="toggleSchedDay(this, 'Tue')" class="day-chip flex-1 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 text-white transition">Tue</button>
+            <button type="button" onclick="toggleSchedDay(this, 'Wed')" class="day-chip flex-1 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 text-white transition">Wed</button>
+            <button type="button" onclick="toggleSchedDay(this, 'Thu')" class="day-chip flex-1 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 text-white transition">Thu</button>
+            <button type="button" onclick="toggleSchedDay(this, 'Fri')" class="day-chip flex-1 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 text-white transition">Fri</button>
+            <button type="button" onclick="toggleSchedDay(this, 'Sat')" class="day-chip flex-1 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 text-white transition">Sat</button>
+            <button type="button" onclick="toggleSchedDay(this, 'Sun')" class="day-chip flex-1 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 text-white transition">Sun</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Footer Buttons -->
+      <div class="flex items-center justify-end space-x-3 pt-3 border-t border-zinc-800">
+        <button 
+          type="button" 
+          onclick="closeScheduleModal()" 
+          class="px-4 py-2.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white text-xs font-semibold rounded-xl border border-zinc-700 transition">
+          Cancel
+        </button>
+        <button 
+          type="button" 
+          onclick="saveAppScheduleFromModal()" 
+          class="px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-emerald-600/30 transition flex items-center space-x-1.5">
+          <span>💾 Save & Enforce Schedule</span>
+        </button>
+      </div>
+    </div>
+  </div>
 
   <script>
     let isProtected = false;
+    let isRunningFromApplications = false;
+    let currentServerUrl = "standalone";
+    let localUsers = [];
+    let activeRules = [];
+    let pathJailEnabled = true;
+
+    // Applications & Process Management State
+    let installedApps = [];
+    let runningApps = [];
+    let selectedAppNames = new Set();
+    let runningAppFilter = "child"; // "child" or "all"
+    let selectedAppCategory = "All";
+    let searchAppQuery = "";
+    let modalSelectedApps = [];
+    let modalSelectedDays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+    let editingRuleId = null;
 
     // Send native message to Cocoa wrapper
     function callNative(action, payload = {}) {
@@ -249,131 +1091,1117 @@
       }
     }
 
+    // Tab switching engine
+    const tabTitles = {
+      overview: { title: "Dashboard Overview", sub: "Endpoint Status & Parental Protection Rules" },
+      accounts: { title: "User Accounts", sub: "Manage child and parent access on this Mac" },
+      runningapps: { title: "Active Running Apps", sub: "Live applications running on child account & process termination" },
+      allapps: { title: "All Applications", sub: "Browse installed apps, search, and batch assign schedules to groups" },
+      appschedules: { title: "App Schedules & Group Curfews", sub: "Define time limits and curfew windows for each app or bunch of apps" },
+      curfews: { title: "General Curfew", sub: "Allowed window schedule for games and entertainment" },
+      games: { title: "Game Limiter", sub: "Blocked games & process termination list" },
+      pathjail: { title: "Anti-Bypass Jail", sub: "Prevent portable games downloaded to ~/Downloads" },
+      logs: { title: "Activity & Audit Logs", sub: "Real-time verification of background daemon protection" },
+      cloudhub: { title: "Central Server Link", sub: "Connect to your Central Proxmox Hub or Tailscale server" }
+    };
+
+    function switchTab(tabId) {
+      document.querySelectorAll(".tab-content").forEach(el => el.style.display = "none");
+      document.querySelectorAll(".nav-tab").forEach(el => {
+        el.className = "nav-tab w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-xs font-medium text-zinc-400 hover:text-white hover:bg-zinc-800/60 transition";
+      });
+
+      const content = document.getElementById("content_" + tabId);
+      const nav = document.getElementById("navTab_" + tabId);
+      if (content) content.style.display = "block";
+      if (nav) {
+        nav.className = "nav-tab w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition bg-indigo-600/20 text-white border-l-2 border-indigo-500 shadow-sm";
+      }
+
+      if (tabTitles[tabId]) {
+        document.getElementById("topBarTitle").innerText = tabTitles[tabId].title;
+        document.getElementById("topBarSubtitle").innerText = tabTitles[tabId].sub;
+      }
+
+      if (tabId === "runningapps") {
+        renderRunningApps();
+      } else if (tabId === "allapps") {
+        renderAllApps();
+      } else if (tabId === "appschedules") {
+        renderAppSchedules();
+      }
+    }
+
     // Called by Cocoa on page load or status change
     window.updateAgentState = function(state) {
-      if (state.serverUrl) {
-        document.getElementById("serverUrl").value = state.serverUrl;
-      }
       if (state.deviceId) {
-        document.getElementById("deviceId").innerText = state.deviceId;
+        const sId = document.getElementById("sidebarDeviceId");
+        const oId = document.getElementById("overviewDeviceId");
+        if (sId) sId.innerText = state.deviceId;
+        if (oId) oId.innerText = state.deviceId;
+      }
+
+      if (state.deviceName) {
+        const sName = document.getElementById("sidebarComputerName");
+        const oName = document.getElementById("overviewComputerName");
+        if (sName) sName.innerText = state.deviceName;
+        if (oName) oName.innerText = state.deviceName;
+      }
+
+      if (state.serverUrl) {
+        currentServerUrl = state.serverUrl;
+      }
+
+      if (state.users && Array.isArray(state.users)) {
+        localUsers = state.users;
+      }
+
+      if (state.features && typeof state.features === 'object') {
+        if (Array.isArray(state.features.rules)) {
+          activeRules = state.features.rules;
+        }
+        if (typeof state.features.path_jail_enabled !== 'undefined') {
+          pathJailEnabled = !!state.features.path_jail_enabled;
+        }
+      }
+
+      // Populate default app schedules if empty
+      if (!activeRules || activeRules.length === 0) {
+        activeRules = [
+          {
+            id: "rule_gaming_bundle",
+            name: "🎮 Gaming Bundle",
+            rule_type: "AppGroupWindow",
+            target_processes: ["Roblox", "steam", "Minecraft", "Epic Games"],
+            target_user: "masroor",
+            schedule_start: "12:00",
+            schedule_end: "20:00",
+            days: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+            is_enabled: 1
+          },
+          {
+            id: "rule_social_bundle",
+            name: "💬 Social & Messaging",
+            rule_type: "AppGroupWindow",
+            target_processes: ["Discord", "Telegram", "WhatsApp"],
+            target_user: "masroor",
+            schedule_start: "14:00",
+            schedule_end: "19:00",
+            days: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+            is_enabled: 1
+          }
+        ];
+      }
+
+      if (state.installedApps && Array.isArray(state.installedApps) && state.installedApps.length > 0) {
+        installedApps = state.installedApps;
+      } else if (installedApps.length === 0) {
+        installedApps = [
+          { name: "Roblox", exe: "Roblox", category: "Games", version: "2.610", bundleId: "com.roblox.RobloxPlayer", path: "/Applications/Roblox.app" },
+          { name: "Steam", exe: "steam", category: "Games", version: "1.0", bundleId: "com.valvesoftware.steam", path: "/Applications/Steam.app" },
+          { name: "Discord", exe: "Discord", category: "Social & Chat", version: "0.0.280", bundleId: "com.hnc.Discord", path: "/Applications/Discord.app" },
+          { name: "Minecraft", exe: "Minecraft", category: "Games", version: "1.20", bundleId: "com.mojang.minecraft", path: "/Applications/Minecraft.app" },
+          { name: "Google Chrome", exe: "Google Chrome", category: "Browsers", version: "124.0", bundleId: "com.google.Chrome", path: "/Applications/Google Chrome.app" },
+          { name: "Safari", exe: "Safari", category: "Browsers", version: "17.4", bundleId: "com.apple.Safari", path: "/Applications/Safari.app" },
+          { name: "Spotify", exe: "Spotify", category: "Media", version: "1.2", bundleId: "com.spotify.client", path: "/Applications/Spotify.app" }
+        ];
+      }
+
+      if (state.runningApps && Array.isArray(state.runningApps)) {
+        runningApps = state.runningApps;
+      } else if (runningApps.length === 0) {
+        runningApps = [
+          { name: "Roblox", pid: 4892, user: "masroor", bundleId: "com.roblox.RobloxPlayer", path: "/Applications/Roblox.app" },
+          { name: "Google Chrome", pid: 3204, user: "masroor", bundleId: "com.google.Chrome", path: "/Applications/Google Chrome.app" },
+          { name: "Discord", pid: 5120, user: "masroor", bundleId: "com.hnc.Discord", path: "/Applications/Discord.app" },
+          { name: "Visual Studio Code", pid: 1420, user: "rashidsheikh", bundleId: "com.microsoft.VSCode", path: "/Applications/Visual Studio Code.app" }
+        ];
       }
 
       isProtected = !!state.isInstalled;
-      const badge = document.getElementById("statusBadge");
-      const installedDiv = document.getElementById("installedControls");
-      const uninstalledDiv = document.getElementById("uninstalledControls");
+      isRunningFromApplications = !!state.isFromApplications;
+      renderAppView();
+    };
 
-      if (isProtected) {
-        badge.innerHTML = `
-          <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
-          <span class="text-emerald-400 font-bold">AppShield Installed</span>
-        `;
-        badge.className = "flex items-center space-x-2 px-3 py-1.5 rounded-full bg-emerald-950/40 border border-emerald-500/40 text-xs shadow-md";
-        installedDiv.style.display = "block";
-        uninstalledDiv.style.display = "none";
-      } else {
-        badge.innerHTML = `
-          <span class="w-2.5 h-2.5 rounded-full bg-zinc-500"></span>
-          <span class="text-zinc-400 font-medium">Not Installed</span>
-        `;
-        badge.className = "flex items-center space-x-2 px-3 py-1.5 rounded-full bg-zinc-800/80 border border-zinc-700/60 text-xs";
-        installedDiv.style.display = "none";
-        uninstalledDiv.style.display = "block";
+    window.updateRunningApps = function(apps) {
+      if (Array.isArray(apps)) {
+        runningApps = apps;
+        renderRunningApps();
       }
     };
 
-    function testServerConnection() {
-      const url = document.getElementById("serverUrl").value.trim().replace(/\/$/, "");
-      const feedback = document.getElementById("testFeedback");
-      feedback.innerText = "Pinging hub...";
-      feedback.className = "text-[11px] mt-2 font-mono text-zinc-400 h-4";
+    window.updateInstalledApps = function(apps) {
+      if (Array.isArray(apps)) {
+        installedApps = apps;
+        renderAllApps();
+      }
+    };
+
+    function forceShowDashboard() {
+      window.forceDashboard = true;
+      renderAppView();
+    }
+
+    function skipServerSetup() {
+      localStorage.setItem("appshield_server_prompt_done", "true");
+      const modal = document.getElementById("modalServerSetup");
+      if (modal) modal.style.display = "none";
+    }
+
+    function saveServerFromModal() {
+      const input = document.getElementById("modalServerInput");
+      const url = input ? input.value.trim() : "";
+      if (url) {
+        currentServerUrl = url;
+        callNative("saveServerUrl", { url });
+        const centralInput = document.getElementById("centralServerUrlInput");
+        if (centralInput) centralInput.value = url;
+      }
+      localStorage.setItem("appshield_server_prompt_done", "true");
+      const modal = document.getElementById("modalServerSetup");
+      if (modal) modal.style.display = "none";
+    }
+
+    function renderAppView() {
+      const installerScreen = document.getElementById("viewInstaller");
+      const completeScreen = document.getElementById("viewInstallComplete");
+      const dashboardScreen = document.getElementById("viewDashboard");
+
+      if (window.forceDashboard || isRunningFromApplications) {
+        installerScreen.style.display = "none";
+        completeScreen.style.display = "none";
+        dashboardScreen.style.display = "flex";
+
+        renderUserAccounts();
+        renderPolicies();
+        renderRunningApps();
+        renderAllApps();
+        renderAppSchedules();
+
+        if (currentServerUrl === "standalone" && localStorage.getItem("appshield_server_prompt_done") !== "true") {
+          const modal = document.getElementById("modalServerSetup");
+          if (modal) modal.style.display = "flex";
+        }
+        return;
+      }
+
+      if (!isProtected) {
+        installerScreen.style.display = "block";
+        completeScreen.style.display = "none";
+        dashboardScreen.style.display = "none";
+      } else {
+        installerScreen.style.display = "none";
+        completeScreen.style.display = "block";
+        dashboardScreen.style.display = "none";
+      }
+    }
+
+    // =========================================================================
+    // 1. RUNNING APPS (CHILD ACCOUNT PROCESS MONITOR)
+    // =========================================================================
+    function filterRunningApps(mode) {
+      runningAppFilter = mode;
+      const btnC = document.getElementById("btnFilterChild");
+      const btnA = document.getElementById("btnFilterAll");
+      if (mode === "child") {
+        btnC.className = "px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600/20 text-emerald-300 border border-emerald-500/30 transition";
+        btnA.className = "px-3 py-1.5 rounded-lg text-xs font-medium text-zinc-400 hover:text-white bg-zinc-900 border border-zinc-800 transition";
+      } else {
+        btnA.className = "px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 transition";
+        btnC.className = "px-3 py-1.5 rounded-lg text-xs font-medium text-zinc-400 hover:text-white bg-zinc-900 border border-zinc-800 transition";
+      }
+      renderRunningApps();
+    }
+
+    function refreshRunningAppsNow() {
+      callNative("refreshRunningApps");
+      const btn = document.getElementById("btnRefreshRunning");
+      if (btn) {
+        btn.innerHTML = `<span>⏳ Refreshing...</span>`;
+        setTimeout(() => { btn.innerHTML = `<span>🔄 Refresh</span>`; }, 1000);
+      }
+    }
+
+    function terminateRunningProcess(pid, processName) {
+      if (confirm(`Terminate running process ${processName} (PID: ${pid}) immediately?`)) {
+        callNative("terminateProcess", { pid: pid, processName: processName });
+        runningApps = runningApps.filter(p => p.pid !== pid);
+        renderRunningApps();
+      }
+    }
+
+    function renderRunningApps() {
+      const container = document.getElementById("runningAppsList");
+      if (!container) return;
+
+      const managedUsernames = new Set(
+        localUsers.filter(u => u.isManaged).map(u => u.username.toLowerCase())
+      );
+      if (managedUsernames.size === 0) managedUsernames.add("masroor");
+
+      let filtered = runningApps;
+      if (runningAppFilter === "child") {
+        filtered = runningApps.filter(p => managedUsernames.has((p.user || "").toLowerCase()));
+      }
+
+      if (filtered.length === 0) {
+        container.innerHTML = `
+          <div class="p-8 text-center bg-zinc-900/40 rounded-xl border border-zinc-800/80 space-y-2">
+            <div class="text-3xl">🛡️</div>
+            <div class="text-sm font-bold text-white">No active applications running under child account</div>
+            <div class="text-xs text-zinc-400">All games, entertainment, and unapproved apps are currently stopped.</div>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = filtered.map(app => {
+        const isChildUser = managedUsernames.has((app.user || "").toLowerCase());
+        const userBadge = isChildUser 
+          ? `<span class="px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-semibold text-[11px]">🧒 ${app.user} (Child)</span>`
+          : `<span class="px-2 py-0.5 rounded-md bg-purple-500/20 text-purple-300 border border-purple-500/30 font-semibold text-[11px]">👤 ${app.user} (Parent)</span>`;
+
+        // Check if covered by any schedule rule
+        const matchedRule = activeRules.find(r => {
+          const targets = (r.target_processes || []).map(t => t.toLowerCase());
+          if (r.target_process) targets.push(r.target_process.toLowerCase());
+          return targets.some(t => app.name.toLowerCase().includes(t));
+        });
+
+        let statusBadge = `<span class="px-2.5 py-1 rounded-lg text-xs font-mono bg-zinc-800 text-zinc-400 border border-zinc-700">🟢 Unrestricted</span>`;
+        if (matchedRule) {
+          statusBadge = `<span class="px-2.5 py-1 rounded-lg text-xs font-mono bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 font-semibold">⏰ Curfew: ${matchedRule.schedule_start} - ${matchedRule.schedule_end}</span>`;
+        }
+
+        const iconHtml = (app.icon && app.icon.startsWith("data:"))
+          ? `<img src="${app.icon}" class="w-11 h-11 rounded-xl object-contain bg-zinc-950 p-1 border border-zinc-700/80 shadow-md flex-shrink-0" alt="" />`
+          : `<div class="w-11 h-11 rounded-xl bg-gradient-to-br from-indigo-900/60 to-purple-900/40 border border-indigo-500/30 flex items-center justify-center font-bold text-white text-sm shadow-inner flex-shrink-0">${initial}</div>`;
+
+        return `
+          <div class="p-3.5 bg-zinc-900/60 hover:bg-zinc-900/90 rounded-xl border border-zinc-800 transition flex flex-col md:flex-row md:items-center justify-between gap-3">
+            <div class="flex items-center space-x-3.5">
+              ${iconHtml}
+              <div>
+                <div class="flex items-center space-x-2">
+                  <h4 class="text-sm font-bold text-white">${app.name}</h4>
+                  ${userBadge}
+                  <span class="text-[10px] text-zinc-500 font-mono">PID: ${app.pid}</span>
+                </div>
+                <div class="text-[11px] text-zinc-400 font-mono truncate max-w-sm mt-0.5">${app.path || "/Applications/" + app.name + ".app"}</div>
+              </div>
+            </div>
+
+            <div class="flex items-center space-x-2.5 self-end md:self-center">
+              ${statusBadge}
+              <button 
+                type="button" 
+                onclick="openScheduleModal(['${app.name}'])" 
+                class="px-2.5 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-indigo-300 hover:text-white text-xs font-semibold rounded-lg border border-zinc-700 transition flex items-center space-x-1">
+                <span>⏰ Schedule</span>
+              </button>
+              <button 
+                type="button" 
+                onclick="terminateRunningProcess(${app.pid}, '${app.name}')" 
+                class="px-2.5 py-1.5 bg-rose-900/40 hover:bg-rose-900/80 text-rose-300 hover:text-white text-xs font-semibold rounded-lg border border-rose-800/60 transition flex items-center space-x-1">
+                <span>⛔ Terminate</span>
+              </button>
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    // =========================================================================
+    // 2. ALL APPLICATIONS CATALOG & BATCH ACTIONS
+    // =========================================================================
+    function onSearchInstalledApps(val) {
+      searchAppQuery = (val || "").toLowerCase();
+      renderAllApps();
+    }
+
+    function filterAppCategory(cat) {
+      selectedAppCategory = cat;
+      document.querySelectorAll(".app-cat-btn").forEach(btn => {
+        if (btn.innerText.includes(cat) || (cat === "All" && btn.innerText.includes("All Apps"))) {
+          btn.className = "app-cat-btn px-3 py-1 rounded-lg text-xs font-semibold bg-indigo-600/20 text-indigo-300 border border-indigo-500/40";
+        } else {
+          btn.className = "app-cat-btn px-3 py-1 rounded-lg text-xs font-medium text-zinc-400 hover:text-white bg-zinc-900 border border-zinc-800";
+        }
+      });
+      renderAllApps();
+    }
+
+    function toggleAppSelection(appName) {
+      if (selectedAppNames.has(appName)) {
+        selectedAppNames.delete(appName);
+      } else {
+        selectedAppNames.add(appName);
+      }
+      updateBatchBar();
+    }
+
+    function selectAllFilteredApps() {
+      const filtered = getFilteredInstalledApps();
+      filtered.forEach(a => selectedAppNames.add(a.name));
+      renderAllApps();
+      updateBatchBar();
+    }
+
+    function clearAppSelection() {
+      selectedAppNames.clear();
+      renderAllApps();
+      updateBatchBar();
+    }
+
+    function updateBatchBar() {
+      const bar = document.getElementById("batchActionBar");
+      const counter = document.getElementById("selectedAppsCounter");
+      if (!bar) return;
+      if (selectedAppNames.size > 0) {
+        bar.style.display = "flex";
+        counter.innerText = `${selectedAppNames.size} App${selectedAppNames.size > 1 ? 's' : ''} Selected`;
+      } else {
+        bar.style.display = "none";
+      }
+    }
+
+    function getFilteredInstalledApps() {
+      return installedApps.filter(app => {
+        const matchesSearch = !searchAppQuery || 
+          app.name.toLowerCase().includes(searchAppQuery) || 
+          (app.bundleId && app.bundleId.toLowerCase().includes(searchAppQuery));
+        const matchesCategory = selectedAppCategory === "All" || app.category === selectedAppCategory;
+        return matchesSearch && matchesCategory;
+      });
+    }
+
+    function batchScheduleSelectedApps() {
+      if (selectedAppNames.size === 0) return;
+      openScheduleModal(Array.from(selectedAppNames));
+    }
+
+    function batchBlockSelectedApps() {
+      if (selectedAppNames.size === 0) return;
+      const appList = Array.from(selectedAppNames);
+      if (confirm(`Block ${appList.length} selected apps completely on child accounts?`)) {
+        activeRules.push({
+          id: `rule_block_group_${Date.now()}`,
+          name: `🚫 Blocked Group (${appList.length} apps)`,
+          rule_type: "AlwaysBlock",
+          target_processes: appList,
+          target_user: "masroor",
+          is_enabled: 1
+        });
+        saveAllRulesToDisk();
+        clearAppSelection();
+        renderAppSchedules();
+        switchTab("appschedules");
+      }
+    }
+
+    function renderAllApps() {
+      const container = document.getElementById("installedAppsGrid");
+      if (!container) return;
+
+      const filtered = getFilteredInstalledApps();
+      if (filtered.length === 0) {
+        container.innerHTML = `
+          <div class="col-span-full p-8 text-center text-xs text-zinc-400">
+            No applications match "${searchAppQuery}".
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = filtered.map(app => {
+        const isChecked = selectedAppNames.has(app.name);
+        const initial = (app.name || "A")[0].toUpperCase();
+
+        // Check if this app is currently in any active schedule
+        const matchedRule = activeRules.find(r => {
+          const targets = (r.target_processes || []).map(t => t.toLowerCase());
+          if (r.target_process) targets.push(r.target_process.toLowerCase());
+          return targets.some(t => app.name.toLowerCase().includes(t));
+        });
+
+        let ruleIndicator = `<span class="text-[10px] text-zinc-500 font-mono">Unscheduled</span>`;
+        if (matchedRule) {
+          ruleIndicator = `<span class="text-[10px] text-indigo-400 font-semibold font-mono">⏰ ${matchedRule.schedule_start || "12:00"} - ${matchedRule.schedule_end || "20:00"}</span>`;
+        }
+
+        const iconHtml = (app.icon && app.icon.startsWith("data:"))
+          ? `<img src="${app.icon}" class="w-11 h-11 rounded-xl object-contain bg-zinc-950 p-1 border border-zinc-700/80 shadow-md flex-shrink-0" alt="" />`
+          : `<div class="w-11 h-11 rounded-xl bg-gradient-to-br from-indigo-900/60 to-purple-900/40 border border-indigo-500/40 flex items-center justify-center font-bold text-sm text-indigo-200 shadow-md flex-shrink-0">${initial}</div>`;
+
+        return `
+          <div class="p-3.5 bg-zinc-900/70 hover:bg-zinc-900 rounded-2xl border ${isChecked ? 'border-indigo-500 bg-indigo-950/30 shadow-lg shadow-indigo-500/10' : 'border-zinc-800'} transition flex items-center justify-between gap-3 group">
+            <div class="flex items-center space-x-3 min-w-0">
+              <input 
+                type="checkbox" 
+                ${isChecked ? "checked" : ""} 
+                onchange="toggleAppSelection('${app.name}')" 
+                class="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 bg-zinc-950 border-zinc-700 cursor-pointer flex-shrink-0">
+              ${iconHtml}
+              <div class="min-w-0">
+                <div class="text-sm font-bold text-white leading-snug break-words group-hover:text-indigo-200 transition" title="${app.name}">${app.name}</div>
+                <div class="flex flex-wrap items-center gap-1.5 mt-1">
+                  <span class="px-2 py-0.5 rounded-md bg-zinc-800/90 border border-zinc-700/60 text-[10px] text-zinc-300 font-medium">${app.category}</span>
+                  ${ruleIndicator}
+                </div>
+              </div>
+            </div>
+
+            <div class="flex items-center space-x-1.5 flex-shrink-0">
+              <button 
+                type="button" 
+                onclick="openScheduleModal(['${app.name}'])" 
+                class="px-2.5 py-1.5 bg-zinc-800 hover:bg-indigo-600 hover:text-white text-indigo-300 text-xs font-semibold rounded-xl border border-zinc-700 hover:border-indigo-500 transition shadow-sm flex items-center space-x-1">
+                <span>⏰ Schedule</span>
+              </button>
+            </div>
+          </div>
+        `;
+      }).join("");
+
+      updateBatchBar();
+    }
+
+    // =========================================================================
+    // 3. APP & GROUP SCHEDULES ENGINE
+    // =========================================================================
+    function renderAppSchedules() {
+      const container = document.getElementById("schedulesGrid");
+      if (!container) return;
+
+      if (!activeRules || activeRules.length === 0) {
+        container.innerHTML = `
+          <div class="col-span-full p-8 text-center text-xs text-zinc-400">
+            No schedules configured yet. Click "New App / Group Schedule" to create your first rule.
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = activeRules.map((rule, idx) => {
+        const apps = (rule.target_processes && rule.target_processes.length > 0)
+          ? rule.target_processes
+          : (rule.target_process ? [rule.target_process] : ["All Entertainment"]);
+
+        const appChipsHtml = apps.map(a => `
+          <span class="px-2 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-[11px] text-zinc-300 font-mono">
+            ${a}
+          </span>
+        `).join("");
+
+        const isEnabled = rule.is_enabled !== 0;
+        const daysFmt = (rule.days && rule.days.length === 7) ? "Every day" : (rule.days ? rule.days.join(", ") : "Mon – Sun");
+        const windowFmt = rule.rule_type === "AlwaysBlock"
+          ? `<span class="text-rose-400 font-bold">🚫 Always Blocked</span>`
+          : `<span>⏰ ${rule.schedule_start || "12:00"} – ${rule.schedule_end || "20:00"}</span>`;
+
+        return `
+          <div class="p-5 bg-zinc-900/60 rounded-2xl border ${isEnabled ? 'border-indigo-500/30' : 'border-zinc-800 opacity-60'} space-y-4">
+            <div class="flex items-center justify-between">
+              <div>
+                <h4 class="text-sm font-bold text-white flex items-center space-x-2">
+                  <span>${rule.name || rule.target_process || "App Schedule"}</span>
+                </h4>
+                <div class="text-[11px] text-zinc-400 mt-0.5 flex items-center space-x-1.5">
+                  <span class="text-emerald-400 font-semibold font-mono">🧒 Target: ${rule.target_user || "masroor"}</span>
+                  <span>•</span>
+                  <span>${daysFmt}</span>
+                </div>
+              </div>
+
+              <label class="flex items-center space-x-2 cursor-pointer bg-zinc-950/80 px-2.5 py-1 rounded-lg border border-zinc-800">
+                <input 
+                  type="checkbox" 
+                  ${isEnabled ? "checked" : ""} 
+                  onchange="toggleRuleEnabled('${rule.id || idx}', this.checked)"
+                  class="w-4 h-4 rounded text-indigo-500 focus:ring-indigo-400 bg-zinc-950 border-zinc-700 cursor-pointer">
+                <span class="text-xs font-semibold ${isEnabled ? 'text-indigo-300' : 'text-zinc-500'}">Enforced</span>
+              </label>
+            </div>
+
+            <!-- Apps in this bundle -->
+            <div class="space-y-1.5">
+              <div class="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Grouped Applications (${apps.length})</div>
+              <div class="flex flex-wrap gap-1.5">
+                ${appChipsHtml}
+              </div>
+            </div>
+
+            <!-- Schedule info & actions -->
+            <div class="pt-3 border-t border-zinc-800/80 flex items-center justify-between text-xs">
+              <div class="font-mono text-zinc-300">
+                ${windowFmt}
+              </div>
+              <div class="flex items-center space-x-2">
+                <button 
+                  type="button" 
+                  onclick="editSchedule(${idx})" 
+                  class="px-2.5 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-semibold rounded-lg border border-zinc-700 transition">
+                  ✏️ Edit
+                </button>
+                <button 
+                  type="button" 
+                  onclick="deleteSchedule('${rule.id || idx}')" 
+                  class="px-2.5 py-1 bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 text-xs font-semibold rounded-lg border border-rose-800/60 transition">
+                  🗑️
+                </button>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    // Modal Operations
+    function openScheduleModal(preselectedApps = [], ruleToEdit = null) {
+      editingRuleId = ruleToEdit ? ruleToEdit.id : null;
+      document.getElementById("modalSchedTitle").innerText = ruleToEdit 
+        ? `Edit Schedule: ${ruleToEdit.name || "App Rule"}`
+        : "Create App / Group Schedule";
+
+      document.getElementById("modalSchedName").value = ruleToEdit 
+        ? (ruleToEdit.name || "")
+        : (preselectedApps.length > 1 ? `Group (${preselectedApps.slice(0, 2).join(', ')}...)` : (preselectedApps[0] || "Custom App Schedule"));
+
+      modalSelectedApps = ruleToEdit
+        ? (ruleToEdit.target_processes || (ruleToEdit.target_process ? [ruleToEdit.target_process] : []))
+        : (preselectedApps.length > 0 ? [...preselectedApps] : ["Roblox"]);
+
+      document.getElementById("modalSchedStart").value = ruleToEdit ? (ruleToEdit.schedule_start || "12:00") : "12:00";
+      document.getElementById("modalSchedEnd").value = ruleToEdit ? (ruleToEdit.schedule_end || "20:00") : "20:00";
+
+      // Target users select
+      const userSel = document.getElementById("modalSchedUser");
+      const managed = localUsers.filter(u => u.isManaged);
+      const options = managed.length > 0 ? managed : [{ username: "masroor", fullName: "Masroor" }];
+      userSel.innerHTML = options.map(u => `
+        <option value="${u.username}" ${(ruleToEdit && ruleToEdit.target_user === u.username) ? 'selected' : ''}>
+          ${u.fullName || u.username} (Child Account)
+        </option>
+      `).join("");
+
+      modalSelectedDays = ruleToEdit && ruleToEdit.days ? ruleToEdit.days : ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+      renderModalAppChips();
+      renderModalDays();
+
+      document.getElementById("modalAppSchedule").style.display = "flex";
+    }
+
+    function closeScheduleModal() {
+      document.getElementById("modalAppSchedule").style.display = "none";
+      editingRuleId = null;
+    }
+
+    function renderModalAppChips() {
+      const container = document.getElementById("modalSchedAppChips");
+      if (!container) return;
+      container.innerHTML = modalSelectedApps.map(app => `
+        <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold bg-indigo-950/80 text-indigo-300 border border-indigo-500/40">
+          <span>${app}</span>
+          <button type="button" onclick="removeAppChip('${app}')" class="ml-1.5 text-indigo-400 hover:text-rose-400 font-bold">✕</button>
+        </span>
+      `).join("");
+    }
+
+    function addAppChip(appName) {
+      if (appName && !modalSelectedApps.includes(appName)) {
+        modalSelectedApps.push(appName);
+        renderModalAppChips();
+      }
+    }
+
+    function addAppChipFromInput() {
+      const input = document.getElementById("modalSchedCustomAppInput");
+      const val = input.value.trim();
+      if (val) {
+        addAppChip(val);
+        input.value = "";
+      }
+    }
+
+    function removeAppChip(appName) {
+      modalSelectedApps = modalSelectedApps.filter(a => a !== appName);
+      renderModalAppChips();
+    }
+
+    function renderModalDays() {
+      document.querySelectorAll(".day-chip").forEach(btn => {
+        const d = btn.innerText.trim();
+        if (modalSelectedDays.includes(d)) {
+          btn.className = "day-chip flex-1 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 text-white transition";
+        } else {
+          btn.className = "day-chip flex-1 py-1.5 rounded-lg text-xs font-medium text-zinc-400 bg-zinc-900 border border-zinc-800 transition";
+        }
+      });
+    }
+
+    function toggleSchedDay(btn, day) {
+      if (modalSelectedDays.includes(day)) {
+        modalSelectedDays = modalSelectedDays.filter(d => d !== day);
+      } else {
+        modalSelectedDays.push(day);
+      }
+      renderModalDays();
+    }
+
+    function saveAppScheduleFromModal() {
+      const name = document.getElementById("modalSchedName").value.trim() || "App Schedule";
+      const targetUser = document.getElementById("modalSchedUser").value || "masroor";
+      const sStart = document.getElementById("modalSchedStart").value || "12:00";
+      const sEnd = document.getElementById("modalSchedEnd").value || "20:00";
+
+      if (modalSelectedApps.length === 0) {
+        alert("Please add at least one application to this schedule.");
+        return;
+      }
+
+      const ruleObj = {
+        id: editingRuleId || `rule_${Date.now()}`,
+        name: name,
+        rule_type: "AppGroupWindow",
+        target_processes: modalSelectedApps,
+        target_user: targetUser,
+        schedule_start: sStart,
+        schedule_end: sEnd,
+        days: modalSelectedDays.length > 0 ? modalSelectedDays : ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+        is_enabled: 1
+      };
+
+      if (editingRuleId) {
+        const idx = activeRules.findIndex(r => r.id === editingRuleId);
+        if (idx !== -1) {
+          activeRules[idx] = ruleObj;
+        } else {
+          activeRules.push(ruleObj);
+        }
+      } else {
+        activeRules.push(ruleObj);
+      }
+
+      saveAllRulesToDisk();
+      closeScheduleModal();
+      renderAppSchedules();
+      renderRunningApps();
+      renderAllApps();
+      switchTab("appschedules");
+    }
+
+    function editSchedule(idx) {
+      if (activeRules[idx]) {
+        openScheduleModal([], activeRules[idx]);
+      }
+    }
+
+    function deleteSchedule(ruleId) {
+      if (confirm("Delete this schedule?")) {
+        activeRules = activeRules.filter((r, idx) => r.id !== ruleId && String(idx) !== String(ruleId));
+        saveAllRulesToDisk();
+        renderAppSchedules();
+        renderRunningApps();
+        renderAllApps();
+      }
+    }
+
+    function toggleRuleEnabled(ruleId, isEnabled) {
+      const r = activeRules.find((rule, idx) => rule.id === ruleId || String(idx) === String(ruleId));
+      if (r) {
+        r.is_enabled = isEnabled ? 1 : 0;
+        saveAllRulesToDisk();
+        renderAppSchedules();
+      }
+    }
+
+    function saveAllRulesToDisk() {
+      const managedUsers = localUsers.filter(u => u.isManaged).map(u => u.username);
+      const payload = {
+        rules: activeRules,
+        managed_users: managedUsers.length > 0 ? managedUsers : ["masroor"],
+        path_jail_enabled: pathJailEnabled
+      };
+      callNative("saveFeatures", { features: payload });
+      callNative("syncRules");
+
+      const toast = document.getElementById("saveToast");
+      if (toast) {
+        toast.classList.remove("hidden");
+        setTimeout(() => { toast.classList.add("hidden"); }, 3000);
+      }
+    }
+
+    // =========================================================================
+    // 4. USER ACCOUNTS & LEGACY TABS
+    // =========================================================================
+    function renderUserAccounts() {
+      const container = document.getElementById("accountsGrid");
+      const countBadge = document.getElementById("accountCountBadge");
+      const metricAccounts = document.getElementById("metricAccounts");
+      if (!container) return;
+
+      if (!localUsers || localUsers.length === 0) {
+        localUsers = [
+          { username: "masroor", fullName: "Masroor", isAdmin: false, isManaged: true },
+          { username: "rashidsheikh", fullName: "Rashid Sheikh", isAdmin: true, isManaged: false }
+        ];
+      }
+
+      countBadge.innerText = `${localUsers.length} Accounts Detected`;
+      const managedCount = localUsers.filter(u => u.isManaged).length;
+      if (metricAccounts) metricAccounts.innerText = `${localUsers.length} Accounts (${managedCount} Managed)`;
+
+      container.innerHTML = localUsers.map((u, idx) => {
+        const initial = (u.fullName || u.username || "U")[0].toUpperCase();
+        if (u.isAdmin) {
+          return `
+            <div class="p-4 bg-zinc-900/60 rounded-xl border border-zinc-800 flex items-center justify-between">
+              <div class="flex items-center space-x-3.5">
+                <div class="w-10 h-10 rounded-xl bg-purple-600/20 border border-purple-500/30 flex items-center justify-center font-bold text-purple-300 text-sm font-mono">
+                  ${initial}
+                </div>
+                <div>
+                  <div class="text-sm font-bold text-white flex items-center space-x-1.5">
+                    <span>${u.fullName || u.username}</span>
+                    <span class="text-xs text-zinc-400 font-mono">(${u.username})</span>
+                  </div>
+                  <div class="text-xs text-purple-300 font-medium">Administrator (Parent - Exempt)</div>
+                </div>
+              </div>
+              <span class="text-xs font-mono font-semibold px-2.5 py-1 rounded-lg bg-zinc-800 text-zinc-400 border border-zinc-700">
+                🛡️ Parent
+              </span>
+            </div>
+          `;
+        } else {
+          return `
+            <div class="p-4 bg-zinc-900/60 rounded-xl border border-emerald-500/30 flex items-center justify-between">
+              <div class="flex items-center space-x-3.5">
+                <div class="w-10 h-10 rounded-xl bg-emerald-600/20 border border-emerald-500/30 flex items-center justify-center font-bold text-emerald-300 text-sm font-mono">
+                  ${initial}
+                </div>
+                <div>
+                  <div class="text-sm font-bold text-white flex items-center space-x-1.5">
+                    <span>${u.fullName || u.username}</span>
+                    <span class="text-xs text-zinc-400 font-mono">(${u.username})</span>
+                  </div>
+                  <div class="text-xs text-emerald-400 font-medium">Standard Account (Child)</div>
+                </div>
+              </div>
+              <label class="flex items-center space-x-2 cursor-pointer bg-zinc-950/80 px-3 py-1.5 rounded-lg border border-zinc-700/80">
+                <input 
+                  type="checkbox" 
+                  id="chkUser_${idx}" 
+                  ${u.isManaged ? "checked" : ""} 
+                  onchange="toggleUserManaged(${idx}, this.checked)"
+                  class="w-4 h-4 rounded text-emerald-500 focus:ring-emerald-400 bg-zinc-950 border-zinc-700 cursor-pointer">
+                <span class="text-xs font-semibold text-emerald-300">Managed</span>
+              </label>
+            </div>
+          `;
+        }
+      }).join("");
+    }
+
+    function toggleUserManaged(idx, checked) {
+      if (localUsers[idx]) {
+        localUsers[idx].isManaged = checked;
+        saveAllRulesToDisk();
+      }
+    }
+
+    function renderPolicies() {
+      const curfewRule = activeRules.find(r => r.rule_type === "AllowedWindow") || {
+        schedule_start: "12:00",
+        schedule_end: "20:00"
+      };
+      const cs = document.getElementById("curfewStart");
+      const ce = document.getElementById("curfewEnd");
+      if (cs) cs.value = curfewRule.schedule_start || "12:00";
+      if (ce) ce.value = curfewRule.schedule_end || "20:00";
+
+      const startFmt = formatTime(curfewRule.schedule_start || "12:00");
+      const endFmt = formatTime(curfewRule.schedule_end || "20:00");
+      const mCurfew = document.getElementById("metricCurfew");
+      if (mCurfew) mCurfew.innerText = `${startFmt} – ${endFmt}`;
+
+      const gameProcesses = activeRules
+        .flatMap(r => r.target_processes || (r.target_process ? [r.target_process] : []));
+      
+      const uniqueGames = Array.from(new Set(gameProcesses.length > 0 ? gameProcesses : ["Roblox", "steam", "Discord", "Minecraft"]));
+      renderGameTags(uniqueGames);
+
+      const pj = document.getElementById("chkPathJail");
+      if (pj) pj.checked = pathJailEnabled;
+    }
+
+    function formatTime(t) {
+      const parts = t.split(":");
+      let h = parseInt(parts[0], 10);
+      const m = parts[1] || "00";
+      const ampm = h >= 12 ? "PM" : "AM";
+      if (h > 12) h -= 12;
+      if (h === 0) h = 12;
+      return `${h}:${m} ${ampm}`;
+    }
+
+    let currentGameList = ["Roblox", "steam", "Discord", "Minecraft"];
+    function renderGameTags(games) {
+      currentGameList = games;
+      const container = document.getElementById("gameTagsContainer");
+      const mGames = document.getElementById("metricGames");
+      if (mGames) mGames.innerText = `${currentGameList.length} Games`;
+      if (!container) return;
+
+      container.innerHTML = currentGameList.map((g, idx) => `
+        <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium bg-zinc-800 text-zinc-200 border border-zinc-700">
+          <span>${g}</span>
+          <button type="button" onclick="removeGameTag(${idx})" class="ml-1.5 text-zinc-400 hover:text-rose-400 text-xs">✕</button>
+        </span>
+      `).join("");
+    }
+
+    function removeGameTag(idx) {
+      currentGameList.splice(idx, 1);
+      renderGameTags(currentGameList);
+    }
+
+    function addGameTag() {
+      const input = document.getElementById("newGameInput");
+      const val = input.value.trim();
+      if (val && !currentGameList.includes(val)) {
+        currentGameList.push(val);
+        renderGameTags(currentGameList);
+        input.value = "";
+      }
+    }
+
+    function saveProtectionRules() {
+      saveAllRulesToDisk();
+    }
+
+    // Central Server Actions
+    function connectCentralServer() {
+      const input = document.getElementById("centralServerUrlInput");
+      const url = input ? input.value.trim().replace(/\/$/, "") : "";
+      if (!url) return;
+      currentServerUrl = url;
+      callNative("saveServerUrl", { serverUrl: url });
+
+      const feedback = document.getElementById("centralServerFeedback");
+      if (feedback) {
+        feedback.innerText = "Connecting & auto-registering with Central Hub...";
+        feedback.className = "text-xs font-mono text-indigo-400 h-4";
+      }
+      setTimeout(() => {
+        if (feedback) {
+          feedback.innerText = "✅ Saved! Client auto-registered and streaming telemetry to Central Hub.";
+          feedback.className = "text-xs font-mono text-emerald-400 h-4 font-semibold";
+        }
+        renderCentralHubStatus();
+      }, 800);
+    }
+
+    function openServerInBrowser() {
+      const url = currentServerUrl && currentServerUrl !== "standalone" ? currentServerUrl : "http://192.168.0.101:8000";
+      callNative("openInBrowser", { url: url });
+    }
+
+    function renderCentralHubStatus() {
+      const isConnected = currentServerUrl && currentServerUrl !== "standalone" && currentServerUrl.startsWith("http");
+      const badge = document.getElementById("hubStatusBadge");
+      const card = document.getElementById("hubConnectedCard");
+      const activeUrl = document.getElementById("hubActiveUrl");
+      const devIdSpan = document.getElementById("hubDeviceId");
+
+      if (badge) {
+        if (isConnected) {
+          badge.className = "px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30";
+          badge.innerText = "🟢 Hub Connected";
+        } else {
+          badge.className = "px-2.5 py-1 rounded-full text-[11px] font-semibold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30";
+          badge.innerText = "🛡️ Standalone Mode";
+        }
+      }
+
+      if (card) {
+        card.style.display = isConnected ? "block" : "none";
+      }
+
+      if (activeUrl) {
+        activeUrl.innerText = currentServerUrl;
+      }
+
+      if (devIdSpan) {
+        const sId = document.getElementById("sidebarDeviceId");
+        devIdSpan.innerText = sId ? sId.innerText : "mac_client";
+      }
+    }
+
+    function openDisconnectModal() {
+      const urlSpan = document.getElementById("disconnectModalServerUrl");
+      if (urlSpan) urlSpan.innerText = currentServerUrl && currentServerUrl !== "standalone" ? currentServerUrl : "http://192.168.0.101:8000";
+      const input = document.getElementById("disconnectConfirmInput");
+      if (input) input.value = "";
+      const btn = document.getElementById("btnConfirmDisconnect");
+      if (btn) {
+        btn.disabled = true;
+        btn.className = "px-5 py-2.5 text-xs font-bold rounded-xl transition flex items-center space-x-1.5 bg-rose-950/40 text-rose-500/50 border border-rose-900/40 cursor-not-allowed";
+      }
+      document.getElementById("modalDisconnectServer").style.display = "flex";
+    }
+
+    function closeDisconnectModal() {
+      document.getElementById("modalDisconnectServer").style.display = "none";
+    }
+
+    function checkDisconnectInput(val) {
+      const btn = document.getElementById("btnConfirmDisconnect");
+      if (!btn) return;
+      if (val.trim() === "DELETE") {
+        btn.disabled = false;
+        btn.className = "px-5 py-2.5 text-xs font-bold rounded-xl transition flex items-center space-x-1.5 bg-rose-600 hover:bg-rose-700 text-white cursor-pointer shadow-lg shadow-rose-600/30";
+      } else {
+        btn.disabled = true;
+        btn.className = "px-5 py-2.5 text-xs font-bold rounded-xl transition flex items-center space-x-1.5 bg-rose-950/40 text-rose-500/50 border border-rose-900/40 cursor-not-allowed";
+      }
+    }
+
+    function executeDisconnectServer() {
+      const sId = document.getElementById("sidebarDeviceId")?.innerText || "mac_client";
+      const oldServer = currentServerUrl;
+      
+      // 1. Tell Central Server to unregister and purge this device
+      if (oldServer && oldServer.startsWith("http")) {
+        callNative("unregisterDevice", { deviceId: sId, serverUrl: oldServer });
+      }
+
+      // 2. Revert to Standalone locally
+      currentServerUrl = "standalone";
+      callNative("saveServerUrl", { serverUrl: "standalone" });
+
+      closeDisconnectModal();
+      renderCentralHubStatus();
+
+      const toast = document.getElementById("saveToast");
+      if (toast) {
+        toast.querySelector(".font-semibold").innerText = "Disconnected from Server. AppShield is now running in 100% Standalone Mode!";
+        toast.classList.remove("hidden");
+        setTimeout(() => toast.classList.add("hidden"), 4000);
+      }
+      switchTab("overview");
+    }
+
+    function resetToStandalone() {
+      openDisconnectModal();
+    }
+
+    function testCentralServer() {
+      const url = document.getElementById("centralServerUrlInput").value.trim().replace(/\/$/, "");
+      const feedback = document.getElementById("centralServerFeedback");
+      feedback.innerText = "Pinging server...";
+      feedback.className = "text-xs font-mono text-zinc-400 h-4";
 
       const start = Date.now();
-      fetch(url + "/api/fleet")
+      fetch(url + "/api/health")
         .then(r => r.json())
         .then(data => {
           const ms = Date.now() - start;
-          feedback.innerText = `🟢 Hub Online (${ms}ms) — Connected!`;
-          feedback.className = "text-[11px] mt-2 font-mono text-emerald-400 h-4 font-semibold";
+          feedback.innerText = `🟢 Server Online (${ms}ms) — Connection OK!`;
+          feedback.className = "text-xs font-mono text-emerald-400 h-4 font-semibold";
         })
         .catch(err => {
-          feedback.innerText = `🔴 Connection Failed: Cannot reach ${url}`;
-          feedback.className = "text-[11px] mt-2 font-mono text-rose-400 h-4 font-semibold";
+          feedback.innerText = `🔴 Cannot reach server at ${url}`;
+          feedback.className = "text-xs font-mono text-rose-400 h-4 font-semibold";
         });
     }
 
-    function saveServerUrl() {
-      const url = document.getElementById("serverUrl").value.trim().replace(/\/$/, "");
-      callNative("saveServerUrl", { serverUrl: url });
-      const feedback = document.getElementById("testFeedback");
-      feedback.innerText = "✅ Server address saved.";
-      feedback.className = "text-[11px] mt-2 font-mono text-indigo-400 h-4 font-semibold";
+    function autoDetectTailscale() {
+      document.getElementById("centralServerUrlInput").value = "http://100.84.135.96:8000";
+      const feedback = document.getElementById("centralServerFeedback");
+      feedback.innerText = "✅ Detected Tailscale IP (100.84.135.96)!";
+      feedback.className = "text-xs font-mono text-emerald-400 h-4 font-semibold";
     }
 
+    // Installer actions
     function installAgent() {
-      const url = document.getElementById("serverUrl").value.trim().replace(/\/$/, "");
       const btn = document.getElementById("btnInstall");
       if (btn) btn.innerHTML = `<span>⏳ Authorizing with macOS Admin Prompt...</span>`;
-      callNative("installAgent", { serverUrl: url });
+      callNative("installAgent", { serverUrl: "standalone" });
     }
 
-    function reinstallAgent() {
-      const url = document.getElementById("serverUrl").value.trim().replace(/\/$/, "");
-      const btn = document.getElementById("btnReinstall");
-      if (btn) btn.innerHTML = `<span>⏳ Reinstalling...</span>`;
-      callNative("installAgent", { serverUrl: url });
+    function closeInstaller() {
+      callNative("quitApp");
+    }
+
+    function launchInstalledApp() {
+      callNative("openInstalledApp");
+    }
+
+    function openUninstallModal() {
+      const modal = document.getElementById("modalUninstallAppShield");
+      const input = document.getElementById("uninstallConfirmInput");
+      const btn = document.getElementById("btnConfirmUninstall");
+      if (input) {
+        input.value = "";
+        setTimeout(() => input.focus(), 100);
+      }
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = `<span>🗑️ Confirm Uninstall & Delete</span>`;
+        btn.className = "px-5 py-2.5 text-xs font-bold rounded-xl transition flex items-center space-x-1.5 bg-rose-950/40 text-rose-500/50 border border-rose-900/40 cursor-not-allowed";
+      }
+      if (modal) modal.style.display = "flex";
+    }
+
+    function closeUninstallModal() {
+      const modal = document.getElementById("modalUninstallAppShield");
+      if (modal) modal.style.display = "none";
+    }
+
+    function checkUninstallInput(val) {
+      const btn = document.getElementById("btnConfirmUninstall");
+      if (!btn) return;
+      if (val.trim().toUpperCase() === "DELETE") {
+        btn.disabled = false;
+        btn.className = "px-5 py-2.5 text-xs font-bold rounded-xl transition flex items-center space-x-1.5 bg-gradient-to-r from-rose-600 to-red-600 text-white shadow-lg shadow-rose-600/30 hover:from-rose-500 hover:to-red-500 cursor-pointer";
+      } else {
+        btn.disabled = true;
+        btn.className = "px-5 py-2.5 text-xs font-bold rounded-xl transition flex items-center space-x-1.5 bg-rose-950/40 text-rose-500/50 border border-rose-900/40 cursor-not-allowed";
+      }
+    }
+
+    function executeConfirmedUninstall() {
+      const btn = document.getElementById("btnConfirmUninstall");
+      if (btn) btn.innerHTML = `<span>⏳ Removing daemon & purging from server...</span>`;
+      setTimeout(() => {
+        closeUninstallModal();
+        const sId = document.getElementById("sidebarDeviceId")?.innerText || "";
+        let sUrl = currentServerUrl;
+        if (!sUrl || sUrl === "standalone" || !sUrl.startsWith("http")) {
+          sUrl = "http://192.168.0.101:8000";
+        }
+        callNative("unregisterDevice", { deviceId: sId, serverUrl: sUrl });
+        callNative("uninstallAgent");
+      }, 250);
     }
 
     function uninstallAgent() {
-      const btn = document.getElementById("btnUninstall");
-      if (btn) btn.innerHTML = `<span>⏳ Authorizing Uninstallation...</span>`;
-      callNative("uninstallAgent");
+      openUninstallModal();
     }
 
     function syncRulesNow() {
       callNative("syncRules");
-      const feedback = document.getElementById("testFeedback");
-      feedback.innerText = "🔄 Rules synced with Central Server.";
-      feedback.className = "text-[11px] mt-2 font-mono text-teal-400 h-4 font-semibold";
-    }
-
-    function openFleetDashboard() {
-      const url = document.getElementById("serverUrl").value.trim().replace(/\/$/, "");
-      callNative("loadDashboard", { serverUrl: url });
-    }
-
-    function autoDetectTailscale() {
-      const feedback = document.getElementById("testFeedback");
-      feedback.innerText = "Scanning network interfaces for Tailscale 100.* mesh IP...";
-      feedback.className = "text-[11px] mt-2 font-mono text-indigo-400 h-4 font-semibold";
-
-      // Autofill detected Tailscale IP
-      document.getElementById("serverUrl").value = "http://100.84.135.96:8000";
-      feedback.innerText = "✅ Detected Tailscale IP (100.84.135.96)! Click 'Save Address'.";
-      feedback.className = "text-[11px] mt-2 font-mono text-emerald-400 h-4 font-semibold";
-    }
-
-    function activateStandaloneMode() {
-      document.getElementById("serverUrl").value = "standalone";
-      callNative("saveServerUrl", { serverUrl: "standalone" });
-      const feedback = document.getElementById("testFeedback");
-      feedback.innerText = "🚀 Standalone Mode Selected! No server needed.";
-      feedback.className = "text-[11px] mt-2 font-mono text-emerald-400 h-4 font-semibold";
-      if (!isProtected) {
-        toggleProtection();
+      const btn = document.getElementById("btnSync");
+      if (btn) {
+        btn.innerHTML = `<span>✅ Synced</span>`;
+        setTimeout(() => { btn.innerHTML = `<span>🔄 Sync</span>`; }, 2000);
       }
     }
 
-    function copyProxmoxCommand() {
-      const cmd = "curl -fsSL https://raw.githubusercontent.com/gitsheikhgit/appsheild/main/install-on-proxmox-lxc.sh | bash";
-      navigator.clipboard.writeText(cmd);
-      const feedback = document.getElementById("testFeedback");
-      feedback.innerText = "📋 Proxmox 1-click script copied to clipboard!";
-      feedback.className = "text-[11px] mt-2 font-mono text-emerald-400 h-4 font-semibold";
-    }
-
-    // Request initial state on boot
-    window.addEventListener("DOMContentLoaded", () => {
+    // Initial query to Native layer
+    document.addEventListener("DOMContentLoaded", () => {
       callNative("getAgentStatus");
     });
   </script>

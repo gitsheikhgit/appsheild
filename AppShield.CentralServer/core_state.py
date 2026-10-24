@@ -131,7 +131,12 @@ class DeviceRegisterDto(BaseModel):
     os: Optional[str] = "Windows 11"
     lan_ip: Optional[str] = "127.0.0.1"
     tailscale_ip: Optional[str] = None
-    agent_version: Optional[str] = "1.2.0"
+    agent_version: Optional[str] = "1.3.0"
+    psk: Optional[str] = None
+
+class DeviceUnregisterDto(BaseModel):
+    device_id: str
+    reason: Optional[str] = "uninstalled"
 
 class TelemetryReportDto(BaseModel):
     device_id: str

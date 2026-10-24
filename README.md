@@ -199,6 +199,16 @@ This produces:
 
 ---
 
+## 🚀 What's New in v1.3.0
+
+- **Fleet Computer Management & Deletion**: Parents can permanently delete any managed or offline computer directly from the Central Server dashboard with type-to-confirm `DELETE` protection.
+- **Uninstaller Server Purge Signal**: Uninstallation via GUI or `uninstall-mac-agent.sh` sends an automated unregister signal to Central Server (`/api/devices/unregister` and `DELETE /api/fleet/{id}`) to purge the device from database tables.
+- **Installer Existing Installation Detection**: Re-running the macOS installer detects an existing active daemon and presents options to **Update / Overwrite** core binaries, **Open** the installed app, or **Uninstall** cleanly.
+- **Native High-Resolution Application Icons**: Added Cocoa icon extraction caching real 48x48 PNG icons for both installed and active applications across client and server views.
+- **Bulletproof Standalone Decoupling**: Parents can disconnect a Mac from Central Server into 100% local standalone mode with `DELETE` confirmation without disrupting local schedules.
+
+---
+
 ## 📄 License
 
 This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.

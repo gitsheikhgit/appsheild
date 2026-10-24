@@ -126,6 +126,7 @@ async def update_device_settings(device_id: str, dto: DeviceUpdateDto):
     return {"success": True, "message": "Device configuration saved successfully."}
 
 @router.delete("/fleet/{device_id}")
+@router.post("/fleet/{device_id}/delete")
 async def delete_device(device_id: str):
     """Removes a device and all its associated data from fleet management."""
     conn = sqlite3.connect(DB_PATH)
@@ -137,6 +138,19 @@ async def delete_device(device_id: str):
     c.execute("DELETE FROM devices WHERE id = ?", (device_id,))
     conn.commit()
     conn.close()
+
+    try:
+        from core_state import DATA_DIR, live_telemetry, manager
+        live_telemetry.pop(device_id, None)
+        manager.disconnect_agent(device_id)
+        for fname in [f"users_{device_id}.json", f"installed_{device_id}.json"]:
+            p = os.path.join(DATA_DIR, fname)
+            if os.path.exists(p):
+                try: os.remove(p)
+                except Exception: pass
+    except Exception:
+        pass
+
     return {"success": True, "message": f"Device {device_id} removed from fleet."}
 
 # ===================================================================

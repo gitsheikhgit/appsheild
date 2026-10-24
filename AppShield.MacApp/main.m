@@ -4,7 +4,7 @@
 
 // ==============================================================================
 // AppShield for macOS: Native Cocoa Application & Graphical Setup Engine
-// Version: 1.2.0
+// Version: 1.3.0
 // ==============================================================================
 
 @interface AppDelegate : NSObject <NSApplicationDelegate, WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandler, NSWindowDelegate>
@@ -144,6 +144,26 @@
     completionHandler(resp == NSAlertFirstButtonReturn);
 }
 
+- (void)webView:(WKWebView *)webView runJavaScriptTextInputPanelWithPrompt:(NSString *)prompt defaultText:(NSString *)defaultText initiatedByFrame:(WKFrameInfo *)frame completionHandler:(void (^)(NSString * _Nullable result))completionHandler {
+    NSAlert *alert = [[NSAlert alloc] init];
+    [alert setMessageText:@"AppShield Input"];
+    [alert setInformativeText:prompt];
+    [alert addButtonWithTitle:@"Confirm"];
+    [alert addButtonWithTitle:@"Cancel"];
+
+    NSTextField *input = [[NSTextField alloc] initWithFrame:NSMakeRect(0, 0, 260, 24)];
+    [input setStringValue:defaultText ?: @""];
+    [alert setAccessoryView:input];
+    [[alert window] setInitialFirstResponder:input];
+
+    NSModalResponse resp = [alert runModal];
+    if (resp == NSAlertFirstButtonReturn) {
+        completionHandler([input stringValue]);
+    } else {
+        completionHandler(nil);
+    }
+}
+
 - (void)loadSetupHtml {
     self.isShowingDashboard = NO;
     NSString *resourcePath = [[NSBundle mainBundle] resourcePath];
@@ -178,32 +198,459 @@
     if ([action isEqualToString:@"getAgentStatus"]) {
         [self handleGetStatus];
     } else if ([action isEqualToString:@"saveServerUrl"]) {
-        NSString *newUrl = body[@"serverUrl"];
+        NSString *newUrl = body[@"serverUrl"] ?: body[@"url"];
         if (newUrl && [newUrl length] > 0) {
             self.currentServerUrl = newUrl;
             [[NSUserDefaults standardUserDefaults] setObject:newUrl forKey:@"AppShieldServerUrl"];
             [[NSUserDefaults standardUserDefaults] synchronize];
+
+            // 1. Update settings.json in /Library/Application Support/AppShield
+            NSString *settingsPath = @"/Library/Application Support/AppShield/settings.json";
+            NSMutableDictionary *settingsDict = [NSMutableDictionary dictionary];
+            if ([[NSFileManager defaultManager] fileExistsAtPath:settingsPath]) {
+                NSData *data = [NSData dataWithContentsOfFile:settingsPath];
+                if (data) {
+                    NSDictionary *json = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
+                    if (json) [settingsDict addEntriesFromDictionary:json];
+                }
+            }
+            BOOL isStandalone = [newUrl isEqualToString:@"standalone"] || [newUrl length] == 0;
+            settingsDict[@"server_url"] = newUrl;
+            settingsDict[@"standalone_mode"] = @(isStandalone);
+
+            if (!settingsDict[@"device_id"]) {
+                settingsDict[@"device_id"] = [NSString stringWithFormat:@"mac_%@", [[NSUUID UUID].UUIDString.lowercaseString substringToIndex:12]];
+            }
+            if (!settingsDict[@"name"]) {
+                settingsDict[@"name"] = [NSHost currentHost].localizedName ?: @"Mac";
+            }
+            if (!settingsDict[@"psk"] || [settingsDict[@"psk"] length] == 0) {
+                NSMutableString *psk = [NSMutableString stringWithCapacity:32];
+                for (int i = 0; i < 32; i++) {
+                    [psk appendFormat:@"%x", arc4random_uniform(16)];
+                }
+                settingsDict[@"psk"] = psk;
+            }
+
+            NSData *outData = [NSJSONSerialization dataWithJSONObject:settingsDict options:NSJSONWritingPrettyPrinted error:nil];
+            if (outData) {
+                if (![outData writeToFile:settingsPath atomically:YES]) {
+                    NSString *tmp = [NSTemporaryDirectory() stringByAppendingPathComponent:@"settings_update.json"];
+                    [outData writeToFile:tmp atomically:YES];
+                    NSString *cmd = [NSString stringWithFormat:@"cp -f '%@' '%@' 2>/dev/null", tmp, settingsPath];
+                    system([cmd UTF8String]);
+                }
+            }
+
+            // 2. Restart daemon so it reconnects to server immediately
+            dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+                system("pkill -9 -f agent.py 2>/dev/null || true");
+            });
+
+            // 3. Directly register with Central Server and transmit PSK
+            if (!isStandalone) {
+                dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+                    NSString *regUrlStr = [NSString stringWithFormat:@"%@/api/devices/register", [newUrl stringByTrimmingCharactersInSet:[NSCharacterSet characterSetWithCharactersInString:@"/"]]];
+                    NSURL *regUrl = [NSURL URLWithString:regUrlStr];
+                    if (regUrl) {
+                        NSMutableURLRequest *req = [NSMutableURLRequest requestWithURL:regUrl];
+                        req.HTTPMethod = @"POST";
+                        [req setValue:@"application/json" forHTTPHeaderField:@"Content-Type"];
+                        NSDictionary *payload = @{
+                            @"id": settingsDict[@"device_id"] ?: @"mac_000000000000",
+                            @"name": settingsDict[@"name"] ?: @"Mac",
+                            @"os": @"macOS",
+                            @"lan_ip": @"127.0.0.1",
+                            @"tailscale_ip": settingsDict[@"tailscale_ip"] ?: @"",
+                            @"agent_version": @"1.3.0",
+                            @"psk": settingsDict[@"psk"] ?: @""
+                        };
+                        req.HTTPBody = [NSJSONSerialization dataWithJSONObject:payload options:0 error:nil];
+                        [[[NSURLSession sharedSession] dataTaskWithRequest:req completionHandler:^(NSData *d, NSURLResponse *r, NSError *e) {
+                            if (!e) {
+                                NSLog(@"[AppShield] Client auto-registered with server successfully.");
+                            }
+                        }] resume];
+                    }
+                });
+            }
+
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(500 * NSEC_PER_MSEC)), dispatch_get_main_queue(), ^{
+                [self handleGetStatus];
+            });
+        }
+    } else if ([action isEqualToString:@"openInBrowser"] || [action isEqualToString:@"loadDashboard"]) {
+        NSString *urlStr = body[@"serverUrl"] ?: body[@"url"] ?: self.currentServerUrl;
+        if (urlStr && [urlStr hasPrefix:@"http"]) {
+            [[NSWorkspace sharedWorkspace] openURL:[NSURL URLWithString:urlStr]];
         }
     } else if ([action isEqualToString:@"installAgent"]) {
         NSString *url = body[@"serverUrl"] ?: self.currentServerUrl;
         [self executeInstallAgent:url];
     } else if ([action isEqualToString:@"uninstallAgent"]) {
         [self executeUninstallAgent];
-    } else if ([action isEqualToString:@"loadDashboard"]) {
-        NSString *url = body[@"serverUrl"] ?: self.currentServerUrl;
-        [self loadDashboardUrl:url];
+    } else if ([action isEqualToString:@"unregisterDevice"]) {
+        NSString *devId = body[@"deviceId"];
+        NSString *serverUrl = body[@"serverUrl"] ?: self.currentServerUrl;
+        if (serverUrl && [serverUrl hasPrefix:@"http"] && devId && [devId length] > 0) {
+            NSString *cleanUrl = [serverUrl stringByTrimmingCharactersInSet:[NSCharacterSet characterSetWithCharactersInString:@"/"]];
+            NSString *unregUrlStr = [NSString stringWithFormat:@"%@/api/fleet/%@", cleanUrl, devId];
+            NSURL *url = [NSURL URLWithString:unregUrlStr];
+            if (url) {
+                NSMutableURLRequest *req = [NSMutableURLRequest requestWithURL:url];
+                req.HTTPMethod = @"DELETE";
+                [[[NSURLSession sharedSession] dataTaskWithRequest:req] resume];
+            }
+        }
     } else if ([action isEqualToString:@"syncRules"]) {
         [self executeSyncRules];
+    } else if ([action isEqualToString:@"saveFeatures"]) {
+        NSDictionary *features = body[@"features"];
+        if (features) {
+            NSError *err = nil;
+            NSData *jsonData = [NSJSONSerialization dataWithJSONObject:features options:NSJSONWritingPrettyPrinted error:&err];
+            if (jsonData) {
+                NSString *featPath = @"/Library/Application Support/AppShield/features.json";
+                if (![jsonData writeToFile:featPath atomically:YES]) {
+                    // Fallback using temp file if needed
+                    NSString *tmp = [NSTemporaryDirectory() stringByAppendingPathComponent:@"features_update.json"];
+                    [jsonData writeToFile:tmp atomically:YES];
+                    NSString *cmd = [NSString stringWithFormat:@"cp -f '%@' '%@' 2>/dev/null", tmp, featPath];
+                    system([cmd UTF8String]);
+                }
+                NSLog(@"[AppShield] Saved features.json successfully.");
+            }
+        }
+    } else if ([action isEqualToString:@"terminateProcess"]) {
+        NSNumber *pidNum = body[@"pid"];
+        NSString *procName = body[@"processName"];
+        if (pidNum && [pidNum intValue] > 0) {
+            kill([pidNum intValue], SIGKILL);
+        } else if (procName && procName.length > 0) {
+            NSString *cmd = [NSString stringWithFormat:@"pkill -9 -f '%@' 2>/dev/null", procName];
+            system([cmd UTF8String]);
+        }
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(300 * NSEC_PER_MSEC)), dispatch_get_main_queue(), ^{
+            [self handleGetStatus];
+        });
+    } else if ([action isEqualToString:@"refreshRunningApps"]) {
+        NSArray *running = [self getRunningApps];
+        NSData *d = [NSJSONSerialization dataWithJSONObject:running options:0 error:nil];
+        NSString *json = d ? [[NSString alloc] initWithData:d encoding:NSUTF8StringEncoding] : @"[]";
+        NSString *js = [NSString stringWithFormat:@"window.updateRunningApps && window.updateRunningApps(%@);", json];
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [self.webView evaluateJavaScript:js completionHandler:nil];
+        });
+    } else if ([action isEqualToString:@"refreshInstalledApps"]) {
+        NSArray *installed = [self getInstalledApps];
+        NSData *d = [NSJSONSerialization dataWithJSONObject:installed options:0 error:nil];
+        NSString *json = d ? [[NSString alloc] initWithData:d encoding:NSUTF8StringEncoding] : @"[]";
+        NSString *js = [NSString stringWithFormat:@"window.updateInstalledApps && window.updateInstalledApps(%@);", json];
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [self.webView evaluateJavaScript:js completionHandler:nil];
+        });
+    } else if ([action isEqualToString:@"quitApp"]) {
+        [NSApp terminate:nil];
+    } else if ([action isEqualToString:@"openInstalledApp"]) {
+        NSString *appPath = @"/Applications/AppShield.app";
+        if ([[NSFileManager defaultManager] fileExistsAtPath:appPath]) {
+            [[NSWorkspace sharedWorkspace] openURL:[NSURL fileURLWithPath:appPath]];
+        }
+        [NSApp terminate:nil];
     }
+}
+
+- (NSArray *)getLocalMacUsers {
+    NSMutableArray *users = [NSMutableArray array];
+    
+    // 1. Get admin group members
+    NSMutableSet *adminUsers = [NSMutableSet set];
+    NSTask *adminTask = [[NSTask alloc] init];
+    adminTask.launchPath = @"/usr/bin/dscl";
+    adminTask.arguments = @[@".", @"-read", @"/Groups/admin", @"GroupMembership"];
+    NSPipe *adminPipe = [NSPipe pipe];
+    adminTask.standardOutput = adminPipe;
+    @try {
+        [adminTask launch];
+        [adminTask waitUntilExit];
+        NSData *data = [adminPipe.fileHandleForReading readDataToEndOfFile];
+        NSString *outStr = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
+        NSArray *parts = [outStr componentsSeparatedByCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+        for (NSString *p in parts) {
+            if ([p length] > 0 && ![p isEqualToString:@"GroupMembership:"]) {
+                [adminUsers addObject:p];
+            }
+        }
+    } @catch (NSException *e) {}
+    
+    // 2. Read features.json to check existing managed_users list
+    NSMutableArray *managedUsernames = [NSMutableArray array];
+    NSString *featuresPath = @"/Library/Application Support/AppShield/features.json";
+    if ([[NSFileManager defaultManager] fileExistsAtPath:featuresPath]) {
+        NSData *fData = [NSData dataWithContentsOfFile:featuresPath];
+        if (fData) {
+            NSDictionary *fJson = [NSJSONSerialization JSONObjectWithData:fData options:0 error:nil];
+            if (fJson && [fJson[@"managed_users"] isKindOfClass:[NSArray class]]) {
+                [managedUsernames addObjectsFromArray:fJson[@"managed_users"]];
+            }
+        }
+    }
+    
+    // 3. Enumerate all local accounts with UID >= 501
+    NSTask *userTask = [[NSTask alloc] init];
+    userTask.launchPath = @"/usr/bin/dscl";
+    userTask.arguments = @[@".", @"-list", @"/Users", @"UniqueID"];
+    NSPipe *userPipe = [NSPipe pipe];
+    userTask.standardOutput = userPipe;
+    @try {
+        [userTask launch];
+        [userTask waitUntilExit];
+        NSData *data = [userPipe.fileHandleForReading readDataToEndOfFile];
+        NSString *outStr = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
+        NSArray *lines = [outStr componentsSeparatedByString:@"\n"];
+        for (NSString *line in lines) {
+            NSArray *parts = [line componentsSeparatedByCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
+            NSMutableArray *nonEmpty = [NSMutableArray array];
+            for (NSString *p in parts) {
+                if ([p length] > 0) [nonEmpty addObject:p];
+            }
+            if (nonEmpty.count >= 2) {
+                NSString *username = nonEmpty[0];
+                int uid = [nonEmpty[1] intValue];
+                if (uid >= 501 && ![username hasPrefix:@"_"] && ![username isEqualToString:@"daemon"] && ![username isEqualToString:@"nobody"]) {
+                    BOOL isAdmin = [adminUsers containsObject:username];
+                    
+                    // Determine if managed:
+                    // If features.json already specified managed_users, check presence.
+                    // Otherwise default: standard child accounts are managed, admins are exempt.
+                    BOOL isManaged = NO;
+                    if (managedUsernames.count > 0) {
+                        isManaged = [managedUsernames containsObject:username];
+                    } else {
+                        isManaged = !isAdmin;
+                    }
+                    
+                    // Get real name
+                    NSString *realName = username;
+                    NSTask *nameTask = [[NSTask alloc] init];
+                    nameTask.launchPath = @"/usr/bin/dscl";
+                    nameTask.arguments = @[@".", @"-read", [NSString stringWithFormat:@"/Users/%@", username], @"RealName"];
+                    NSPipe *namePipe = [NSPipe pipe];
+                    nameTask.standardOutput = namePipe;
+                    @try {
+                        [nameTask launch];
+                        [nameTask waitUntilExit];
+                        NSData *nd = [namePipe.fileHandleForReading readDataToEndOfFile];
+                        NSString *ns = [[NSString alloc] initWithData:nd encoding:NSUTF8StringEncoding];
+                        for (NSString *nl in [ns componentsSeparatedByString:@"\n"]) {
+                            NSString *trimmed = [nl stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
+                            if (![trimmed containsString:@"RealName:"] && trimmed.length > 0) {
+                                realName = trimmed;
+                                break;
+                            }
+                        }
+                    } @catch (NSException *e) {}
+                    
+                    [users addObject:@{
+                        @"username": username,
+                        @"fullName": realName,
+                        @"isAdmin": @(isAdmin),
+                        @"isManaged": @(isManaged),
+                        @"uid": @(uid)
+                    }];
+                }
+            }
+        }
+    } @catch (NSException *e) {}
+    
+    return users;
+}
+
+- (NSString *)base64IconForPath:(NSString *)path {
+    if (!path || [path length] == 0) return @"";
+    static NSMutableDictionary *iconCache = nil;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        iconCache = [[NSMutableDictionary alloc] init];
+    });
+    
+    @synchronized (iconCache) {
+        NSString *cached = iconCache[path];
+        if (cached) return cached;
+    }
+    
+    @try {
+        NSImage *icon = nil;
+        if ([[NSFileManager defaultManager] fileExistsAtPath:path]) {
+            icon = [[NSWorkspace sharedWorkspace] iconForFile:path];
+        }
+        if (!icon) return @"";
+        
+        NSSize targetSize = NSMakeSize(48, 48);
+        NSImage *resized = [[NSImage alloc] initWithSize:targetSize];
+        [resized lockFocus];
+        [[NSGraphicsContext currentContext] setImageInterpolation:NSImageInterpolationHigh];
+        [icon drawInRect:NSMakeRect(0, 0, targetSize.width, targetSize.height)
+                fromRect:NSZeroRect
+               operation:NSCompositingOperationCopy
+                fraction:1.0];
+        [resized unlockFocus];
+        
+        NSData *tiff = [resized TIFFRepresentation];
+        if (!tiff) return @"";
+        NSBitmapImageRep *rep = [NSBitmapImageRep imageRepWithData:tiff];
+        if (!rep) return @"";
+        
+        NSDictionary *props = @{ NSImageCompressionFactor: @0.75 };
+        NSData *pngData = [rep representationUsingType:NSBitmapImageFileTypePNG properties:props];
+        if (!pngData) return @"";
+        
+        NSString *b64 = [pngData base64EncodedStringWithOptions:0];
+        NSString *uri = [NSString stringWithFormat:@"data:image/png;base64,%@", b64];
+        
+        // Also cache to shared directory so agent.py can send it in telemetry
+        NSString *cacheDir = @"/Library/Application Support/AppShield/icons";
+        [[NSFileManager defaultManager] createDirectoryAtPath:cacheDir withIntermediateDirectories:YES attributes:nil error:nil];
+        NSString *safeName = [[path lastPathComponent] stringByDeletingPathExtension];
+        NSString *filePath = [cacheDir stringByAppendingPathComponent:[NSString stringWithFormat:@"%@.png", safeName]];
+        [pngData writeToFile:filePath atomically:YES];
+        
+        @synchronized (iconCache) {
+            iconCache[path] = uri;
+        }
+        return uri;
+    } @catch (NSException *e) {
+        return @"";
+    }
+}
+
+- (NSArray *)getInstalledApps {
+    NSMutableArray *apps = [NSMutableArray array];
+    NSArray *dirs = @[@"/Applications", @"/System/Applications", @"/System/Applications/Utilities", @"/Applications/Utilities"];
+    NSFileManager *fm = [NSFileManager defaultManager];
+    NSMutableSet *seen = [NSMutableSet set];
+    
+    for (NSString *dir in dirs) {
+        NSArray *items = [fm contentsOfDirectoryAtPath:dir error:nil];
+        for (NSString *item in items) {
+            if ([item hasSuffix:@".app"]) {
+                NSString *cleanName = [item stringByDeletingPathExtension];
+                if ([seen containsObject:cleanName]) continue;
+                [seen addObject:cleanName];
+                
+                NSString *appPath = [dir stringByAppendingPathComponent:item];
+                NSString *infoPlist = [appPath stringByAppendingPathComponent:@"Contents/Info.plist"];
+                NSString *bundleId = @"";
+                NSString *version = @"1.0";
+                NSString *displayName = cleanName;
+                if ([fm fileExistsAtPath:infoPlist]) {
+                    NSDictionary *dict = [NSDictionary dictionaryWithContentsOfFile:infoPlist];
+                    if (dict) {
+                        bundleId = dict[@"CFBundleIdentifier"] ?: @"";
+                        version = dict[@"CFBundleShortVersionString"] ?: dict[@"CFBundleVersion"] ?: @"1.0";
+                        displayName = dict[@"CFBundleDisplayName"] ?: dict[@"CFBundleName"] ?: cleanName;
+                    }
+                }
+                
+                NSString *category = @"Other";
+                NSString *lower = [displayName lowercaseString];
+                if ([lower containsString:@"game"] || [lower containsString:@"roblox"] || [lower containsString:@"steam"] || 
+                    [lower containsString:@"minecraft"] || [lower containsString:@"epic"] || [lower containsString:@"riot"] ||
+                    [lower containsString:@"battle.net"] || [lower containsString:@"fortnite"] || [lower containsString:@"chess"]) {
+                    category = @"Games";
+                } else if ([lower containsString:@"discord"] || [lower containsString:@"slack"] || [lower containsString:@"telegram"] ||
+                           [lower containsString:@"whatsapp"] || [lower containsString:@"messages"] || [lower containsString:@"zoom"] || [lower containsString:@"facetime"]) {
+                    category = @"Social & Chat";
+                } else if ([lower containsString:@"chrome"] || [lower containsString:@"safari"] || [lower containsString:@"firefox"] ||
+                           [lower containsString:@"edge"] || [lower containsString:@"brave"] || [lower containsString:@"arc"] || [lower containsString:@"opera"]) {
+                    category = @"Browsers";
+                } else if ([lower containsString:@"youtube"] || [lower containsString:@"netflix"] || [lower containsString:@"spotify"] ||
+                           [lower containsString:@"music"] || [lower containsString:@"tv"] || [lower containsString:@"vlc"] || [lower containsString:@"quicktime"]) {
+                    category = @"Media";
+                }
+                
+                NSString *icon = [self base64IconForPath:appPath];
+                
+                [apps addObject:@{
+                    @"name": displayName,
+                    @"exe": cleanName,
+                    @"bundleId": bundleId,
+                    @"version": version,
+                    @"path": appPath,
+                    @"category": category,
+                    @"icon": icon ?: @""
+                }];
+            }
+        }
+    }
+    [apps sortUsingComparator:^NSComparisonResult(NSDictionary *a, NSDictionary *b) {
+        return [a[@"name"] localizedCaseInsensitiveCompare:b[@"name"]];
+    }];
+    return apps;
+}
+
+- (NSArray *)getRunningApps {
+    NSMutableArray *list = [NSMutableArray array];
+    NSWorkspace *ws = [NSWorkspace sharedWorkspace];
+    
+    // Get map of PID to username using ps
+    NSMutableDictionary *pidUserMap = [NSMutableDictionary dictionary];
+    NSTask *psTask = [[NSTask alloc] init];
+    psTask.launchPath = @"/bin/ps";
+    psTask.arguments = @[@"-A", @"-o", @"pid=,user="];
+    NSPipe *pipe = [NSPipe pipe];
+    psTask.standardOutput = pipe;
+    @try {
+        [psTask launch];
+        [psTask waitUntilExit];
+        NSData *d = [pipe.fileHandleForReading readDataToEndOfFile];
+        NSString *outStr = [[NSString alloc] initWithData:d encoding:NSUTF8StringEncoding];
+        NSArray *lines = [outStr componentsSeparatedByString:@"\n"];
+        for (NSString *line in lines) {
+            NSString *trimmed = [line stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
+            NSArray *parts = [trimmed componentsSeparatedByCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
+            NSMutableArray *nonEmpty = [NSMutableArray array];
+            for (NSString *p in parts) {
+                if (p.length > 0) [nonEmpty addObject:p];
+            }
+            if (nonEmpty.count >= 2) {
+                pidUserMap[nonEmpty[0]] = nonEmpty[1];
+            }
+        }
+    } @catch (NSException *e) {}
+
+    for (NSRunningApplication *app in ws.runningApplications) {
+        if (app.activationPolicy == NSApplicationActivationPolicyRegular) {
+            NSString *name = app.localizedName ?: @"";
+            if (name.length == 0 || [name isEqualToString:@"AppShield"]) continue;
+            
+            NSString *pidStr = [NSString stringWithFormat:@"%d", app.processIdentifier];
+            NSString *user = pidUserMap[pidStr] ?: @"unknown";
+            NSString *appPath = [app.bundleURL path] ?: @"";
+            NSString *icon = [self base64IconForPath:appPath];
+            
+            [list addObject:@{
+                @"pid": @(app.processIdentifier),
+                @"name": name,
+                @"bundleId": app.bundleIdentifier ?: @"",
+                @"user": user,
+                @"path": appPath,
+                @"icon": icon ?: @""
+            }];
+        }
+    }
+    return list;
 }
 
 - (void)handleGetStatus {
     BOOL isInstalled = NO;
     NSString *deviceId = @"mac_detecting";
 
-    // 1. Check if launchd daemon is installed
+    // 1. Check if launchd daemon AND /Applications/AppShield.app are installed
     NSString *plist = @"/Library/LaunchDaemons/com.appshield.macagent.plist";
-    if ([[NSFileManager defaultManager] fileExistsAtPath:plist]) {
+    NSString *appInApps = @"/Applications/AppShield.app";
+    if ([[NSFileManager defaultManager] fileExistsAtPath:plist] &&
+        [[NSFileManager defaultManager] fileExistsAtPath:appInApps]) {
         isInstalled = YES;
     }
 
@@ -220,8 +667,60 @@
         }
     }
 
-    NSString *js = [NSString stringWithFormat:@"window.updateAgentState && window.updateAgentState({ isInstalled: %@, serverUrl: '%@', deviceId: '%@' });",
-                    isInstalled ? @"true" : @"false", self.currentServerUrl, deviceId];
+    // 3. Read features.json
+    NSDictionary *featuresDict = @{};
+    NSString *featuresPath = @"/Library/Application Support/AppShield/features.json";
+    if ([[NSFileManager defaultManager] fileExistsAtPath:featuresPath]) {
+        NSData *fData = [NSData dataWithContentsOfFile:featuresPath];
+        if (fData) {
+            NSDictionary *fJson = [NSJSONSerialization JSONObjectWithData:fData options:0 error:nil];
+            if (fJson) featuresDict = fJson;
+        }
+    }
+
+    NSArray *users = [self getLocalMacUsers];
+    NSString *deviceName = [NSHost currentHost].localizedName ?: @"Mac";
+
+    NSString *bundlePath = [[NSBundle mainBundle] bundlePath];
+    BOOL isFromApplications = [bundlePath hasPrefix:@"/Applications"];
+
+    NSData *usersData = [NSJSONSerialization dataWithJSONObject:users options:0 error:nil];
+    NSString *usersJson = usersData ? [[NSString alloc] initWithData:usersData encoding:NSUTF8StringEncoding] : @"[]";
+
+    NSData *featData = [NSJSONSerialization dataWithJSONObject:featuresDict options:0 error:nil];
+    NSString *featJson = featData ? [[NSString alloc] initWithData:featData encoding:NSUTF8StringEncoding] : @"{}";
+
+    NSArray *installedApps = [self getInstalledApps];
+    NSArray *runningApps = [self getRunningApps];
+
+    NSData *instData = [NSJSONSerialization dataWithJSONObject:installedApps options:0 error:nil];
+    NSString *instJson = instData ? [[NSString alloc] initWithData:instData encoding:NSUTF8StringEncoding] : @"[]";
+
+    NSData *runData = [NSJSONSerialization dataWithJSONObject:runningApps options:0 error:nil];
+    NSString *runJson = runData ? [[NSString alloc] initWithData:runData encoding:NSUTF8StringEncoding] : @"[]";
+
+    NSString *js = [NSString stringWithFormat:
+        @"window.updateAgentState && window.updateAgentState({"
+        @"  isInstalled: %@,"
+        @"  isFromApplications: %@,"
+        @"  serverUrl: '%@',"
+        @"  deviceId: '%@',"
+        @"  deviceName: '%@',"
+        @"  users: %@,"
+        @"  features: %@,"
+        @"  installedApps: %@,"
+        @"  runningApps: %@"
+        @"});",
+        isInstalled ? @"true" : @"false",
+        isFromApplications ? @"true" : @"false",
+        self.currentServerUrl ?: @"standalone",
+        deviceId,
+        [deviceName stringByReplacingOccurrencesOfString:@"'" withString:@"\\'"],
+        usersJson,
+        featJson,
+        instJson,
+        runJson];
+
     dispatch_async(dispatch_get_main_queue(), ^{
         [self.webView evaluateJavaScript:js completionHandler:nil];
     });
@@ -254,6 +753,7 @@
                 [self handleGetStatus];
             } else {
                 NSLog(@"[AppShield] Agent installed successfully!");
+                [self loadSetupHtml];
                 [self handleGetStatus];
             }
         });
@@ -261,6 +761,47 @@
 }
 
 - (void)executeUninstallAgent {
+    // 1. Immediately notify Central Server to purge this computer from the fleet
+    NSString *settingsPath = @"/Library/Application Support/AppShield/settings.json";
+    if (![[NSFileManager defaultManager] fileExistsAtPath:settingsPath]) {
+        settingsPath = @"/Library/Application Support/AppShield/agent_config.json";
+    }
+    NSString *devId = nil;
+    NSString *srvUrl = self.currentServerUrl;
+    if ([[NSFileManager defaultManager] fileExistsAtPath:settingsPath]) {
+        NSData *data = [NSData dataWithContentsOfFile:settingsPath];
+        if (data) {
+            NSDictionary *dict = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
+            if (dict) {
+                if (dict[@"device_id"]) devId = dict[@"device_id"];
+                if (dict[@"server_url"] && [dict[@"server_url"] hasPrefix:@"http"]) {
+                    srvUrl = dict[@"server_url"];
+                }
+            }
+        }
+    }
+    if (!srvUrl || [srvUrl isEqualToString:@"standalone"] || ![srvUrl hasPrefix:@"http"]) {
+        srvUrl = @"http://192.168.0.101:8000";
+    }
+    if (devId && devId.length > 0) {
+        NSString *cleanUrl = [srvUrl stringByTrimmingCharactersInSet:[NSCharacterSet characterSetWithCharactersInString:@"/"]];
+        NSURL *postUrl = [NSURL URLWithString:[NSString stringWithFormat:@"%@/api/devices/unregister", cleanUrl]];
+        if (postUrl) {
+            NSMutableURLRequest *req = [NSMutableURLRequest requestWithURL:postUrl];
+            req.HTTPMethod = @"POST";
+            [req setValue:@"application/json" forHTTPHeaderField:@"Content-Type"];
+            NSDictionary *payload = @{@"device_id": devId, @"reason": @"uninstalled"};
+            req.HTTPBody = [NSJSONSerialization dataWithJSONObject:payload options:0 error:nil];
+            [[[NSURLSession sharedSession] dataTaskWithRequest:req] resume];
+        }
+        NSURL *delUrl = [NSURL URLWithString:[NSString stringWithFormat:@"%@/api/fleet/%@", cleanUrl, devId]];
+        if (delUrl) {
+            NSMutableURLRequest *req = [NSMutableURLRequest requestWithURL:delUrl];
+            req.HTTPMethod = @"DELETE";
+            [[[NSURLSession sharedSession] dataTaskWithRequest:req] resume];
+        }
+    }
+
     NSString *resourcePath = [[NSBundle mainBundle] resourcePath];
     NSString *uninstallScript = [resourcePath stringByAppendingPathComponent:@"uninstall-mac-agent.sh"];
     if (![[NSFileManager defaultManager] fileExistsAtPath:uninstallScript]) {
@@ -271,7 +812,7 @@
     if ([[NSFileManager defaultManager] fileExistsAtPath:uninstallScript]) {
         execCmd = [NSString stringWithFormat:@"bash '%@'", uninstallScript];
     } else {
-        execCmd = @"launchctl bootout system/com.appshield.macagent 2>/dev/null || launchctl unload /Library/LaunchDaemons/com.appshield.macagent.plist 2>/dev/null || true; rm -f /Library/LaunchDaemons/com.appshield.macagent.plist; pkill -9 -f 'AppShield/agent/agent.py' 2>/dev/null || true; rm -rf '/Library/Application Support/AppShield' /var/log/appshield-agent.log";
+        execCmd = @"launchctl bootout system/com.appshield.macagent 2>/dev/null || launchctl unload /Library/LaunchDaemons/com.appshield.macagent.plist 2>/dev/null || true; rm -f /Library/LaunchDaemons/com.appshield.macagent.plist; pkill -9 -f 'AppShield/agent/agent.py' 2>/dev/null || true; rm -rf '/Library/Application Support/AppShield' /var/log/appshield-agent.log /Applications/AppShield.app";
     }
 
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
@@ -284,6 +825,7 @@
         [appleScript executeAndReturnError:&errorInfo];
 
         dispatch_async(dispatch_get_main_queue(), ^{
+            [self loadSetupHtml];
             [self handleGetStatus];
         });
     });
@@ -296,11 +838,8 @@
 }
 
 - (void)loadDashboardUrl:(NSString *)urlStr {
-    self.isShowingDashboard = YES;
-    NSURL *url = [NSURL URLWithString:urlStr];
-    if (url) {
-        NSURLRequest *req = [NSURLRequest requestWithURL:url];
-        [self.webView loadRequest:req];
+    if (urlStr && [urlStr hasPrefix:@"http"]) {
+        [[NSWorkspace sharedWorkspace] openURL:[NSURL URLWithString:urlStr]];
     }
 }
 
@@ -321,7 +860,7 @@
 
 - (void)showAbout:(id)sender {
     NSAlert *alert = [[NSAlert alloc] init];
-    [alert setMessageText:@"AppShield for macOS v1.2.0"];
+    [alert setMessageText:@"AppShield for macOS v1.3.0"];
     [alert setInformativeText:@"Commercial Multi-Platform Parental Shield & Tamper-Resistant Security.\n\nConnected to Proxmox LXC Hub:\nhttp://192.168.0.101:8000"];
     [alert addButtonWithTitle:@"OK"];
     [alert runModal];
