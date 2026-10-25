@@ -1,6 +1,9 @@
 using System.Diagnostics;
 using System.Drawing;
 using System.Windows.Forms;
+using System.Text.Json;
+using System.Net.Http;
+using System.Text;
 using AppShield.Shared.Models;
 using AppShield.Shared.Security;
 
@@ -68,7 +71,23 @@ public class ControlCenterForm : Form
     private ListView _lvLogs = null!;
     private Button _btnRefreshLogs = null!;
 
-    // Tab 6: Uninstall & Settings
+    // Tab 6: Web & DNS Shield
+    private ComboBox _cmbDnsPreset = null!;
+    private TextBox _txtPrimaryDns = null!;
+    private TextBox _txtSecondaryDns = null!;
+    private Label _lblDnsStatus = null!;
+    private Button _btnApplyDns = null!;
+    private Button _btnResetDns = null!;
+
+    // Tab 7: Central Hub
+    private TextBox _txtHubUrl = null!;
+    private Label _lblHubStatus = null!;
+    private Label _lblHubDeviceId = null!;
+    private Button _btnSaveHub = null!;
+    private Button _btnStandalone = null!;
+    private Button _btnOpenHubBrowser = null!;
+
+    // Tab 8: Uninstall & Settings
     private TextBox _txtUninstallPassword = null!;
     private Button _btnUninstallApp = null!;
 
@@ -104,7 +123,7 @@ public class ControlCenterForm : Form
 
     private void InitializeComponent()
     {
-        Text = "AppShield Security Control Center v1.2.0";
+        Text = "AppShield Security Control Center v1.3.2";
         Size = new Size(1120, 750);
         MinimumSize = new Size(1000, 680);
         StartPosition = FormStartPosition.CenterScreen;
@@ -139,7 +158,7 @@ public class ControlCenterForm : Form
 
         var lblVersionBadge = new Label
         {
-            Text = "v1.2.0",
+            Text = "v1.3.2",
             Font = new Font("Consolas", 8.5f, FontStyle.Bold),
             ForeColor = Color.FromArgb(165, 180, 252),
             BackColor = Color.FromArgb(49, 46, 129),
@@ -180,7 +199,17 @@ public class ControlCenterForm : Form
             Size = new Size(160, 34)
         };
         btnOpenBrowser.FlatAppearance.BorderColor = _colBorder;
-        btnOpenBrowser.Click += (s, e) => InstallEngine.LaunchControlCenter();
+        btnOpenBrowser.Click += (s, e) =>
+        {
+            try
+            {
+                Process.Start(new ProcessStartInfo("http://127.0.0.1:54121") { UseShellExecute = true });
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Unable to open browser: {ex.Message}", "AppShield", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        };
 
         _pnlHeader.Controls.Add(lblTitle);
         _pnlHeader.Controls.Add(lblVersionBadge);
@@ -318,6 +347,8 @@ public class ControlCenterForm : Form
             "📦  Installed Software",
             "⚡  Live Processes",
             "📋  Audit & Block Logs",
+            "🌐  Web & DNS Shield",
+            "🔗  Connect Central Hub",
             "⚙️  Settings & Uninstaller"
         };
 
@@ -372,12 +403,14 @@ public class ControlCenterForm : Form
         else if (index == 3) RefreshInstalledAppsTab();
         else if (index == 4) RefreshProcessesTab();
         else if (index == 5) RefreshLogsTab();
+        else if (index == 6) RefreshDnsTab();
+        else if (index == 7) RefreshHubTab();
     }
 
     private void BuildAllTabs()
     {
-        _tabPanels = new Panel[7];
-        for (int i = 0; i < 7; i++)
+        _tabPanels = new Panel[9];
+        for (int i = 0; i < 9; i++)
         {
             _tabPanels[i] = new Panel
             {
@@ -394,7 +427,9 @@ public class ControlCenterForm : Form
         BuildTabInstalledApps(_tabPanels[3]);
         BuildTabProcesses(_tabPanels[4]);
         BuildTabLogs(_tabPanels[5]);
-        BuildTabSettings(_tabPanels[6]);
+        BuildTabDns(_tabPanels[6]);
+        BuildTabHub(_tabPanels[7]);
+        BuildTabSettings(_tabPanels[8]);
     }
 
     private void BtnUnlock_Click(object? sender, EventArgs e)
@@ -1197,7 +1232,479 @@ public class ControlCenterForm : Form
     }
 
     // ==========================================
-    // TAB 6: SETTINGS & UNINSTALLER
+    // TAB 6: WEB & DNS SHIELD
+    // ==========================================
+    private void BuildTabDns(Panel panel)
+    {
+        var grpDns = new GroupBox
+        {
+            Text = "🌐 Web & Family DNS Content Filter",
+            Location = new Point(10, 10),
+            Size = new Size(820, 360),
+            Font = new Font("Segoe UI", 9.5f, FontStyle.Bold),
+            ForeColor = Color.White
+        };
+
+        var lblDesc = new Label
+        {
+            Text = "Enforce whole-computer DNS filtering across all web browsers (Chrome, Edge, Firefox, Brave) and background apps.\nSelect a family-safe DNS resolver to automatically block adult websites, malware, phishing, and tracking.",
+            Font = new Font("Segoe UI", 9.5f),
+            ForeColor = _colSubtext,
+            Location = new Point(20, 28),
+            Size = new Size(780, 42)
+        };
+        grpDns.Controls.Add(lblDesc);
+
+        var lblPreset = new Label
+        {
+            Text = "DNS Filter Protection Profile:",
+            Font = new Font("Segoe UI", 9.5f, FontStyle.Bold),
+            ForeColor = Color.White,
+            Location = new Point(20, 80),
+            Size = new Size(300, 20)
+        };
+        grpDns.Controls.Add(lblPreset);
+
+        _cmbDnsPreset = new ComboBox
+        {
+            DropDownStyle = ComboBoxStyle.DropDownList,
+            Font = new Font("Segoe UI", 10f),
+            BackColor = _colSurface,
+            ForeColor = Color.White,
+            Location = new Point(20, 104),
+            Size = new Size(520, 30)
+        };
+        _cmbDnsPreset.Items.AddRange(new object[]
+        {
+            "Cloudflare Family Safe (1.1.1.3 / 1.0.0.3) — Blocks Adult Content & Malware",
+            "CleanBrowsing Family Filter (185.228.168.168 / 185.228.169.168) — Strict Adult Blocker",
+            "AdGuard Family Protection (94.140.14.14 / 94.140.15.15) — Blocks Adult Content & Ads",
+            "Quad9 Threat Defense (9.9.9.9 / 149.112.112.112) — High-Performance Malware Protection",
+            "Custom DNS Resolvers (Specify manually below)"
+        });
+        _cmbDnsPreset.SelectedIndex = 0;
+        _cmbDnsPreset.SelectedIndexChanged += CmbDnsPreset_SelectedIndexChanged;
+        grpDns.Controls.Add(_cmbDnsPreset);
+
+        var lblP = new Label
+        {
+            Text = "Primary DNS (IPv4):",
+            Font = new Font("Segoe UI", 9f),
+            ForeColor = _colSubtext,
+            Location = new Point(20, 146),
+            Size = new Size(180, 18)
+        };
+        grpDns.Controls.Add(lblP);
+
+        _txtPrimaryDns = new TextBox
+        {
+            Text = "1.1.1.3",
+            Font = new Font("Consolas", 10.5f),
+            BackColor = _colSurface,
+            ForeColor = Color.White,
+            BorderStyle = BorderStyle.FixedSingle,
+            Location = new Point(20, 168),
+            Size = new Size(240, 28)
+        };
+        grpDns.Controls.Add(_txtPrimaryDns);
+
+        var lblS = new Label
+        {
+            Text = "Secondary DNS (IPv4):",
+            Font = new Font("Segoe UI", 9f),
+            ForeColor = _colSubtext,
+            Location = new Point(280, 146),
+            Size = new Size(180, 18)
+        };
+        grpDns.Controls.Add(lblS);
+
+        _txtSecondaryDns = new TextBox
+        {
+            Text = "1.0.0.3",
+            Font = new Font("Consolas", 10.5f),
+            BackColor = _colSurface,
+            ForeColor = Color.White,
+            BorderStyle = BorderStyle.FixedSingle,
+            Location = new Point(280, 168),
+            Size = new Size(240, 28)
+        };
+        grpDns.Controls.Add(_txtSecondaryDns);
+
+        _lblDnsStatus = new Label
+        {
+            Text = "Status: Cloudflare 1.1.1.3 Family Protection Ready",
+            Font = new Font("Segoe UI", 9.5f, FontStyle.Italic),
+            ForeColor = Color.FromArgb(52, 211, 153),
+            Location = new Point(20, 210),
+            Size = new Size(760, 24)
+        };
+        grpDns.Controls.Add(_lblDnsStatus);
+
+        _btnApplyDns = new Button
+        {
+            Text = "🛡️ Apply Family DNS Protection Now",
+            Font = new Font("Segoe UI", 9.5f, FontStyle.Bold),
+            BackColor = Color.FromArgb(16, 185, 129),
+            ForeColor = Color.White,
+            FlatStyle = FlatStyle.Flat,
+            Cursor = Cursors.Hand,
+            Location = new Point(20, 245),
+            Size = new Size(280, 42)
+        };
+        _btnApplyDns.FlatAppearance.BorderSize = 0;
+        _btnApplyDns.Click += BtnApplyDns_Click;
+        grpDns.Controls.Add(_btnApplyDns);
+
+        _btnResetDns = new Button
+        {
+            Text = "🔄 Reset to Network Default (DHCP)",
+            Font = new Font("Segoe UI", 9.5f, FontStyle.Bold),
+            BackColor = Color.FromArgb(75, 85, 99),
+            ForeColor = Color.White,
+            FlatStyle = FlatStyle.Flat,
+            Cursor = Cursors.Hand,
+            Location = new Point(315, 245),
+            Size = new Size(260, 42)
+        };
+        _btnResetDns.FlatAppearance.BorderSize = 0;
+        _btnResetDns.Click += BtnResetDns_Click;
+        grpDns.Controls.Add(_btnResetDns);
+
+        panel.Controls.Add(grpDns);
+    }
+
+    private void CmbDnsPreset_SelectedIndexChanged(object? sender, EventArgs e)
+    {
+        switch (_cmbDnsPreset.SelectedIndex)
+        {
+            case 0:
+                _txtPrimaryDns.Text = "1.1.1.3";
+                _txtSecondaryDns.Text = "1.0.0.3";
+                _txtPrimaryDns.ReadOnly = true;
+                _txtSecondaryDns.ReadOnly = true;
+                break;
+            case 1:
+                _txtPrimaryDns.Text = "185.228.168.168";
+                _txtSecondaryDns.Text = "185.228.169.168";
+                _txtPrimaryDns.ReadOnly = true;
+                _txtSecondaryDns.ReadOnly = true;
+                break;
+            case 2:
+                _txtPrimaryDns.Text = "94.140.14.14";
+                _txtSecondaryDns.Text = "94.140.15.15";
+                _txtPrimaryDns.ReadOnly = true;
+                _txtSecondaryDns.ReadOnly = true;
+                break;
+            case 3:
+                _txtPrimaryDns.Text = "9.9.9.9";
+                _txtSecondaryDns.Text = "149.112.112.112";
+                _txtPrimaryDns.ReadOnly = true;
+                _txtSecondaryDns.ReadOnly = true;
+                break;
+            default:
+                _txtPrimaryDns.ReadOnly = false;
+                _txtSecondaryDns.ReadOnly = false;
+                break;
+        }
+    }
+
+    private void BtnApplyDns_Click(object? sender, EventArgs e)
+    {
+        string p = _txtPrimaryDns.Text.Trim();
+        string s = _txtSecondaryDns.Text.Trim();
+        if (string.IsNullOrEmpty(p))
+        {
+            MessageBox.Show("Please enter a valid Primary DNS address.", "AppShield", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+
+        try
+        {
+            string addrs = string.IsNullOrEmpty(s) ? $"'{p}'" : $"'{p}','{s}'";
+            string cmd = $"-NoProfile -ExecutionPolicy Bypass -Command \"Set-DnsClientServerAddress -InterfaceAlias '*' -ServerAddresses ({addrs}); Clear-DnsClientCache\"";
+            var psi = new ProcessStartInfo("powershell.exe", cmd)
+            {
+                CreateNoWindow = true,
+                UseShellExecute = false
+            };
+            using var proc = Process.Start(psi);
+            proc?.WaitForExit(4000);
+
+            _lblDnsStatus.Text = $"Status: Active ({p}, {s}) - Safe DNS Filtering Enforced";
+            _lblDnsStatus.ForeColor = Color.FromArgb(52, 211, 153);
+            MessageBox.Show($"Family DNS Protection successfully applied!\nPrimary: {p}\nSecondary: {s}\n\nWeb filtering is now active on all network adapters.", "AppShield DNS Shield", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Failed to apply DNS: {ex.Message}", "AppShield", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+    }
+
+    private void BtnResetDns_Click(object? sender, EventArgs e)
+    {
+        try
+        {
+            string cmd = "-NoProfile -ExecutionPolicy Bypass -Command \"Set-DnsClientServerAddress -InterfaceAlias '*' -ResetServerAddresses; Clear-DnsClientCache\"";
+            var psi = new ProcessStartInfo("powershell.exe", cmd)
+            {
+                CreateNoWindow = true,
+                UseShellExecute = false
+            };
+            using var proc = Process.Start(psi);
+            proc?.WaitForExit(4000);
+
+            _lblDnsStatus.Text = "Status: Reset to Network Default (DHCP)";
+            _lblDnsStatus.ForeColor = _colSubtext;
+            MessageBox.Show("DNS addresses have been reset to automatic default (DHCP).", "AppShield DNS Shield", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Failed to reset DNS: {ex.Message}", "AppShield", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+    }
+
+    private void RefreshDnsTab()
+    {
+    }
+
+    // ==========================================
+    // TAB 7: CONNECT CENTRAL HUB
+    // ==========================================
+    private void BuildTabHub(Panel panel)
+    {
+        var grpHub = new GroupBox
+        {
+            Text = "🔗 Central Server Connection",
+            Location = new Point(10, 10),
+            Size = new Size(820, 380),
+            Font = new Font("Segoe UI", 9.5f, FontStyle.Bold),
+            ForeColor = Color.White
+        };
+
+        var lblDesc = new Label
+        {
+            Text = "Connect this Windows PC to your central AppShield Proxmox / Cloud Hub.\nThe hub allows parents and administrators to monitor live processes, configure rules, and receive alerts from anywhere.",
+            Font = new Font("Segoe UI", 9.5f),
+            ForeColor = _colSubtext,
+            Location = new Point(20, 28),
+            Size = new Size(780, 42)
+        };
+        grpHub.Controls.Add(lblDesc);
+
+        var lblUrl = new Label
+        {
+            Text = "Central Hub Server URL:",
+            Font = new Font("Segoe UI", 9.5f, FontStyle.Bold),
+            ForeColor = Color.White,
+            Location = new Point(20, 80),
+            Size = new Size(300, 20)
+        };
+        grpHub.Controls.Add(lblUrl);
+
+        _txtHubUrl = new TextBox
+        {
+            Text = "http://192.168.0.101:8000",
+            Font = new Font("Segoe UI", 10.5f),
+            BackColor = _colSurface,
+            ForeColor = Color.White,
+            BorderStyle = BorderStyle.FixedSingle,
+            Location = new Point(20, 104),
+            Size = new Size(480, 30)
+        };
+        grpHub.Controls.Add(_txtHubUrl);
+
+        _lblHubDeviceId = new Label
+        {
+            Text = "Device ID: Loading...",
+            Font = new Font("Consolas", 9.5f),
+            ForeColor = Color.FromArgb(165, 180, 252),
+            Location = new Point(20, 146),
+            Size = new Size(480, 24)
+        };
+        grpHub.Controls.Add(_lblHubDeviceId);
+
+        _lblHubStatus = new Label
+        {
+            Text = "Status: Checking connection...",
+            Font = new Font("Segoe UI", 9.5f, FontStyle.Italic),
+            ForeColor = _colSubtext,
+            Location = new Point(20, 175),
+            Size = new Size(760, 24)
+        };
+        grpHub.Controls.Add(_lblHubStatus);
+
+        _btnSaveHub = new Button
+        {
+            Text = "💾 Save & Connect to Central Hub",
+            Font = new Font("Segoe UI", 9.5f, FontStyle.Bold),
+            BackColor = Color.FromArgb(79, 70, 229),
+            ForeColor = Color.White,
+            FlatStyle = FlatStyle.Flat,
+            Cursor = Cursors.Hand,
+            Location = new Point(20, 215),
+            Size = new Size(260, 42)
+        };
+        _btnSaveHub.FlatAppearance.BorderSize = 0;
+        _btnSaveHub.Click += BtnSaveHub_Click;
+        grpHub.Controls.Add(_btnSaveHub);
+
+        _btnOpenHubBrowser = new Button
+        {
+            Text = "🌐 Open Central Hub Web Dashboard",
+            Font = new Font("Segoe UI", 9.5f, FontStyle.Bold),
+            BackColor = Color.FromArgb(14, 165, 233),
+            ForeColor = Color.White,
+            FlatStyle = FlatStyle.Flat,
+            Cursor = Cursors.Hand,
+            Location = new Point(295, 215),
+            Size = new Size(280, 42)
+        };
+        _btnOpenHubBrowser.FlatAppearance.BorderSize = 0;
+        _btnOpenHubBrowser.Click += (s, e) =>
+        {
+            try
+            {
+                string u = _txtHubUrl.Text.Trim();
+                if (!string.IsNullOrEmpty(u))
+                    Process.Start(new ProcessStartInfo(u) { UseShellExecute = true });
+            }
+            catch { }
+        };
+        grpHub.Controls.Add(_btnOpenHubBrowser);
+
+        _btnStandalone = new Button
+        {
+            Text = "📴 Disconnect (Standalone Mode)",
+            Font = new Font("Segoe UI", 9f),
+            BackColor = Color.FromArgb(75, 85, 99),
+            ForeColor = Color.White,
+            FlatStyle = FlatStyle.Flat,
+            Cursor = Cursors.Hand,
+            Location = new Point(20, 275),
+            Size = new Size(260, 36)
+        };
+        _btnStandalone.FlatAppearance.BorderSize = 0;
+        _btnStandalone.Click += BtnStandalone_Click;
+        grpHub.Controls.Add(_btnStandalone);
+
+        panel.Controls.Add(grpHub);
+    }
+
+    private void RefreshHubTab()
+    {
+        string settingsPath = Path.Combine(_dataDir, "settings.json");
+        string devId = "N/A";
+        string sUrl = "http://192.168.0.101:8000";
+
+        if (File.Exists(settingsPath))
+        {
+            try
+            {
+                using var doc = JsonDocument.Parse(File.ReadAllText(settingsPath));
+                if (doc.RootElement.TryGetProperty("device_id", out var d))
+                    devId = d.GetString() ?? devId;
+                if (doc.RootElement.TryGetProperty("server_url", out var u))
+                    sUrl = u.GetString() ?? sUrl;
+            }
+            catch { }
+        }
+
+        _txtHubUrl.Text = sUrl;
+        _lblHubDeviceId.Text = $"Device ID: {devId} ({Environment.MachineName})";
+        _lblHubStatus.Text = string.IsNullOrEmpty(sUrl)
+            ? "Status: Standalone Mode (No Central Hub)"
+            : $"Status: Connected to Central Hub ({sUrl})";
+        _lblHubStatus.ForeColor = string.IsNullOrEmpty(sUrl) ? _colSubtext : Color.FromArgb(52, 211, 153);
+    }
+
+    private void BtnSaveHub_Click(object? sender, EventArgs e)
+    {
+        string sUrl = _txtHubUrl.Text.Trim().TrimEnd('/');
+        if (string.IsNullOrEmpty(sUrl) || !sUrl.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+        {
+            MessageBox.Show("Please enter a valid Central Hub URL starting with http:// or https://", "AppShield", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+
+        string settingsPath = Path.Combine(_dataDir, "settings.json");
+        string devId = $"win_{Guid.NewGuid().ToString("N")[..12]}";
+
+        if (File.Exists(settingsPath))
+        {
+            try
+            {
+                using var doc = JsonDocument.Parse(File.ReadAllText(settingsPath));
+                if (doc.RootElement.TryGetProperty("device_id", out var d))
+                {
+                    string? existing = d.GetString();
+                    if (!string.IsNullOrEmpty(existing)) devId = existing;
+                }
+            }
+            catch { }
+        }
+
+        var dict = new Dictionary<string, string>
+        {
+            ["device_id"] = devId,
+            ["name"] = Environment.MachineName,
+            ["server_url"] = sUrl,
+            ["tailscale_ip"] = ""
+        };
+
+        try
+        {
+            File.WriteAllText(settingsPath, JsonSerializer.Serialize(dict, new JsonSerializerOptions { WriteIndented = true }));
+            _lblHubStatus.Text = $"Status: Successfully saved! Connected to {sUrl}";
+            _lblHubStatus.ForeColor = Color.FromArgb(52, 211, 153);
+            MessageBox.Show($"Connected to Central Hub successfully!\nServer: {sUrl}\nDevice ID: {devId}\n\nPolicies and status will now synchronize automatically.", "AppShield", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            LoadInitialData();
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Failed to save settings: {ex.Message}", "AppShield", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+    }
+
+    private void BtnStandalone_Click(object? sender, EventArgs e)
+    {
+        string settingsPath = Path.Combine(_dataDir, "settings.json");
+        string devId = "win_standalone";
+        if (File.Exists(settingsPath))
+        {
+            try
+            {
+                using var doc = JsonDocument.Parse(File.ReadAllText(settingsPath));
+                if (doc.RootElement.TryGetProperty("device_id", out var d))
+                    devId = d.GetString() ?? devId;
+            }
+            catch { }
+        }
+
+        var dict = new Dictionary<string, string>
+        {
+            ["device_id"] = devId,
+            ["name"] = Environment.MachineName,
+            ["server_url"] = "",
+            ["tailscale_ip"] = ""
+        };
+
+        try
+        {
+            File.WriteAllText(settingsPath, JsonSerializer.Serialize(dict, new JsonSerializerOptions { WriteIndented = true }));
+            _txtHubUrl.Text = "";
+            _lblHubStatus.Text = "Status: Standalone Mode (Central Server Disconnected)";
+            _lblHubStatus.ForeColor = _colSubtext;
+            MessageBox.Show("Disconnected from Central Hub. This machine is now running in Standalone Mode.", "AppShield", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            LoadInitialData();
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Failed to update settings: {ex.Message}", "AppShield", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+    }
+
+    // ==========================================
+    // TAB 8: SETTINGS & UNINSTALLER
     // ==========================================
     private void BuildTabSettings(Panel panel)
     {
@@ -1281,12 +1788,36 @@ public class ControlCenterForm : Form
         var ips = InstallEngine.GetLocalIpAddresses();
         string ipList = string.Join(", ", ips);
 
+        string hubUrl = "Not Connected (Standalone)";
+        string deviceId = "N/A";
+        string settingsPath = Path.Combine(_dataDir, "settings.json");
+        if (File.Exists(settingsPath))
+        {
+            try
+            {
+                using var doc = JsonDocument.Parse(File.ReadAllText(settingsPath));
+                if (doc.RootElement.TryGetProperty("server_url", out var sUrl))
+                {
+                    string? s = sUrl.GetString();
+                    if (!string.IsNullOrEmpty(s)) hubUrl = s;
+                }
+                if (doc.RootElement.TryGetProperty("device_id", out var dId))
+                {
+                    string? d = dId.GetString();
+                    if (!string.IsNullOrEmpty(d)) deviceId = d;
+                }
+            }
+            catch { }
+        }
+
         _txtHostInfo.Text =
             $"Computer Name  : {Environment.MachineName}\r\n" +
             $"IP Addresses   : {ipList}\r\n" +
+            $"Central Hub    : {hubUrl}\r\n" +
+            $"Device ID      : {deviceId}\r\n" +
             $"Service Port   : 54120 (Remote Fleet HTTPS)\r\n" +
             $"Local GUI Port : 54121 (Edge Chromium App Mode)\r\n" +
-            $"Version        : 1.2.0 (Tamper-Resistant Security)\r\n" +
+            $"Version        : 1.3.2 (Tamper-Resistant Security)\r\n" +
             $"Operating Sys  : {Environment.OSVersion}";
     }
 

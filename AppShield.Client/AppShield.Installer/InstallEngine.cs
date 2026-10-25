@@ -935,7 +935,7 @@ public static class InstallEngine
                 string setupPath = Path.Combine(installDir, "AppShield-Setup.exe");
 
                 key.SetValue("DisplayName", "AppShield Security Client");
-                key.SetValue("DisplayVersion", "1.2.0");
+                key.SetValue("DisplayVersion", "1.3.2");
                 key.SetValue("Publisher", "AppShield Security Systems");
                 key.SetValue("DisplayIcon", $"{iconPath},0");
                 key.SetValue("InstallLocation", installDir);

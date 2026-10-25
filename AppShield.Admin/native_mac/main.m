@@ -8,7 +8,7 @@
 
 // ==============================================================================
 // AppShield Fleet Manager: Native macOS Cocoa Desktop Application
-// Version: 1.2.0
+// Version: 1.3.2
 // ==============================================================================
 
 @interface AppDelegate : NSObject <NSApplicationDelegate, WKNavigationDelegate, NSWindowDelegate>
@@ -280,7 +280,7 @@
 - (void)showAbout:(id)sender {
     NSAlert *alert = [[NSAlert alloc] init];
     [alert setMessageText:@"AppShield Fleet Manager"];
-    [alert setInformativeText:@"Version 1.2.0 (macOS Native Client)\n\nTamper-Resistant Windows Endpoint Protection & Parental Shield.\nBuilt with Apple Cocoa & WebKit."];
+    [alert setInformativeText:@"Version 1.3.2 (macOS Native Client)\n\nTamper-Resistant Windows Endpoint Protection & Parental Shield.\nBuilt with Apple Cocoa & WebKit."];
     [alert setAlertStyle:NSAlertStyleInformational];
     [alert runModal];
 }

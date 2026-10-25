@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Drawing;
 using System.Windows.Forms;
 
@@ -12,8 +13,8 @@ public class InstalledOptionsForm : Form
 
     private void InitializeComponent()
     {
-        Text = "AppShield Setup — Endpoint Protection";
-        Size = new Size(540, 440);
+        Text = "AppShield Setup — Endpoint Protection v1.3.2";
+        Size = new Size(540, 500);
         StartPosition = FormStartPosition.CenterScreen;
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = false;
@@ -45,7 +46,7 @@ public class InstalledOptionsForm : Form
 
         var lblSubtitle = new Label
         {
-            Text = "Endpoint Protection & Parental Shield Service is active on this PC",
+            Text = "Endpoint Protection & Parental Shield Service v1.3.2 is active on this PC",
             Font = new Font("Segoe UI", 9f, FontStyle.Regular),
             ForeColor = Color.FromArgb(166, 173, 200),
             Location = new Point(24, 46),
@@ -56,15 +57,15 @@ public class InstalledOptionsForm : Form
         pnlHeader.Controls.Add(lblSubtitle);
         Controls.Add(pnlHeader);
 
-        int top = 110;
+        int top = 105;
 
         // Button 1: Open Control Center
         var btnOpen = new Button
         {
-            Text = "🛡️  Launch AppShield Control Center",
+            Text = "🛡️  Launch AppShield Control Center (v1.3.2)",
             Font = new Font("Segoe UI", 10f, FontStyle.Bold),
             Location = new Point(40, top),
-            Size = new Size(440, 50),
+            Size = new Size(440, 48),
             BackColor = Color.FromArgb(79, 70, 229),
             ForeColor = Color.White,
             FlatStyle = FlatStyle.Flat,
@@ -78,15 +79,40 @@ public class InstalledOptionsForm : Form
             Close();
         };
         Controls.Add(btnOpen);
-        top += 66;
+        top += 60;
 
-        // Button 2: Reinstall / Update Protection
+        // Button 2: Open Web Control App
+        var btnWeb = new Button
+        {
+            Text = "🌐  Open Web Control Dashboard (Browser)",
+            Font = new Font("Segoe UI", 10f, FontStyle.Bold),
+            Location = new Point(40, top),
+            Size = new Size(440, 48),
+            BackColor = Color.FromArgb(59, 130, 246),
+            ForeColor = Color.White,
+            FlatStyle = FlatStyle.Flat,
+            Cursor = Cursors.Hand
+        };
+        btnWeb.FlatAppearance.BorderSize = 0;
+        btnWeb.Click += (s, e) =>
+        {
+            try
+            {
+                Process.Start(new ProcessStartInfo("http://127.0.0.1:54121") { UseShellExecute = true });
+            }
+            catch { }
+            Close();
+        };
+        Controls.Add(btnWeb);
+        top += 60;
+
+        // Button 3: Reinstall / Update Protection
         var btnReinstall = new Button
         {
             Text = "🔄  Update / Re-install Protection Engine",
             Font = new Font("Segoe UI", 10f, FontStyle.Bold),
             Location = new Point(40, top),
-            Size = new Size(440, 50),
+            Size = new Size(440, 48),
             BackColor = Color.FromArgb(16, 185, 129),
             ForeColor = Color.White,
             FlatStyle = FlatStyle.Flat,
@@ -101,15 +127,15 @@ public class InstalledOptionsForm : Form
             Close();
         };
         Controls.Add(btnReinstall);
-        top += 66;
+        top += 60;
 
-        // Button 3: Uninstall AppShield
+        // Button 4: Uninstall AppShield
         var btnUninstall = new Button
         {
             Text = "🗑️  Uninstall AppShield from this PC",
             Font = new Font("Segoe UI", 10f, FontStyle.Bold),
             Location = new Point(40, top),
-            Size = new Size(440, 50),
+            Size = new Size(440, 48),
             BackColor = Color.FromArgb(225, 29, 72),
             ForeColor = Color.White,
             FlatStyle = FlatStyle.Flat,
