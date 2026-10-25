@@ -8,6 +8,8 @@ using System.Security.AccessControl;
 using System.Security.Cryptography;
 using System.Security.Principal;
 using System.Text;
+using System.Text.Json;
+using System.Net.Http;
 using AppShield.Shared.Models;
 using AppShield.Shared.Security;
 using Microsoft.Data.Sqlite;
@@ -224,6 +226,35 @@ public static class InstallEngine
                 return false;
             }
         }
+
+        // 1.5 Notify Central Server to unregister and purge device from fleet
+        progress(10, "Notifying Central Server to deregister device...");
+        try
+        {
+            string settingsPath = Path.Combine(dataDir, "settings.json");
+            string cfgPath = Path.Combine(dataDir, "agent_config.json");
+            string activeCfg = File.Exists(settingsPath) ? settingsPath : (File.Exists(cfgPath) ? cfgPath : string.Empty);
+            if (!string.IsNullOrEmpty(activeCfg))
+            {
+                string json = File.ReadAllText(activeCfg);
+                using var doc = JsonDocument.Parse(json);
+                string serverUrl = doc.RootElement.TryGetProperty("server_url", out var s) ? (s.GetString() ?? "") : "";
+                string deviceId = doc.RootElement.TryGetProperty("device_id", out var d) ? (d.GetString() ?? "") : "";
+
+                if (!string.IsNullOrWhiteSpace(serverUrl) && !serverUrl.Equals("standalone", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(deviceId))
+                {
+                    serverUrl = serverUrl.TrimEnd('/');
+                    using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(3) };
+                    var payload = new StringContent(
+                        JsonSerializer.Serialize(new { device_id = deviceId, reason = "uninstalled" }),
+                        Encoding.UTF8,
+                        "application/json");
+                    client.PostAsync($"{serverUrl}/api/devices/unregister", payload).GetAwaiter().GetResult();
+                    client.DeleteAsync($"{serverUrl}/api/fleet/{deviceId}").GetAwaiter().GetResult();
+                }
+            }
+        }
+        catch { }
 
         // 2. Stop and delete service
         progress(15, "Stopping AppShield Security Service...");

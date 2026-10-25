@@ -39,20 +39,20 @@ internal static class Program
             return;
         }
 
-        // If already installed, launch the AppShield Control Center desktop interface!
+        // If already installed, present InstalledOptionsForm (Open, Update, Uninstall)
         if (InstallEngine.IsInstalled())
         {
             if (!InstallEngine.IsCurrentProcessElevatedAdmin())
             {
                 MessageBox.Show(
-                    "AppShield Control Center is restricted to elevated Administrators only.\r\n\r\nPlease right-click the shortcut and choose 'Run as administrator'.",
-                    "Access Denied — Administrator Only",
+                    "AppShield Setup & Control Center requires elevated Administrator privileges.\r\n\r\nPlease right-click the application and choose 'Run as administrator'.",
+                    "Access Denied — Administrator Required",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Warning);
                 return;
             }
 
-            InstallEngine.LaunchControlCenter();
+            Application.Run(new InstalledOptionsForm());
             return;
         }
 

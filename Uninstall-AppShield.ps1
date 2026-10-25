@@ -34,15 +34,37 @@ if (Test-Path $DbPath) {
 }
 
 Write-Host "[1/5] Notifying Central Server to deregister device..." -ForegroundColor Gray
-$regPath = "HKLM:\SOFTWARE\AppShield"
-if (Test-Path $regPath) {
+$serverUrl = $null
+$deviceId = $null
+
+$settingsFile = "$env:ProgramData\AppShield\settings.json"
+$configFile = "$env:ProgramData\AppShield\agent_config.json"
+$activeConfig = if (Test-Path $settingsFile) { $settingsFile } elseif (Test-Path $configFile) { $configFile } else { $null }
+
+if ($activeConfig) {
     try {
-        $serverUrl = (Get-ItemProperty -Path $regPath -Name "CentralServerUrl" -ErrorAction SilentlyContinue).CentralServerUrl
-        $deviceId = (Get-ItemProperty -Path $regPath -Name "DeviceId" -ErrorAction SilentlyContinue).DeviceId
-        if (![string]::IsNullOrWhiteSpace($serverUrl) -and $serverUrl -ne "standalone" -and ![string]::IsNullOrWhiteSpace($deviceId)) {
-            $body = @{ device_id = $deviceId; reason = "uninstalled" } | ConvertTo-Json
-            Invoke-RestMethod -Uri "$serverUrl/api/devices/unregister" -Method Post -Body $body -ContentType "application/json" -TimeoutSec 3 -ErrorAction SilentlyContinue | Out-Null
-        }
+        $json = Get-Content $activeConfig -Raw | ConvertFrom-Json
+        $serverUrl = $json.server_url
+        $deviceId = $json.device_id
+    } catch {}
+}
+
+if ([string]::IsNullOrWhiteSpace($serverUrl)) {
+    $regPath = "HKLM:\SOFTWARE\AppShield"
+    if (Test-Path $regPath) {
+        try {
+            $serverUrl = (Get-ItemProperty -Path $regPath -Name "CentralServerUrl" -ErrorAction SilentlyContinue).CentralServerUrl
+            $deviceId = (Get-ItemProperty -Path $regPath -Name "DeviceId" -ErrorAction SilentlyContinue).DeviceId
+        } catch {}
+    }
+}
+
+if (![string]::IsNullOrWhiteSpace($serverUrl) -and $serverUrl -ne "standalone" -and ![string]::IsNullOrWhiteSpace($deviceId)) {
+    try {
+        $cleanUrl = $serverUrl.TrimEnd('/')
+        $body = @{ device_id = $deviceId; reason = "uninstalled" } | ConvertTo-Json
+        Invoke-RestMethod -Uri "$cleanUrl/api/devices/unregister" -Method Post -Body $body -ContentType "application/json" -TimeoutSec 3 -ErrorAction SilentlyContinue | Out-Null
+        Invoke-RestMethod -Uri "$cleanUrl/api/fleet/$deviceId" -Method Delete -TimeoutSec 3 -ErrorAction SilentlyContinue | Out-Null
     } catch {}
 }
 

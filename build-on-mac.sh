@@ -96,6 +96,14 @@ if [ -d "$HOME/Desktop" ]; then
 fi
 cp "$DIST_DIR/AppShield-Windows-Install.zip" "$SCRIPT_DIR/AppShield-Windows-Install.zip" || true
 
+# Sync to Installers/Windows and CentralServer/downloads
+mkdir -p "$SCRIPT_DIR/Installers/Windows"
+mkdir -p "$SCRIPT_DIR/AppShield.CentralServer/downloads"
+cp "$DIST_DIR/AppShield-Setup.exe" "$SCRIPT_DIR/Installers/Windows/"
+cp "$DIST_DIR/AppShield-Windows-Install.zip" "$SCRIPT_DIR/Installers/Windows/"
+cp "$DIST_DIR/AppShield-Setup.exe" "$SCRIPT_DIR/AppShield.CentralServer/downloads/"
+cp "$DIST_DIR/AppShield-Windows-Install.zip" "$SCRIPT_DIR/AppShield.CentralServer/downloads/"
+
 echo "[+] Successfully packaged Windows client binaries and AppShield-Setup.exe:"
 ls -lh "$DIST_DIR"
 
