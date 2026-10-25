@@ -317,9 +317,10 @@ public class ControlCenterForm : Form
         _pnlSidebar = new Panel
         {
             Dock = DockStyle.Left,
-            Width = 230,
+            Width = 250,
             BackColor = _colSurface,
-            Padding = new Padding(10, 15, 10, 15)
+            Padding = new Padding(10, 15, 10, 15),
+            AutoScroll = true
         };
 
         // Main Content Area
@@ -327,15 +328,63 @@ public class ControlCenterForm : Form
         {
             Dock = DockStyle.Fill,
             BackColor = _colBg,
-            Padding = new Padding(20)
+            Padding = new Padding(20),
+            AutoScroll = true
         };
 
         BuildAllTabs();
         BuildSidebarNav();
 
-        _pnlMainContainer.Controls.Add(_pnlContent);
         _pnlMainContainer.Controls.Add(_pnlSidebar);
+        _pnlMainContainer.Controls.Add(_pnlContent);
+        _pnlSidebar.BringToFront();
         Controls.Add(_pnlMainContainer);
+    }
+
+    private void SetupOwnerDrawListView(ListView lv)
+    {
+        lv.View = View.Details;
+        lv.FullRowSelect = true;
+        lv.GridLines = true;
+        lv.BackColor = _colCard;
+        lv.ForeColor = Color.White;
+        lv.BorderStyle = BorderStyle.FixedSingle;
+        lv.OwnerDraw = true;
+        lv.DrawColumnHeader += Lv_DrawColumnHeader;
+        lv.DrawItem += (s, e) => { };
+        lv.DrawSubItem += Lv_DrawSubItem;
+    }
+
+    private void Lv_DrawColumnHeader(object? sender, DrawListViewColumnHeaderEventArgs e)
+    {
+        using var brush = new SolidBrush(Color.FromArgb(35, 35, 55));
+        e.Graphics.FillRectangle(brush, e.Bounds);
+        using var pen = new Pen(_colBorder);
+        e.Graphics.DrawRectangle(pen, e.Bounds);
+        var rect = new Rectangle(e.Bounds.X + 6, e.Bounds.Y + 2, e.Bounds.Width - 12, e.Bounds.Height - 4);
+        TextRenderer.DrawText(e.Graphics, e.Header?.Text ?? "", new Font("Segoe UI", 9.5f, FontStyle.Bold), rect, Color.FromArgb(220, 225, 240), TextFormatFlags.VerticalCenter | TextFormatFlags.Left);
+    }
+
+    private void Lv_DrawSubItem(object? sender, DrawListViewSubItemEventArgs e)
+    {
+        bool isSelected = e.Item?.Selected ?? false;
+        Color bg = isSelected ? Color.FromArgb(79, 70, 229) : (e.ItemIndex % 2 == 0 ? _colCard : Color.FromArgb(22, 22, 35));
+        if (e.Item != null && e.Item.BackColor != _colCard && e.Item.BackColor != Color.Empty && !isSelected)
+        {
+            bg = e.Item.BackColor;
+        }
+
+        using var brush = new SolidBrush(bg);
+        e.Graphics.FillRectangle(brush, e.Bounds);
+
+        using var pen = new Pen(Color.FromArgb(40, 40, 60));
+        e.Graphics.DrawRectangle(pen, e.Bounds);
+
+        Color textCol = isSelected ? Color.White : (e.SubItem?.ForeColor ?? Color.White);
+        if (textCol == Color.Empty || textCol == Color.Black) textCol = Color.White;
+
+        var textRect = new Rectangle(e.Bounds.X + 6, e.Bounds.Y + 2, e.Bounds.Width - 12, e.Bounds.Height - 4);
+        TextRenderer.DrawText(e.Graphics, e.SubItem?.Text ?? "", new Font("Segoe UI", 9.5f), textRect, textCol, TextFormatFlags.VerticalCenter | TextFormatFlags.Left);
     }
 
     private void BuildSidebarNav()
@@ -369,7 +418,7 @@ public class ControlCenterForm : Form
                 Padding = new Padding(12, 0, 0, 0),
                 Cursor = Cursors.Hand,
                 Location = new Point(10, top),
-                Size = new Size(210, 44)
+                Size = new Size(225, 44)
             };
             btn.FlatAppearance.BorderSize = (i == 0) ? 1 : 0;
             btn.FlatAppearance.BorderColor = _colAccent;
@@ -667,17 +716,12 @@ public class ControlCenterForm : Form
         // Account List
         _lvUsers = new ListView
         {
-            View = View.Details,
-            FullRowSelect = true,
-            GridLines = true,
             MultiSelect = false,
             Location = new Point(10, 130),
             Size = new Size(820, 240),
-            BackColor = _colCard,
-            ForeColor = Color.White,
-            BorderStyle = BorderStyle.FixedSingle,
             Font = new Font("Segoe UI", 9.5f)
         };
+        SetupOwnerDrawListView(_lvUsers);
         _lvUsers.Columns.Add("Username", 180);
         _lvUsers.Columns.Add("Account Type", 140);
         _lvUsers.Columns.Add("Protected (Managed)", 170);
@@ -756,16 +800,11 @@ public class ControlCenterForm : Form
     {
         _lvRules = new ListView
         {
-            View = View.Details,
-            FullRowSelect = true,
-            GridLines = true,
             Location = new Point(10, 10),
             Size = new Size(820, 230),
-            BackColor = _colCard,
-            ForeColor = Color.White,
-            BorderStyle = BorderStyle.FixedSingle,
             Font = new Font("Segoe UI", 9.5f)
         };
+        SetupOwnerDrawListView(_lvRules);
         _lvRules.Columns.Add("Process Name", 190);
         _lvRules.Columns.Add("Rule Type", 140);
         _lvRules.Columns.Add("Schedule / Quota", 160);
@@ -1043,16 +1082,11 @@ public class ControlCenterForm : Form
 
         _lvInstalledApps = new ListView
         {
-            View = View.Details,
-            FullRowSelect = true,
-            GridLines = true,
             Location = new Point(10, 65),
             Size = new Size(820, 400),
-            BackColor = _colCard,
-            ForeColor = Color.White,
-            BorderStyle = BorderStyle.FixedSingle,
             Font = new Font("Segoe UI", 9.5f)
         };
+        SetupOwnerDrawListView(_lvInstalledApps);
         _lvInstalledApps.Columns.Add("Application Name", 260);
         _lvInstalledApps.Columns.Add("Version", 110);
         _lvInstalledApps.Columns.Add("Executable Name", 200);
@@ -1128,16 +1162,11 @@ public class ControlCenterForm : Form
 
         _lvProcesses = new ListView
         {
-            View = View.Details,
-            FullRowSelect = true,
-            GridLines = true,
             Location = new Point(10, 65),
             Size = new Size(820, 400),
-            BackColor = _colCard,
-            ForeColor = Color.White,
-            BorderStyle = BorderStyle.FixedSingle,
             Font = new Font("Segoe UI", 9.5f)
         };
+        SetupOwnerDrawListView(_lvProcesses);
         _lvProcesses.Columns.Add("PID", 80);
         _lvProcesses.Columns.Add("Process Name", 220);
         _lvProcesses.Columns.Add("Memory", 110);
@@ -1213,16 +1242,11 @@ public class ControlCenterForm : Form
 
         _lvLogs = new ListView
         {
-            View = View.Details,
-            FullRowSelect = true,
-            GridLines = true,
             Location = new Point(10, 65),
             Size = new Size(820, 460),
-            BackColor = _colCard,
-            ForeColor = Color.White,
-            BorderStyle = BorderStyle.FixedSingle,
             Font = new Font("Segoe UI", 9.5f)
         };
+        SetupOwnerDrawListView(_lvLogs);
         _lvLogs.Columns.Add("Timestamp (Local)", 160);
         _lvLogs.Columns.Add("User", 140);
         _lvLogs.Columns.Add("Executable Blocked", 200);

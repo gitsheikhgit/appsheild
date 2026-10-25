@@ -133,11 +133,11 @@ public static class InstallEngine
 
         string dataDir = GetDataDirectory();
 
-        // 1. Stop and clean any existing service
-        progress(10, "Stopping any existing AppShield service...");
-        RunCommand("sc.exe", $"stop {ServiceName}");
+        // 1. Stop and aggressively kill any existing service or lingering processes
+        progress(10, "Stopping any existing AppShield service and processes...");
+        KillRunningProcesses(installDir);
         RunCommand("sc.exe", $"delete {ServiceName}");
-        Thread.Sleep(1500);
+        Thread.Sleep(1000);
 
         // 2. Prepare directories
         progress(25, $"Creating installation directory at {installDir}...");
@@ -256,10 +256,9 @@ public static class InstallEngine
         }
         catch { }
 
-        // 2. Stop and delete service
-        progress(15, "Stopping AppShield Security Service...");
-        RunCommand("sc.exe", $"stop {ServiceName}");
-        Thread.Sleep(1000);
+        // 2. Aggressively stop and terminate service and background processes
+        progress(15, "Terminating AppShield Security Service & processes...");
+        KillRunningProcesses(installDir);
 
         progress(35, "Removing Windows Service registration...");
         RunCommand("sc.exe", $"delete {ServiceName}");
@@ -371,6 +370,49 @@ public static class InstallEngine
         catch { }
     }
 
+    public static void KillRunningProcesses(string? installDir = null)
+    {
+        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) return;
+
+        try { RunCommand("net.exe", $"stop {ServiceName} /y"); } catch { }
+        try { RunCommand("sc.exe", $"stop {ServiceName}"); } catch { }
+        try { RunCommand("taskkill.exe", "/F /IM AppShield.Service.exe /T"); } catch { }
+        try { RunCommand("taskkill.exe", "/F /IM AppShield.Prompt.exe /T"); } catch { }
+
+        foreach (var pName in new[] { "AppShield.Service", "AppShield.Prompt" })
+        {
+            try
+            {
+                foreach (var p in Process.GetProcessesByName(pName))
+                {
+                    try { p.Kill(true); p.WaitForExit(3000); } catch { }
+                }
+            }
+            catch { }
+        }
+
+        Thread.Sleep(1000);
+
+        if (!string.IsNullOrEmpty(installDir))
+        {
+            string svcExe = Path.Combine(installDir, "AppShield.Service.exe");
+            for (int i = 0; i < 8; i++)
+            {
+                if (!File.Exists(svcExe)) break;
+                try
+                {
+                    using var fs = File.Open(svcExe, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+                    break;
+                }
+                catch
+                {
+                    try { RunCommand("taskkill.exe", "/F /IM AppShield.Service.exe /T"); } catch { }
+                    Thread.Sleep(500);
+                }
+            }
+        }
+    }
+
     private static void ExtractPayload(string installDir)
     {
         var assembly = Assembly.GetExecutingAssembly();
@@ -383,7 +425,26 @@ public static class InstallEngine
             {
                 if (string.IsNullOrEmpty(entry.Name)) continue;
                 string destPath = Path.Combine(installDir, entry.FullName);
-                entry.ExtractToFile(destPath, overwrite: true);
+
+                bool extracted = false;
+                for (int attempt = 1; attempt <= 5; attempt++)
+                {
+                    try
+                    {
+                        entry.ExtractToFile(destPath, overwrite: true);
+                        extracted = true;
+                        break;
+                    }
+                    catch (IOException) when (attempt < 5)
+                    {
+                        KillRunningProcesses(installDir);
+                        Thread.Sleep(1000);
+                    }
+                }
+                if (!extracted)
+                {
+                    entry.ExtractToFile(destPath, overwrite: true);
+                }
             }
             return;
         }
@@ -609,6 +670,99 @@ public static class InstallEngine
             }
         }
         catch { }
+
+        if (list.Count == 0 && RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            try
+            {
+                var discovered = new List<UserAccount>();
+                string currentUser = Environment.UserName;
+                discovered.Add(new UserAccount
+                {
+                    Sid = "S-1-5-21-" + Math.Abs((Environment.MachineName + currentUser).GetHashCode()).ToString(),
+                    Username = currentUser,
+                    Domain = Environment.MachineName,
+                    IsAdmin = IsCurrentProcessElevatedAdmin(),
+                    IsManaged = false,
+                    BlockUserWritableDirectories = false,
+                    LastSeenUtc = DateTime.UtcNow
+                });
+
+                try
+                {
+                    var psi = new ProcessStartInfo("net.exe", "user")
+                    {
+                        RedirectStandardOutput = true,
+                        UseShellExecute = false,
+                        CreateNoWindow = true
+                    };
+                    using var p = Process.Start(psi);
+                    if (p != null)
+                    {
+                        string output = p.StandardOutput.ReadToEnd();
+                        p.WaitForExit(2000);
+                        var lines = output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+                        bool capture = false;
+                        foreach (var line in lines)
+                        {
+                            if (line.StartsWith("---")) { capture = true; continue; }
+                            if (line.Contains("The command completed")) break;
+                            if (capture)
+                            {
+                                var parts = line.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+                                foreach (var u in parts)
+                                {
+                                    string un = u.Trim();
+                                    if (string.IsNullOrEmpty(un) || un.Equals("Administrator", StringComparison.OrdinalIgnoreCase) ||
+                                        un.Equals("DefaultAccount", StringComparison.OrdinalIgnoreCase) ||
+                                        un.Equals("Guest", StringComparison.OrdinalIgnoreCase) ||
+                                        un.Equals("WDAGUtilityAccount", StringComparison.OrdinalIgnoreCase) ||
+                                        discovered.Any(d => d.Username.Equals(un, StringComparison.OrdinalIgnoreCase)))
+                                        continue;
+
+                                    discovered.Add(new UserAccount
+                                    {
+                                        Sid = "S-1-5-21-" + Math.Abs((Environment.MachineName + un).GetHashCode()).ToString(),
+                                        Username = un,
+                                        Domain = Environment.MachineName,
+                                        IsAdmin = false,
+                                        IsManaged = true,
+                                        BlockUserWritableDirectories = true,
+                                        LastSeenUtc = DateTime.UtcNow
+                                    });
+                                }
+                            }
+                        }
+                    }
+                }
+                catch { }
+
+                if (File.Exists(dbPath) && discovered.Count > 0)
+                {
+                    using var conn = new SqliteConnection($"Data Source={dbPath}");
+                    conn.Open();
+                    foreach (var u in discovered)
+                    {
+                        using var cmd = new SqliteCommand(@"
+                            INSERT INTO Users (Sid, Username, Domain, IsAdmin, IsManaged, BlockUserWritableDirectories, LastSeenUtc)
+                            VALUES (@sid, @u, @d, @adm, @man, @blk, @now)
+                            ON CONFLICT(Sid) DO NOTHING", conn);
+                        cmd.Parameters.AddWithValue("@sid", u.Sid);
+                        cmd.Parameters.AddWithValue("@u", u.Username);
+                        cmd.Parameters.AddWithValue("@d", u.Domain);
+                        cmd.Parameters.AddWithValue("@adm", u.IsAdmin ? 1 : 0);
+                        cmd.Parameters.AddWithValue("@man", u.IsManaged ? 1 : 0);
+                        cmd.Parameters.AddWithValue("@blk", u.BlockUserWritableDirectories ? 1 : 0);
+                        cmd.Parameters.AddWithValue("@now", u.LastSeenUtc.ToString("o"));
+                        cmd.ExecuteNonQuery();
+                    }
+                }
+
+                return discovered;
+            }
+            catch { }
+        }
+
         return list;
     }
 

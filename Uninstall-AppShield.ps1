@@ -68,8 +68,13 @@ if (![string]::IsNullOrWhiteSpace($serverUrl) -and $serverUrl -ne "standalone" -
     } catch {}
 }
 
-Write-Host "[2/5] Stopping AppShield Security Service..." -ForegroundColor Gray
+Write-Host "[2/5] Stopping and terminating AppShield Security Service & processes..." -ForegroundColor Gray
 Stop-Service -Name AppShieldService -Force -ErrorAction SilentlyContinue
+Stop-Process -Name "AppShield.Service" -Force -ErrorAction SilentlyContinue
+Stop-Process -Name "AppShield.Prompt" -Force -ErrorAction SilentlyContinue
+& taskkill.exe /F /IM AppShield.Service.exe /T 2>$null | Out-Null
+& taskkill.exe /F /IM AppShield.Prompt.exe /T 2>$null | Out-Null
+Start-Sleep -Seconds 1
 
 Write-Host "[2/4] Removing Windows Service registration..." -ForegroundColor Gray
 & sc.exe delete AppShieldService | Out-Null
