@@ -186,7 +186,7 @@ public class CentralServerRelayWorker : BackgroundService
                 os = "Windows 11 (64-bit)",
                 lan_ip = GetLocalIpAddress(),
                 tailscale_ip = GetTailscaleIpAddress() ?? string.Empty,
-                agent_version = "1.3.2"
+                agent_version = "1.3.3"
             };
             await _httpClient.PostAsJsonAsync($"{_serverUrl}/api/devices/register", reg, ct);
         }

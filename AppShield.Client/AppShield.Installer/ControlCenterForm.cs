@@ -123,7 +123,7 @@ public class ControlCenterForm : Form
 
     private void InitializeComponent()
     {
-        Text = "AppShield Security Control Center v1.3.2";
+        Text = "AppShield Security Control Center v1.3.3";
         Size = new Size(1120, 750);
         MinimumSize = new Size(1000, 680);
         StartPosition = FormStartPosition.CenterScreen;
@@ -158,7 +158,7 @@ public class ControlCenterForm : Form
 
         var lblVersionBadge = new Label
         {
-            Text = "v1.3.2",
+            Text = "v1.3.3",
             Font = new Font("Consolas", 8.5f, FontStyle.Bold),
             ForeColor = Color.FromArgb(165, 180, 252),
             BackColor = Color.FromArgb(49, 46, 129),
@@ -184,7 +184,8 @@ public class ControlCenterForm : Form
             BackColor = Color.FromArgb(20, 45, 30),
             Location = new Point(740, 20),
             Size = new Size(160, 34),
-            TextAlign = ContentAlignment.MiddleCenter
+            TextAlign = ContentAlignment.MiddleCenter,
+            Anchor = AnchorStyles.Top | AnchorStyles.Right
         };
 
         var btnOpenBrowser = new Button
@@ -196,7 +197,8 @@ public class ControlCenterForm : Form
             FlatStyle = FlatStyle.Flat,
             Cursor = Cursors.Hand,
             Location = new Point(915, 20),
-            Size = new Size(160, 34)
+            Size = new Size(160, 34),
+            Anchor = AnchorStyles.Top | AnchorStyles.Right
         };
         btnOpenBrowser.FlatAppearance.BorderColor = _colBorder;
         btnOpenBrowser.Click += (s, e) =>
@@ -227,12 +229,10 @@ public class ControlCenterForm : Form
 
         var pnlLockBox = new Panel
         {
-            Size = new Size(480, 280),
+            Size = new Size(540, 330),
             BackColor = _colCard,
             BorderStyle = BorderStyle.FixedSingle
         };
-        pnlLockBox.Location = new Point((1120 - 480) / 2, 140);
-        pnlLockBox.Anchor = AnchorStyles.None;
 
         var lblLockIcon = new Label
         {
@@ -249,7 +249,7 @@ public class ControlCenterForm : Form
             Text = "Master Password Required",
             Font = new Font("Segoe UI", 14f, FontStyle.Bold),
             ForeColor = Color.White,
-            Location = new Point(88, 24),
+            Location = new Point(88, 26),
             AutoSize = true
         };
         pnlLockBox.Controls.Add(lblLockTitle);
@@ -260,18 +260,18 @@ public class ControlCenterForm : Form
             Font = new Font("Segoe UI", 9.5f),
             ForeColor = _colSubtext,
             Location = new Point(28, 85),
-            Size = new Size(420, 44)
+            Size = new Size(480, 50)
         };
         pnlLockBox.Controls.Add(lblLockSub);
 
         _txtMasterPassword = new TextBox
         {
             UseSystemPasswordChar = true,
-            Font = new Font("Segoe UI", 11f),
+            Font = new Font("Segoe UI", 11.5f),
             BackColor = _colSurface,
             ForeColor = Color.White,
-            Location = new Point(28, 140),
-            Size = new Size(420, 32),
+            Location = new Point(28, 142),
+            Size = new Size(480, 32),
             BorderStyle = BorderStyle.FixedSingle
         };
         _txtMasterPassword.KeyDown += (s, e) => { if (e.KeyCode == Keys.Enter) BtnUnlock_Click(s, e); };
@@ -282,8 +282,8 @@ public class ControlCenterForm : Form
             Text = "",
             Font = new Font("Segoe UI", 9f),
             ForeColor = Color.FromArgb(248, 113, 113),
-            Location = new Point(28, 178),
-            Size = new Size(420, 20)
+            Location = new Point(28, 182),
+            Size = new Size(480, 20)
         };
         pnlLockBox.Controls.Add(_lblLockError);
 
@@ -295,15 +295,26 @@ public class ControlCenterForm : Form
             ForeColor = Color.White,
             FlatStyle = FlatStyle.Flat,
             Cursor = Cursors.Hand,
-            Location = new Point(28, 205),
-            Size = new Size(420, 44)
+            Location = new Point(28, 212),
+            Size = new Size(480, 46)
         };
         _btnUnlock.FlatAppearance.BorderSize = 0;
         _btnUnlock.Click += BtnUnlock_Click;
         pnlLockBox.Controls.Add(_btnUnlock);
 
+        void CenterLockBox()
+        {
+            if (_pnlLock == null || pnlLockBox == null) return;
+            int x = Math.Max(20, (_pnlLock.ClientSize.Width - pnlLockBox.Width) / 2);
+            int y = Math.Max(20, (_pnlLock.ClientSize.Height - pnlLockBox.Height) / 2);
+            pnlLockBox.Location = new Point(x, y);
+        }
+        _pnlLock.Resize += (s, e) => CenterLockBox();
+        Resize += (s, e) => CenterLockBox();
+        Shown += (s, e) => CenterLockBox();
         _pnlLock.Controls.Add(pnlLockBox);
         Controls.Add(_pnlLock);
+        CenterLockBox();
 
         // Main Navigation Layout Container (Visible after unlock)
         _pnlMainContainer = new Panel
@@ -351,7 +362,7 @@ public class ControlCenterForm : Form
         lv.BorderStyle = BorderStyle.FixedSingle;
         lv.OwnerDraw = true;
         lv.DrawColumnHeader += Lv_DrawColumnHeader;
-        lv.DrawItem += (s, e) => { };
+        lv.DrawItem += (s, e) => { /* handled in DrawSubItem */ };
         lv.DrawSubItem += Lv_DrawSubItem;
     }
 
@@ -361,30 +372,42 @@ public class ControlCenterForm : Form
         e.Graphics.FillRectangle(brush, e.Bounds);
         using var pen = new Pen(_colBorder);
         e.Graphics.DrawRectangle(pen, e.Bounds);
-        var rect = new Rectangle(e.Bounds.X + 6, e.Bounds.Y + 2, e.Bounds.Width - 12, e.Bounds.Height - 4);
+        var rect = new Rectangle(e.Bounds.X + 6, e.Bounds.Y + 2, Math.Max(0, e.Bounds.Width - 12), Math.Max(0, e.Bounds.Height - 4));
         TextRenderer.DrawText(e.Graphics, e.Header?.Text ?? "", new Font("Segoe UI", 9.5f, FontStyle.Bold), rect, Color.FromArgb(220, 225, 240), TextFormatFlags.VerticalCenter | TextFormatFlags.Left);
     }
 
     private void Lv_DrawSubItem(object? sender, DrawListViewSubItemEventArgs e)
     {
-        bool isSelected = e.Item?.Selected ?? false;
+        if (e.Item == null || sender is not ListView lv) return;
+
+        // In WinForms Details view with FullRowSelect, column 0 e.Bounds represents the entire row.
+        // We isolate column 0 bounds to its actual column width.
+        Rectangle cellBounds = e.Bounds;
+        if (e.ColumnIndex == 0 && lv.Columns.Count > 0)
+        {
+            cellBounds = new Rectangle(e.Bounds.X, e.Bounds.Y, lv.Columns[0].Width, e.Bounds.Height);
+        }
+
+        bool isSelected = e.Item.Selected;
         Color bg = isSelected ? Color.FromArgb(79, 70, 229) : (e.ItemIndex % 2 == 0 ? _colCard : Color.FromArgb(22, 22, 35));
-        if (e.Item != null && e.Item.BackColor != _colCard && e.Item.BackColor != Color.Empty && !isSelected)
+        if (e.Item.BackColor != _colCard && e.Item.BackColor != Color.Empty && !isSelected)
         {
             bg = e.Item.BackColor;
         }
 
         using var brush = new SolidBrush(bg);
-        e.Graphics.FillRectangle(brush, e.Bounds);
+        e.Graphics.FillRectangle(brush, cellBounds);
 
         using var pen = new Pen(Color.FromArgb(40, 40, 60));
-        e.Graphics.DrawRectangle(pen, e.Bounds);
+        e.Graphics.DrawRectangle(pen, cellBounds);
 
         Color textCol = isSelected ? Color.White : (e.SubItem?.ForeColor ?? Color.White);
         if (textCol == Color.Empty || textCol == Color.Black) textCol = Color.White;
 
-        var textRect = new Rectangle(e.Bounds.X + 6, e.Bounds.Y + 2, e.Bounds.Width - 12, e.Bounds.Height - 4);
-        TextRenderer.DrawText(e.Graphics, e.SubItem?.Text ?? "", new Font("Segoe UI", 9.5f), textRect, textCol, TextFormatFlags.VerticalCenter | TextFormatFlags.Left);
+        string text = (e.ColumnIndex == 0) ? (e.Item.Text ?? "") : (e.SubItem?.Text ?? "");
+        var font = e.SubItem?.Font ?? lv.Font;
+        var textRect = new Rectangle(cellBounds.X + 6, cellBounds.Y + 2, Math.Max(0, cellBounds.Width - 12), Math.Max(0, cellBounds.Height - 4));
+        TextRenderer.DrawText(e.Graphics, text, font, textRect, textCol, TextFormatFlags.VerticalCenter | TextFormatFlags.Left | TextFormatFlags.EndEllipsis);
     }
 
     private void BuildSidebarNav()
@@ -1841,7 +1864,7 @@ public class ControlCenterForm : Form
             $"Device ID      : {deviceId}\r\n" +
             $"Service Port   : 54120 (Remote Fleet HTTPS)\r\n" +
             $"Local GUI Port : 54121 (Edge Chromium App Mode)\r\n" +
-            $"Version        : 1.3.2 (Tamper-Resistant Security)\r\n" +
+            $"Version        : 1.3.3 (Tamper-Resistant Security)\r\n" +
             $"Operating Sys  : {Environment.OSVersion}";
     }
 

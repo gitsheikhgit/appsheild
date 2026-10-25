@@ -13,7 +13,7 @@ public class InstalledOptionsForm : Form
 
     private void InitializeComponent()
     {
-        Text = "AppShield Setup — Endpoint Protection v1.3.2";
+        Text = "AppShield Setup — Endpoint Protection v1.3.3";
         Size = new Size(540, 500);
         StartPosition = FormStartPosition.CenterScreen;
         FormBorderStyle = FormBorderStyle.FixedDialog;
@@ -46,7 +46,7 @@ public class InstalledOptionsForm : Form
 
         var lblSubtitle = new Label
         {
-            Text = "Endpoint Protection & Parental Shield Service v1.3.2 is active on this PC",
+            Text = "Endpoint Protection & Parental Shield Service v1.3.3 is active on this PC",
             Font = new Font("Segoe UI", 9f, FontStyle.Regular),
             ForeColor = Color.FromArgb(166, 173, 200),
             Location = new Point(24, 46),
@@ -62,7 +62,7 @@ public class InstalledOptionsForm : Form
         // Button 1: Open Control Center
         var btnOpen = new Button
         {
-            Text = "🛡️  Launch AppShield Control Center (v1.3.2)",
+            Text = "🛡️  Launch AppShield Control Center (v1.3.3)",
             Font = new Font("Segoe UI", 10f, FontStyle.Bold),
             Location = new Point(40, top),
             Size = new Size(440, 48),
